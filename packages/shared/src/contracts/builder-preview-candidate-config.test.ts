@@ -152,6 +152,18 @@ describe('builder preview candidate configuration', () => {
     ).toBe(false);
   });
 
+  it('returns a validation result for one very large zone without overflowing the call stack', () => {
+    const oversizedZone = Array.from({ length: 150_000 }, () => null);
+
+    expect(() =>
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [],
+        root: { props: { title: 'Home' } },
+        zones: { oversized: oversizedZone },
+      })
+    ).not.toThrow();
+  });
+
   it('normalizes the minimal client fallback root title into Puck root props', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [],

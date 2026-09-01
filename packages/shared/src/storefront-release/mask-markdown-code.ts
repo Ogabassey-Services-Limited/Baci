@@ -1,0 +1,193 @@
+function blankRange(chars: string[], start: number, end: number): void {
+  for (let index = start; index < end; index += 1)
+    if (chars[index] !== '\n' && chars[index] !== '\r') chars[index] = ' ';
+}
+
+function isEscapedByOddBackslashRun(content: string, index: number): boolean {
+  let backslashCount = 0;
+  for (
+    let cursor = index - 1;
+    cursor >= 0 && content[cursor] === '\\';
+    cursor -= 1
+  )
+    backslashCount += 1;
+  return backslashCount % 2 === 1;
+}
+
+function readMarkdownLineIndent(
+  content: string,
+  lineStart: number,
+  lineEnd: number
+): { blockquoteDepth: number; cursor: number; spaces: number } {
+  let cursor = lineStart;
+  let blockquoteDepth = 0;
+  // A blockquote marker is part of the Markdown container, not indentation.
+  // Consume nested markers before measuring code indentation so quoted code is
+  // masked just like an unquoted four-space code block.
+  while (true) {
+    let probe = cursor;
+    let prefixSpaces = 0;
+    while (probe < lineEnd && content[probe] === '\t') {
+      probe += 1;
+      prefixSpaces += 4;
+    }
+    while (probe < lineEnd && content[probe] === ' ') {
+      probe += 1;
+      prefixSpaces += 1;
+    }
+    if (prefixSpaces > 3 || content[probe] !== '>') break;
+    cursor = probe + 1;
+    blockquoteDepth += 1;
+    if (content[cursor] === ' ') cursor += 1;
+  }
+  let spaces = 0;
+  while (cursor < lineEnd && content[cursor] === '\t') {
+    cursor += 1;
+    spaces += 4;
+  }
+  while (cursor < lineEnd && content[cursor] === ' ') {
+    cursor += 1;
+    spaces += 1;
+  }
+  return { blockquoteDepth, cursor, spaces };
+}
+
+/** Replaces fenced and inline Markdown code with spaces while preserving lines. */
+export function maskMarkdownCode(content: string): string {
+  const chars = content.split('');
+  const length = content.length;
+  let activeListIndent: number | null = null;
+  let activeListCodeIndent: number | null = null;
+  let index = 0;
+  while (index < length) {
+    const lineStart = index === 0 || content[index - 1] === '\n';
+    if (lineStart) {
+      let lineEnd = content.indexOf('\n', index);
+      if (lineEnd === -1) lineEnd = length;
+      const { blockquoteDepth, cursor, spaces } = readMarkdownLineIndent(
+        content,
+        index,
+        lineEnd
+      );
+      const lineText = content.slice(cursor, lineEnd);
+      const isBlankLine = lineText.trim().length === 0;
+      const listMarkerMatch = /^(?:[-+*]|\d+[.)])(?:[ \t]+|$)/u.exec(lineText);
+      const isListMarker = listMarkerMatch !== null;
+      if (isListMarker && spaces < 4) {
+        activeListIndent = spaces;
+        activeListCodeIndent = spaces + (listMarkerMatch?.[0].length ?? 0) + 4;
+      } else if (
+        !isBlankLine &&
+        (activeListIndent === null || spaces <= activeListIndent)
+      ) {
+        activeListIndent = null;
+        activeListCodeIndent = null;
+      }
+      const isListContinuation =
+        activeListIndent !== null && spaces > activeListIndent;
+      const isNestedListCode =
+        activeListCodeIndent !== null && spaces >= activeListCodeIndent;
+      if ((spaces >= 4 && !isListContinuation) || isNestedListCode) {
+        blankRange(chars, index, lineEnd);
+        index = lineEnd;
+        continue;
+      }
+      const fenceCharacter = content[cursor];
+      if (
+        (fenceCharacter === '`' || fenceCharacter === '~') &&
+        (spaces <= 3 || isListContinuation)
+      ) {
+        const openingListIndent =
+          activeListIndent !== null && (isListMarker || isListContinuation)
+            ? activeListIndent
+            : null;
+        let runLength = 0;
+        while (content[cursor + runLength] === fenceCharacter) runLength += 1;
+        if (runLength >= 3) {
+          let close = -1;
+          let search = content.indexOf('\n', cursor + runLength);
+          while (search !== -1 && search + 1 < length) {
+            const candidate = search + 1;
+            let candidateLineEnd = content.indexOf('\n', candidate);
+            if (candidateLineEnd === -1) candidateLineEnd = length;
+            const candidateIndent = readMarkdownLineIndent(
+              content,
+              candidate,
+              candidateLineEnd
+            );
+            const candidateCursor = candidateIndent.cursor;
+            const candidateSpaces = candidateIndent.spaces;
+            let candidateRun = 0;
+            while (content[candidateCursor + candidateRun] === fenceCharacter)
+              candidateRun += 1;
+            let candidateContentEnd = candidateCursor + candidateRun;
+            while (
+              candidateContentEnd < length &&
+              content[candidateContentEnd] !== '\n'
+            )
+              candidateContentEnd += 1;
+            let restIsWhitespace = true;
+            for (
+              let restCursor = candidateCursor + candidateRun;
+              restCursor < candidateContentEnd;
+              restCursor += 1
+            ) {
+              if (!/\s/u.test(content[restCursor] ?? '')) {
+                restIsWhitespace = false;
+                break;
+              }
+            }
+            const closesFence =
+              candidateIndent.blockquoteDepth === blockquoteDepth &&
+              candidateSpaces <= (isListContinuation ? spaces : 3) &&
+              candidateRun >= runLength &&
+              restIsWhitespace;
+            const containerEnded =
+              candidateIndent.blockquoteDepth < blockquoteDepth ||
+              (openingListIndent !== null &&
+                candidateIndent.blockquoteDepth === blockquoteDepth &&
+                candidateSpaces <= openingListIndent &&
+                !isBlankLine);
+            if (closesFence) {
+              close = candidateCursor + candidateRun;
+              break;
+            }
+            if (containerEnded) {
+              // An unclosed fence cannot consume content after its Markdown
+              // blockquote/list container ends; leave that following content
+              // visible to the media scanner.
+              close = candidate;
+              break;
+            }
+            search = content.indexOf('\n', candidateContentEnd);
+          }
+          blankRange(chars, index, close === -1 ? length : close);
+          index = close === -1 ? length : close;
+          continue;
+        }
+      }
+    }
+    if (content[index] !== '`' || isEscapedByOddBackslashRun(content, index)) {
+      index += 1;
+      continue;
+    }
+    let runLength = 1;
+    while (content[index + runLength] === '`') runLength += 1;
+    const delimiter = '`'.repeat(runLength);
+    let close = content.indexOf(delimiter, index + runLength);
+    while (close !== -1) {
+      const preceding = content[close - 1];
+      const following = content[close + runLength];
+      if (preceding === '`' || following === '`') {
+        close = content.indexOf(delimiter, close + runLength);
+        continue;
+      }
+      break;
+    }
+    if (close !== -1) {
+      blankRange(chars, index, close + runLength);
+      index = close + runLength;
+    } else index += runLength;
+  }
+  return chars.join('');
+}

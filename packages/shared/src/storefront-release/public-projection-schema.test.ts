@@ -1,0 +1,280 @@
+import { describe, expect, it } from 'vitest';
+import { StorefrontPublicProjectionSchema } from './public-projection-schema';
+
+const validProjection = {
+  schemaVersion: 1,
+  merchantId: '123e4567-e89b-42d3-a456-426614174000',
+  publicationGeneration: '7',
+  componentContractVersion: 'builder-components-v1',
+  payload: {
+    merchant: {
+      country: 'NG',
+      currency: 'NGN',
+      hostname: 'pilot-store.usebaci.com',
+      id: '123e4567-e89b-42d3-a456-426614174000',
+      locale: 'en-NG',
+      name: 'Pilot Store',
+      publishedStatus: 'published',
+      slug: 'pilot-store',
+      template: { contractVersion: 'v1', id: 'ogabassey' },
+    },
+    publishedConfig: { content: [], root: { props: { title: 'Home' } } },
+    products: [],
+  },
+} as const;
+
+describe('StorefrontPublicProjectionSchema', () => {
+  it('accepts a strict versioned JSON projection envelope', () => {
+    expect(StorefrontPublicProjectionSchema.parse(validProjection)).toEqual(
+      validProjection
+    );
+  });
+
+  it('rejects unknown envelope fields', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        serviceRoleKey: 'must-never-cross-the-release-boundary',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a payload merchant identity that differs from the envelope', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        payload: {
+          ...validProjection.payload,
+          merchant: {
+            ...validProjection.payload.merchant,
+            id: '123e4567-e89b-42d3-a456-426614174999',
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects non-JSON values in the projection payload', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        payload: { render: () => 'not a transport value' },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects private data hidden inside the public payload', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        payload: {
+          ...validProjection.payload,
+          customer: { email: 'shopper@example.com' },
+          draftConfig: { content: [] },
+          serviceRoleKey: 'must-never-cross-the-release-boundary',
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a non-streamed projection larger than 4 MiB', () => {
+    const oversizedProjection = {
+      ...validProjection,
+      payload: { content: 'x'.repeat(4_194_304) },
+    };
+
+    const result =
+      StorefrontPublicProjectionSchema.safeParse(oversizedProjection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection exceeds the 4 MiB RPC DTO limit',
+          }),
+        ])
+      );
+  });
+
+  it('measures the raw DTO before component-version normalization', () => {
+    const oversizedProjection = {
+      ...validProjection,
+      componentContractVersion: `${' '.repeat(4_194_304)}v1`,
+    };
+
+    const result =
+      StorefrontPublicProjectionSchema.safeParse(oversizedProjection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection exceeds the 4 MiB RPC DTO limit',
+          }),
+        ])
+      );
+  });
+
+  it('returns a validation failure for deeply nested JSON without throwing', () => {
+    let deeplyNestedPayload: unknown = null;
+    for (let depth = 0; depth < 5_000; depth += 1)
+      deeplyNestedPayload = [deeplyNestedPayload];
+    const deeplyNestedProjection = {
+      ...validProjection,
+      payload: deeplyNestedPayload,
+    };
+
+    expect(() =>
+      StorefrontPublicProjectionSchema.safeParse(deeplyNestedProjection)
+    ).not.toThrow();
+    expect(
+      StorefrontPublicProjectionSchema.safeParse(deeplyNestedProjection).success
+    ).toBe(false);
+  });
+
+  it('returns a validation failure for cyclic payloads without throwing', () => {
+    const cyclicPayload: { self?: unknown } = {};
+    cyclicPayload.self = cyclicPayload;
+    const cyclicProjection = { ...validProjection, payload: cyclicPayload };
+
+    expect(() =>
+      StorefrontPublicProjectionSchema.safeParse(cyclicProjection)
+    ).not.toThrow();
+    expect(
+      StorefrontPublicProjectionSchema.safeParse(cyclicProjection).success
+    ).toBe(false);
+  });
+
+  it('rejects shared object graphs without expanding every reference path', () => {
+    let sharedPayload: unknown = { leaf: true };
+    for (let depth = 0; depth < 24; depth += 1)
+      sharedPayload = { left: sharedPayload, right: sharedPayload };
+    const sharedProjection = { ...validProjection, payload: sharedPayload };
+
+    const result = StorefrontPublicProjectionSchema.safeParse(sharedProjection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection contains a shared JSON reference',
+          }),
+        ])
+      );
+  });
+
+  it('does not invoke input-defined toJSON capabilities while snapshotting', () => {
+    let capabilityInvocations = 0;
+    const capabilityBearingPayload = new Proxy(
+      { ...validProjection.payload },
+      {
+        get(target, property, receiver) {
+          if (property === 'toJSON')
+            return () => {
+              capabilityInvocations += 1;
+              return target;
+            };
+          return Reflect.get(target, property, receiver);
+        },
+      }
+    );
+    const proxyProjection = {
+      ...validProjection,
+      payload: capabilityBearingPayload,
+    };
+
+    const result = StorefrontPublicProjectionSchema.safeParse(proxyProjection);
+
+    expect(result.success).toBe(true);
+    expect(capabilityInvocations).toBe(0);
+  });
+
+  it('rejects own __proto__ fields before schema parsing', () => {
+    const projectionWithPrototypeField = Object.defineProperty(
+      { ...validProjection },
+      '__proto__',
+      {
+        enumerable: true,
+        value: { serviceRoleKey: 'must-not-become-the-snapshot-prototype' },
+      }
+    );
+
+    const result = StorefrontPublicProjectionSchema.safeParse(
+      projectionWithPrototypeField
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection contains a reserved JSON property',
+          }),
+        ])
+      );
+  });
+
+  it('preserves the full positive PostgreSQL bigint generation range', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        publicationGeneration: '9223372036854775807',
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        publicationGeneration: '9223372036854775808',
+      }).success
+    ).toBe(false);
+    for (const invalid of ['0', '01', '-1'])
+      expect(
+        StorefrontPublicProjectionSchema.safeParse({
+          ...validProjection,
+          publicationGeneration: invalid,
+        }).success
+      ).toBe(false);
+  });
+
+  it('bounds publication generations before bigint conversion', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        publicationGeneration: '9'.repeat(4_000_000),
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects unsupported component contract versions', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        componentContractVersion: 'future-components-v99',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects sparse arrays that cannot fit the DTO before copying length', () => {
+    const sparseProducts = new Array(2_097_152);
+    const projection = {
+      ...validProjection,
+      payload: { ...validProjection.payload, products: sparseProducts },
+    };
+
+    const result = StorefrontPublicProjectionSchema.safeParse(projection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message:
+              'projection array cannot fit within the 4 MiB RPC DTO limit',
+          }),
+        ])
+      );
+  });
+});

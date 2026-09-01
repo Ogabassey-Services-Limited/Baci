@@ -1,0 +1,298 @@
+import { hasEligiblePublicProjectionComparePath } from './public-projection-seo-compare';
+
+interface SeoProduct {
+  available: boolean;
+  brand?: string | null;
+  categoryIds?: readonly string[];
+  id?: string;
+  name: string;
+  priceMinor: number;
+  primaryCategoryId?: string | null;
+  productKeySpecs?: Readonly<Record<string, unknown>> | null;
+  slug: string;
+  updatedAt?: string;
+}
+
+interface SeoCategory {
+  id: string;
+  parentId?: string | null;
+  slug: string;
+  status?: string;
+}
+
+const BRAND_AUTHORITY_RULES = [
+  { aliases: ['samsung'], key: 'samsung', minimumProducts: 5 },
+  { aliases: ['google'], key: 'google', minimumProducts: 5 },
+  { aliases: ['infinix'], key: 'infinix', minimumProducts: 5 },
+  { aliases: ['tecno'], key: 'tecno', minimumProducts: 5 },
+  { aliases: ['itel'], key: 'itel', minimumProducts: 5 },
+  { aliases: ['xiaomi', 'redmi'], key: 'xiaomi', minimumProducts: 5 },
+  { aliases: ['oppo'], key: 'oppo', minimumProducts: 5 },
+] as const;
+
+const MODEL_FAMILY_RULES = [
+  { brand: 'samsung', family: 'galaxy-a', pattern: /^(?:samsung )?galaxy a/i },
+  { brand: 'samsung', family: 'galaxy-s', pattern: /^(?:samsung )?galaxy s/i },
+  { brand: 'samsung', family: 'galaxy-z', pattern: /^(?:samsung )?galaxy z/i },
+  { brand: 'infinix', family: 'hot', pattern: /^(?:infinix )?hot/i },
+  { brand: 'infinix', family: 'note', pattern: /^(?:infinix )?note/i },
+  { brand: 'tecno', family: 'spark', pattern: /^(?:tecno )?spark/i },
+  { brand: 'tecno', family: 'camon', pattern: /^(?:tecno )?camon/i },
+  { brand: 'tecno', family: 'pop', pattern: /^(?:tecno )?pop/i },
+  {
+    brand: 'xiaomi',
+    family: 'redmi-note',
+    pattern: /^(?:xiaomi )?redmi note/i,
+  },
+  { brand: 'xiaomi', family: 'redmi-a', pattern: /^(?:xiaomi )?redmi a/i },
+  { brand: 'xiaomi', family: 'redmi-15', pattern: /^(?:xiaomi )?redmi 15/i },
+  { brand: 'xiaomi', family: 'xiaomi-t', pattern: /^(?:xiaomi )?[0-9]+t/i },
+  { brand: 'oppo', family: 'a-series', pattern: /^(?:oppo\s+)?a(?=\s|\d)/i },
+] as const;
+
+const PRICE_BAND_RULES = [
+  { category: 'smartphones', slug: 'under-500k', ceiling: 500_000 },
+  { category: 'smartphones', slug: 'under-1m', ceiling: 1_000_000 },
+  { category: 'laptops', slug: 'under-1m', ceiling: 1_000_000 },
+  { category: 'smart-tvs', slug: 'under-2m', ceiling: 2_000_000 },
+] as const;
+
+const MIN_PRICE_BAND_PRODUCTS = 6;
+const MIN_PRICE_BAND_BRANDS = 3;
+const BRAND_AUTHORITY_PRODUCT_LIMIT = 48;
+
+function toRouteSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/gu, '-')
+    .replace(/[^\w-]+/gu, '')
+    .replace(/--+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+}
+
+function matchesBrandQueryValue(
+  brand: string | null | undefined,
+  aliases: readonly string[]
+): boolean {
+  if (brand === undefined || brand === null) return false;
+  const normalizedBrand = brand.toLowerCase();
+  return aliases.some((alias) => normalizedBrand === alias.toLowerCase());
+}
+
+function getCategoryProducts(
+  categoryId: string,
+  products: readonly SeoProduct[],
+  options: { requireAvailability?: boolean } = {}
+) {
+  return products.filter(
+    (product) =>
+      (!options.requireAvailability || product.available) &&
+      [
+        ...(product.categoryIds ?? []),
+        ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+      ].includes(categoryId)
+  );
+}
+
+function getCategoryPageScopeIds(
+  categoryId: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>
+): ReadonlySet<string> {
+  return new Set([
+    categoryId,
+    ...[...categoriesBySlug.values()]
+      .filter(
+        (category) =>
+          category.parentId === categoryId &&
+          (category.status === undefined || category.status === 'active')
+      )
+      .map((category) => category.id),
+  ]);
+}
+
+function productBelongsToCategoryScope(
+  product: SeoProduct,
+  categoryScopeIds: ReadonlySet<string>
+): boolean {
+  return [
+    ...(product.categoryIds ?? []),
+    ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+  ].some((categoryId) => categoryScopeIds.has(categoryId));
+}
+
+function getBrandAuthorityProducts(
+  categoryId: string,
+  products: readonly SeoProduct[],
+  brandAliases?: readonly string[]
+) {
+  const categoryProducts = getCategoryProducts(categoryId, products, {
+    requireAvailability: true,
+  }).filter(
+    (product) =>
+      !brandAliases || matchesBrandQueryValue(product.brand, brandAliases)
+  );
+  if (categoryProducts.length <= BRAND_AUTHORITY_PRODUCT_LIMIT)
+    return categoryProducts;
+  if (
+    !categoryProducts.every(
+      (product) =>
+        typeof product.updatedAt === 'string' &&
+        Number.isFinite(Date.parse(product.updatedAt))
+    )
+  )
+    return [];
+  return [...categoryProducts]
+    .sort(
+      (left, right) =>
+        Date.parse(right.updatedAt ?? '') - Date.parse(left.updatedAt ?? '') ||
+        (left.id ?? '').localeCompare(right.id ?? '')
+    )
+    .slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
+}
+
+function getBrandRule(brandSlug: string) {
+  return BRAND_AUTHORITY_RULES.find(({ key }) => key === brandSlug);
+}
+
+function getMinorUnitsPerMajorUnit(currency: string): number | null {
+  try {
+    const fractionDigits =
+      new Intl.NumberFormat('en-US', {
+        currency: currency.toUpperCase(),
+        style: 'currency',
+      }).resolvedOptions().maximumFractionDigits ?? 2;
+    return 10 ** fractionDigits;
+  } catch {
+    return null;
+  }
+}
+
+function hasEligibleBrand(
+  categorySlug: string,
+  brandSlug: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>,
+  products: readonly SeoProduct[]
+) {
+  if (categorySlug !== 'smartphones') return false;
+  const category = categoriesBySlug.get(categorySlug);
+  const rule = getBrandRule(brandSlug);
+  if (!category || !rule) return false;
+  return (
+    getBrandAuthorityProducts(category.id, products, rule.aliases).filter(
+      (product) =>
+        product.available && matchesBrandQueryValue(product.brand, rule.aliases)
+    ).length >= rule.minimumProducts
+  );
+}
+
+function hasEligiblePriceBand(
+  categorySlug: string,
+  priceBandSlug: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>,
+  products: readonly SeoProduct[],
+  currency: string
+) {
+  const category = categoriesBySlug.get(categorySlug);
+  const rule = PRICE_BAND_RULES.find(
+    (entry) => entry.category === categorySlug && entry.slug === priceBandSlug
+  );
+  const minorUnitsPerMajorUnit = getMinorUnitsPerMajorUnit(currency);
+  if (!category || !rule || minorUnitsPerMajorUnit === null) return false;
+
+  const categoryScopeIds = getCategoryPageScopeIds(
+    category.id,
+    categoriesBySlug
+  );
+  const bandProducts = products.filter(
+    (product) =>
+      productBelongsToCategoryScope(product, categoryScopeIds) &&
+      product.priceMinor <= rule.ceiling * minorUnitsPerMajorUnit
+  );
+  const brandKeys = new Set(
+    bandProducts
+      .map((product) => toRouteSlug(product.brand ?? ''))
+      .filter(Boolean)
+  );
+  return (
+    bandProducts.length >= MIN_PRICE_BAND_PRODUCTS &&
+    brandKeys.size >= MIN_PRICE_BAND_BRANDS
+  );
+}
+
+/** Checks that a commercial-support SEO URL has enough projected inventory. */
+export function hasEligibleCommercialSupportPath(
+  path: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>,
+  products: readonly SeoProduct[],
+  options: {
+    brandCategoryScopeIds?: ReadonlySet<string>;
+    currency?: string;
+    maintainedComparePaths?: ReadonlySet<string>;
+    productInventoryLimit?: number;
+  } = {}
+) {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 3 && segments[1] === 'brands')
+    return hasEligibleBrand(
+      segments[0] ?? '',
+      segments[2] ?? '',
+      categoriesBySlug,
+      products
+    );
+  if (
+    segments.length === 5 &&
+    segments[1] === 'brands' &&
+    segments[3] === 'families'
+  ) {
+    const categorySlug = segments[0] ?? '';
+    const brandSlug = segments[2] ?? '';
+    const familySlug = segments[4] ?? '';
+    const family = MODEL_FAMILY_RULES.find(
+      (entry) =>
+        entry.brand === getBrandRule(brandSlug)?.key &&
+        entry.family === familySlug
+    );
+    const category = categoriesBySlug.get(categorySlug);
+    if (
+      !family ||
+      !category ||
+      !hasEligibleBrand(categorySlug, brandSlug, categoriesBySlug, products)
+    )
+      return false;
+    return (
+      getBrandAuthorityProducts(
+        category.id,
+        products,
+        getBrandRule(brandSlug)?.aliases
+      ).filter(
+        (product) =>
+          product.available &&
+          matchesBrandQueryValue(
+            product.brand,
+            getBrandRule(brandSlug)?.aliases ?? []
+          ) &&
+          family.pattern.test(product.name.trim())
+      ).length >= 3
+    );
+  }
+  if (segments.length === 3 && segments[1] === 'best-under')
+    return hasEligiblePriceBand(
+      segments[0] ?? '',
+      segments[2] ?? '',
+      categoriesBySlug,
+      products,
+      options.currency ?? 'NGN'
+    );
+  if (segments.length !== 3 || segments[1] !== 'compare') return false;
+  return hasEligiblePublicProjectionComparePath(
+    path,
+    categoriesBySlug,
+    products,
+    {
+      brandCategoryScopeIds: options.brandCategoryScopeIds,
+      maintainedComparePaths: options.maintainedComparePaths,
+      productInventoryLimit: options.productInventoryLimit,
+    }
+  );
+}

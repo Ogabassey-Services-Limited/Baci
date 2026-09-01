@@ -1,3 +1,5 @@
+export * from '../storefront-release';
+export { isStablePublicMediaUrl } from '../storefront-release/is-stable-public-media-url';
 export { calculateStorefrontDeliveryDailyEvidenceSha256 } from './delivery-evidence';
 export {
   calculateHostnameInventorySha256,
