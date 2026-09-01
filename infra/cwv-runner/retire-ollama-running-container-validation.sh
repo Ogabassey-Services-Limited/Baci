@@ -10,11 +10,12 @@ running_container_archive_matches() {
     use strict; use warnings; use Fcntl qw(O_RDONLY O_NOFOLLOW);
     my ($path) = @ARGV; sysopen(my $fh, $path, O_RDONLY | O_NOFOLLOW) or exit 2; binmode $fh;
     my $size = -s $fh; defined($size) && $size >= 1024 && $size % 512 == 0 or exit 2;
-    my $marker = qr/ollama|11434/i; my $offset = 0; my %seen; my $found = 0;
+    my $marker = qr/ollama|11434/i; my $offset = 0; my %seen; my $found = 0; my $pax;
     sub read_exact { my ($fh, $want) = @_; my $value = q{}; while (length($value) < $want) { my $n = sysread($fh, my $chunk, $want - length($value)); defined($n) && $n or return; $value .= $chunk } return $value }
     sub field { my ($bytes) = @_; my $end = index($bytes, "\0"); my $used = $end < 0 ? $bytes : substr($bytes, 0, $end); return unless $end < 0 || substr($bytes, $end) !~ /[^\0 ]/; return $used }
     sub octal { my ($bytes) = @_; my $value = field($bytes); return unless defined $value; $value =~ s/^\s+|\s+$//g; return unless $value =~ /^[0-7]+$/; return oct($value) }
     sub safe_path { my ($value) = @_; return unless defined $value && length($value) && length($value) <= 4096; $value =~ s/^\.\///; return unless $value !~ m!^/|//|\\|\0|(^|/)\.\.?(/|$)!; return $value }
+    sub parse_pax { my ($bytes) = @_; length($bytes) <= 65536 or return; my %values; my $records = 0; while (length $bytes) { $bytes =~ /\A([1-9][0-9]*) / or return; my $length = 0 + $1; $length <= length($bytes) && $length <= 8192 or return; my $record = substr($bytes, 0, $length, q{}); length($record) == $length && $record =~ /\A[0-9]+ ([A-Za-z][A-Za-z0-9._-]*)=([^\0\r\n]*)\n\z/s or return; my ($key, $value) = ($1, $2); ++$records <= 64 or return; exists($values{$key}) and return; $values{$key} = $value } return \%values }
     while ($offset + 512 <= $size) {
       defined(sysseek($fh, $offset, 0)) or exit 2; my $header = read_exact($fh, 512); defined $header or exit 2;
       if ($header eq "\0" x 512) {
@@ -29,12 +30,18 @@ running_container_archive_matches() {
       my $sum_field = substr($header, 148, 8); my ($digits) = $sum_field =~ /^(?:([0-7]{6})\0 |([0-7]{6}) \0|([0-7]{7})[\0 ])$/; $digits = $1 // $2 // $3; defined $digits or exit 2;
       my $sum = 0; for my $i (0 .. 511) { $sum += $i >= 148 && $i < 156 ? 32 : ord(substr($header, $i, 1)) } $sum == oct($digits) or exit 2;
       my $name = field(substr($header, 0, 100)); my $prefix = field(substr($header, 345, 155)); defined($name) && defined($prefix) or exit 2;
-      my $member = safe_path(length($prefix) ? "$prefix/$name" : $name); defined $member or exit 2;
-      my $type = substr($header, 156, 1); $type = "0" if $type eq "\0"; $type =~ /^[0-6]$/ or exit 2;
+      my $type = substr($header, 156, 1); $type = "0" if $type eq "\0"; $type =~ /^(?:[0-6]|x)$/ or exit 2;
       my $member_size = octal(substr($header, 124, 12)); defined($member_size) && $member_size <= 4294967296 or exit 2;
-      $type eq "0" || $member_size == 0 or exit 2;
       my $link = field(substr($header, 157, 100)); defined $link or exit 2;
       my $data = $offset + 512; my $padded = int(($member_size + 511) / 512) * 512; $data + $padded <= $size or exit 2;
+      if ($type eq "x") {
+        !$pax && $member_size > 0 && $member_size <= 65536 or exit 2;
+        defined(sysseek($fh, $data, 0)) or exit 2; my $bytes = read_exact($fh, $member_size); defined $bytes or exit 2;
+        $pax = parse_pax($bytes); defined $pax or exit 2; $offset = $data + $padded; next;
+      }
+      $type =~ /^[0-6]$/ or exit 2; $type eq "0" || $member_size == 0 or exit 2;
+      my $member = safe_path($pax && exists($pax->{path}) ? $pax->{path} : length($prefix) ? "$prefix/$name" : $name); defined $member or exit 2;
+      $link = $pax->{linkpath} if $pax && exists $pax->{linkpath}; $pax = undef;
       exists $seen{$member} && exit 2; $seen{$member} = 1;
       $found = 1 if $member =~ $marker || $link =~ $marker;
       if ($type eq "0") {
@@ -43,20 +50,20 @@ running_container_archive_matches() {
       }
       $offset = $data + $padded;
     }
-    $offset == $size or exit 2; exit($found ? 0 : 1);
+    $offset == $size && !$pax or exit 2; exit($found ? 0 : 1);
   ' "$running_archive_path"
 }
 
 stopped_container_validate() {
   stopped_id=$1
   stopped_configuration=${2-}
-  stopped_image_first=$(temp_path); stopped_image_second=$(temp_path)
-  stopped_fs_first=$(temp_path); stopped_fs_second=$(temp_path)
+  stopped_image_first=$(temp_path); stopped_image_hash=$(temp_path)
+  stopped_fs_first=$(temp_path); stopped_fs_hash=$(temp_path)
   stopped_image_fifo=$(temp_path); stopped_image_status=$(temp_path)
-  stopped_image_fifo2=$(temp_path); stopped_image_status2=$(temp_path)
+  stopped_image_hash_fifo=$(temp_path); stopped_image_hash_status=$(temp_path)
   stopped_fs_fifo=$(temp_path); stopped_fs_status=$(temp_path)
-  stopped_fs_fifo2=$(temp_path); stopped_fs_status2=$(temp_path)
-  stopped_cleanup() { rm -f "$stopped_image_first" "$stopped_image_second" "$stopped_fs_first" "$stopped_fs_second" "$stopped_image_fifo" "$stopped_image_status" "$stopped_image_fifo2" "$stopped_image_status2" "$stopped_fs_fifo" "$stopped_fs_status" "$stopped_fs_fifo2" "$stopped_fs_status2"; }
+  stopped_fs_hash_fifo=$(temp_path); stopped_fs_hash_status=$(temp_path)
+  stopped_cleanup() { rm -f "$stopped_image_first" "$stopped_image_hash" "$stopped_fs_first" "$stopped_fs_hash" "$stopped_image_fifo" "$stopped_image_status" "$stopped_image_hash_fifo" "$stopped_image_hash_status" "$stopped_fs_fifo" "$stopped_fs_status" "$stopped_fs_hash_fifo" "$stopped_fs_hash_status"; }
   stopped_image_id=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Image}}' "$stopped_id") || { stopped_cleanup; return 2; }
   printf '%s\n' "$stopped_image_id" | /usr/bin/grep -Eq '^sha256:[0-9a-f]{64}$' || { stopped_cleanup; return 2; }
   stopped_image_id_again=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Image}}' "$stopped_id") || { stopped_cleanup; return 2; }
@@ -65,14 +72,15 @@ stopped_container_validate() {
   stopped_deadline=$((stopped_now + RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS))
   running_container_archive_save_bounded image "$stopped_image_id" "$stopped_image_first" "$stopped_image_fifo" "$stopped_image_status" "$stopped_deadline" || { stopped_cleanup; return 2; }
   stopped_image_sha=$(sha "$stopped_image_first") || { stopped_cleanup; return 2; }
-  running_container_archive_save_bounded image "$stopped_image_id" "$stopped_image_second" "$stopped_image_fifo2" "$stopped_image_status2" "$stopped_deadline" || { stopped_cleanup; return 2; }
-  [ "$stopped_image_sha" = "$(sha "$stopped_image_second")" ] || { stopped_cleanup; return 2; }
+  stopped_image_second_sha=$(running_container_archive_hash_stream image "$stopped_image_id" "$stopped_image_hash" "$stopped_image_hash_fifo" "$stopped_image_hash_status" "$stopped_deadline") || { stopped_cleanup; return 2; }
+  [ "$stopped_image_sha" = "$stopped_image_second_sha" ] || { stopped_cleanup; return 2; }
+  rm -f "$stopped_image_first" "$stopped_image_hash"
   stopped_now=$(running_container_now) || { stopped_cleanup; return 2; }
   stopped_deadline=$((stopped_now + RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS))
   running_container_archive_save_bounded container "$stopped_id" "$stopped_fs_first" "$stopped_fs_fifo" "$stopped_fs_status" "$stopped_deadline" || { stopped_cleanup; return 2; }
   stopped_fs_sha=$(sha "$stopped_fs_first") || { stopped_cleanup; return 2; }
-  running_container_archive_save_bounded container "$stopped_id" "$stopped_fs_second" "$stopped_fs_fifo2" "$stopped_fs_status2" "$stopped_deadline" || { stopped_cleanup; return 2; }
-  [ "$stopped_fs_sha" = "$(sha "$stopped_fs_second")" ] || { stopped_cleanup; return 2; }
+  stopped_fs_second_sha=$(running_container_archive_hash_stream container "$stopped_id" "$stopped_fs_hash" "$stopped_fs_hash_fifo" "$stopped_fs_hash_status" "$stopped_deadline") || { stopped_cleanup; return 2; }
+  [ "$stopped_fs_sha" = "$stopped_fs_second_sha" ] || { stopped_cleanup; return 2; }
   if running_container_archive_matches "$stopped_fs_first"; then stopped_filesystem_match=0; else stopped_filesystem_match=$?; fi
   [ "$stopped_filesystem_match" -eq 0 ] || [ "$stopped_filesystem_match" -eq 1 ] || { stopped_cleanup; return 2; }
   stopped_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$stopped_id") || { stopped_cleanup; return 2; }

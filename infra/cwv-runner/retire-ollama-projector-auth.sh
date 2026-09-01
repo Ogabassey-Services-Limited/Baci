@@ -75,7 +75,7 @@ while(1){ my$n=sysread($source,my$chunk,65536); defined$n or fail(); last unless
 fail unless sha256_hex($bytes) eq $expected;
 my@verified=lstat($projector); fail unless same(\@opened,\@verified);
 close($source) or fail();
-my$pid=open(my$pipe,"|-","/usr/bin/perl","-e",q{setpgrp(0,0)or die;exec "/usr/bin/perl","-",$ARGV[0],$ARGV[1]or die;},$archive,$scratch) or fail();
+my$pid=open(my$pipe,"|-","/usr/bin/perl","-e",q{my$pgrp=setpgrp(0,0);defined($pgrp)&&$pgrp>=0 or die;exec "/usr/bin/perl","-",$ARGV[0],$ARGV[1]or die;},$archive,$scratch) or fail();
 my$terminate=sub{ kill 9,-$pid; kill 9,$pid; waitpid($pid,0); exit 125 };
 $SIG{PIPE}='IGNORE';
 $SIG{ALRM}=sub{ kill 9,-$pid; kill 9,$pid; waitpid($pid,0); exit 124 } if $seconds>0;

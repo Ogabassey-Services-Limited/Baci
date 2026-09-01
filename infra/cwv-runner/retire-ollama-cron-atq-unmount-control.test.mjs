@@ -42,8 +42,16 @@ test('unprivileged recovery can write the unmount targets when the scheduler is 
   const atJobs = join(directory, 'atjobs');
   const mountState = join(directory, 'mount-state');
   const unmounted = join(directory, 'unmounted');
+  const atQuiescenceHelper = join(directory, 'retire-ollama-at-quiescence.sh');
   await Promise.all([preparePrivateDirectory(receiptDirectory), mkdir(atJobs)]);
   await Promise.all([
+    prepareWritableFile(
+      atQuiescenceHelper,
+      await readFile(
+        new URL('./retire-ollama-at-quiescence.sh', import.meta.url),
+        'utf8'
+      )
+    ),
     writeFile(
       join(receiptDirectory, 'pre-destructive.json'),
       `${JSON.stringify({
@@ -89,10 +97,7 @@ reconcile_interrupted_at_quiescence`,
         env: {
           ...process.env,
           RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
-          RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: new URL(
-            './retire-ollama-at-quiescence.sh',
-            import.meta.url
-          ).pathname,
+          RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: atQuiescenceHelper,
         },
       }
     );

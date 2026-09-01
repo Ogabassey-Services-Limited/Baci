@@ -273,10 +273,16 @@ container_volume_consumers() {
   IFS= read -r consumed_line || consumed_line='stdin-eof'
   printf '%s\\n' "$consumed_line" >"$consumed_file"
 }
-consumer_matched_fingerprint() {
+consumer_snapshot() {
   printf '%s\\n' "$1" >"$validated_file"
-  printf 'bind-fingerprint\\n'
+  snapshot=$(temp_path)
+  cp "$1" "$snapshot" || return 2
+  printf '%s|stable-identity\\n' "$snapshot"
 }
+consumer_matches() { return 1; }
+consumer_canonical_regular() { [ -f "$1" ] && [ ! -L "$1" ]; }
+consumer_source_identity() { printf '%s\\n' stable-identity; }
+sha() { /usr/bin/shasum -a 256 "$1" | awk '{print $1}'; }
 docker() { case "$*" in *State.Running*) printf 'false\\n';; *) return 2;; esac; }
 CANONICAL_DOCKER_SOCKET=/run/docker.sock
 container_bind_mount_consumers container-id || exit 3

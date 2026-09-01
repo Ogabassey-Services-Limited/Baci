@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const helper = new URL('./retire-ollama-container-mounts.sh', import.meta.url);
+const portableFileSizeStat = `stat() { for last do :; done; case "$*" in *'-c %s'*) if /usr/bin/stat --version >/dev/null 2>&1; then /usr/bin/stat -c '%s' "$last"; else /usr/bin/stat -f '%z' "$last"; fi;; *) /usr/bin/stat "$@";; esac; }`;
 
 test('fails closed when a clean regular-file bind gains a marker after its first snapshot', async () => {
   const script = `
@@ -44,7 +45,7 @@ test('keeps a pipe-bearing regular-file bind path intact across deferred validat
     consumer_snapshot() { snapshot=$(temp_path); cp "$1" "$snapshot" || return 2; printf '%s|stable-identity\\n' "$snapshot"; }
     consumer_matches() { grep -Eqi 'ollama|11434' "$1"; }
     sha() { /usr/bin/shasum -a 256 "$1" | awk '{print $1}'; }
-    stat() { case "$1" in -c) shift 2; /usr/bin/stat -f '%z' "$1";; *) command stat "$@";; esac; }
+    ${portableFileSizeStat}
     docker() { case "$*" in *State.Running*) printf '%s\\n' false;; *) return 2;; esac; }
     CANONICAL_DOCKER_SOCKET=/run/docker.sock
     container_bind_mount_consumers container-id >/dev/null
@@ -69,7 +70,7 @@ test('emits a consumer when a bind becomes matching at the first stable snapshot
     consumer_snapshot() { calls=$((calls + 1)); [ "$calls" -ne 1 ] || printf '%s\\n' 'upstream=http://127.0.0.1:11434' >"$1"; snapshot=$(temp_path); cp "$1" "$snapshot" || return 2; printf '%s|stable-identity\\n' "$snapshot"; }
     consumer_matches() { grep -Eqi 'ollama|11434' "$1"; }
     sha() { /usr/bin/shasum -a 256 "$1" | awk '{print $1}'; }
-    stat() { case "$1" in -c) shift 2; /usr/bin/stat -f '%z' "$1";; *) command stat "$@";; esac; }
+    ${portableFileSizeStat}
     docker() { case "$*" in *State.Running*) printf '%s\\n' false;; *) return 2;; esac; }
     CANONICAL_DOCKER_SOCKET=/run/docker.sock; calls=0
     container_bind_mount_consumers container-id | grep -q '^container-bind-mount:'
