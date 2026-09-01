@@ -7,6 +7,7 @@ import {
   buildVariantOptionGroups,
   completeSingleValueSelection,
   resolveSelectedVariant,
+  selectVariantOption,
 } from '@/lib/product-variant-option-selector';
 
 function variant(
@@ -42,12 +43,7 @@ describe('buildVariantOptionGroups', () => {
   it('builds product-first option groups from structured variant rows', () => {
     const groups = buildVariantOptionGroups(variants, {});
 
-    expect(groups.map((group) => group.key)).toEqual([
-      'condition',
-      'ram',
-      'color',
-      'storage',
-    ]);
+    expect(groups.map((group) => group.key)).toEqual(['color', 'storage']);
     expect(groups.find((group) => group.key === 'color')?.values).toEqual([
       { available: true, label: 'Black', selected: false, value: 'Black' },
       { available: true, label: 'Blue', selected: false, value: 'Blue' },
@@ -77,19 +73,18 @@ describe('buildVariantOptionGroups', () => {
     ]);
   });
 
-  it('does not let sparse variants satisfy selected active attributes they lack', () => {
+  it('does not turn a sparse single-value attribute into a required selector', () => {
     const sparseVariants = [
       variant('variant-1', { color: 'Black', storage: '256GB' }),
       variant('variant-2', { color: 'Blue' }),
     ];
-    const groups = buildVariantOptionGroups(sparseVariants, {
-      storage: '256GB',
-    });
+    const groups = buildVariantOptionGroups(sparseVariants, {});
 
     expect(groups.find((group) => group.key === 'color')?.values).toEqual([
       { available: true, label: 'Black', selected: false, value: 'Black' },
-      { available: false, label: 'Blue', selected: false, value: 'Blue' },
+      { available: true, label: 'Blue', selected: false, value: 'Blue' },
     ]);
+    expect(groups.find((group) => group.key === 'storage')).toBeUndefined();
   });
 
   it('canonicalizes equivalent color and colour keys into one group', () => {
@@ -124,11 +119,7 @@ describe('buildVariantOptionGroups', () => {
       {}
     );
 
-    expect(groups.map((group) => group.key)).toEqual([
-      'condition',
-      'color',
-      'storage',
-    ]);
+    expect(groups.map((group) => group.key)).toEqual(['color', 'storage']);
   });
 
   it('sorts storage-style values by capacity instead of insertion order', () => {
@@ -159,19 +150,9 @@ describe('buildVariantOptionGroups', () => {
     );
 
     expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
-      {
-        available: true,
-        label: '256GB SSD',
-        selected: false,
-        value: '256GB SSD',
-      },
-      {
-        available: true,
-        label: '512GB SSD',
-        selected: false,
-        value: '512GB SSD',
-      },
-      { available: true, label: '1TB SSD', selected: false, value: '1TB SSD' },
+      { available: true, label: '256GB', selected: false, value: '256GB' },
+      { available: true, label: '512GB', selected: false, value: '512GB' },
+      { available: true, label: '1TB', selected: false, value: '1TB' },
     ]);
   });
 
@@ -185,16 +166,14 @@ describe('buildVariantOptionGroups', () => {
       {}
     );
 
-    expect(
-      groups.find((group) => group.key === 'storage_capacity')?.values
-    ).toEqual([
+    expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
       { available: true, label: '128GB', selected: false, value: '128GB' },
       { available: true, label: '512GB', selected: false, value: '512GB' },
       { available: true, label: '1TB', selected: false, value: '1TB' },
     ]);
   });
 
-  it('builds groups from nested objects and boolean attribute values', () => {
+  it('does not expose nested specification objects as purchase choices', () => {
     const groups = buildVariantOptionGroups(
       [
         variant('variant-1', {
@@ -207,23 +186,76 @@ describe('buildVariantOptionGroups', () => {
       {}
     );
 
-    expect(groups.find((group) => group.key === 'specs.esim')?.values).toEqual([
-      { available: true, label: 'true', selected: false, value: 'true' },
-      { available: true, label: 'false', selected: false, value: 'false' },
-    ]);
-    expect(
-      groups.find((group) => group.key === 'specs.storage')?.values
-    ).toEqual([
-      { available: true, label: '512GB', selected: false, value: '512GB' },
-      { available: true, label: '1TB', selected: false, value: '1TB' },
-    ]);
+    expect(groups).toEqual([]);
   });
 
-  it('prefills single available option groups', () => {
-    expect(completeSingleValueSelection(variants, {})).toEqual({
-      condition: 'new',
-      ram: '12GB',
-    });
+  it('does not prefill fixed specifications as selections', () => {
+    expect(completeSingleValueSelection(variants, {})).toEqual({});
+  });
+
+  it('keeps M16 R2 metadata out of the selectable matrix', () => {
+    const declaration = {
+      condition: ['used'],
+      gpu: ['RTX 4070'],
+      processor: ['Intel Ultra 7 155H', 'Intel Ultra 9 185H'],
+      ram: ['16GB', '32GB'],
+      storage: ['1TB'],
+    };
+    const groups = buildVariantOptionGroups(
+      [
+        variant(
+          'used-16',
+          {
+            graphics: '8GB RTX 4070 Graphics',
+            processor: 'Intel Ultra 7 155H',
+            ram: '16GB RAM',
+            storage: '1TB SSD',
+          },
+          { condition: 'used' }
+        ),
+        variant(
+          'new-64',
+          {
+            camera: 'Webcam',
+            graphics: '8GB NVIDIA GeForce RTX 4070 Graphics',
+            keyboard: 'Backlit keyboard',
+            model_number: 'DYMSR54',
+            operating_system: 'Windows 11 Pro',
+            processor: 'Intel Core Ultra 7 155H',
+            ram: '64GB RAM',
+            storage: '1TB SSD',
+            wireless: 'WLAN and Bluetooth',
+          },
+          { condition: 'new' }
+        ),
+      ],
+      {},
+      { declaration }
+    );
+
+    expect(groups.map((group) => group.key)).toEqual(['condition', 'ram']);
+  });
+
+  it('drops incompatible earlier selections when a new option is chosen', () => {
+    const next = selectVariantOption(
+      variants,
+      { color: 'Blue', storage: '512GB' },
+      'storage',
+      '256GB'
+    );
+
+    expect(next).toEqual({ storage: '256GB' });
+  });
+
+  it('clears an option when its selected value is chosen again', () => {
+    const next = selectVariantOption(
+      variants,
+      { color: 'Blue', storage: '512GB' },
+      'storage',
+      '512GB'
+    );
+
+    expect(next).toEqual({ color: 'Blue', storage: '' });
   });
 });
 

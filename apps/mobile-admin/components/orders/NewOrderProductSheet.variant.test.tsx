@@ -260,7 +260,7 @@ describe('NewOrderProductSheet variant mode', () => {
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    expect(screen.getByText('Choose all options')).toBeInTheDocument();
+    expect(screen.getByText('Choose an option')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Color Blue' }));
     fireEvent.click(

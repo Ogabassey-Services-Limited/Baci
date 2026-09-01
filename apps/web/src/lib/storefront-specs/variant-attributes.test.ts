@@ -179,7 +179,7 @@ describe('storefront variant attribute helpers', () => {
         ],
         [{ param: 'sim type', options: ['Single', 'Dual'] }]
       )
-    ).toEqual(['storage', 'ram', 'sim_type', 'connectivity', 'platform']);
+    ).toEqual(['storage', 'ram', 'sim_type', 'platform']);
 
     expect(getRenderableVariantAxes([], [])).toEqual([]);
   });
@@ -288,6 +288,47 @@ describe('storefront variant attribute helpers', () => {
 
     const axes = getRenderableVariantAxes(variants, {});
 
-    expect(axes).toEqual(['storage', 'warranty']);
+    expect(axes).toEqual(['warranty']);
+  });
+
+  it('does not expose descriptive laptop specifications as variant axes', () => {
+    expect(
+      getRenderableVariantAxes(
+        [
+          {
+            attributes: {
+              camera: 'Webcam',
+              keyboard: 'Backlit keyboard',
+              model_number: 'DYMSR54',
+              operating_system: 'Windows 11 Pro',
+              processor: 'Intel Ultra 7 155H',
+              ram: '16GB RAM',
+              storage: '1TB SSD',
+            },
+            condition: 'used',
+          },
+          {
+            attributes: {
+              camera: 'Webcam',
+              keyboard: 'Backlit keyboard',
+              model_number: 'DYMSR54',
+              operating_system: 'Windows 11 Pro',
+              processor: 'Intel Core Ultra 9 185H',
+              ram: '64GB RAM',
+              storage: '1TB SSD',
+            },
+            condition: 'new',
+          },
+        ],
+        {
+          camera: ['Webcam'],
+          condition: ['used', 'new'],
+          model_number: ['DYMSR54'],
+          processor: ['Intel Ultra 7 155H', 'Intel Core Ultra 9 185H'],
+          ram: ['16GB RAM', '64GB RAM'],
+          storage: ['1TB SSD'],
+        }
+      )
+    ).toEqual(['condition', 'ram', 'processor']);
   });
 });

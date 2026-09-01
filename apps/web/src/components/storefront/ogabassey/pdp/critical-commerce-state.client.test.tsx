@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Product as CartProduct } from '@/lib/products';
+import type { Product as CartProduct, ProductVariant } from '@/lib/products';
 import {
   OgabasseyPdpCriticalCommerceProvider,
   useOgabasseyPdpCriticalCommerce,
@@ -66,6 +66,7 @@ function CriticalCommerceStateProbe() {
       <p>explicit axes:{commerce.explicitSelectedAxes.join(',')}</p>
       <p>selected condition:{commerce.selectedAttributes.condition || ''}</p>
       <p>selected storage:{commerce.selectedAttributes.storage || ''}</p>
+      <p>selected ram:{commerce.selectedAttributes.ram || ''}</p>
       <button
         onClick={() => commerce.handleAttributeSelection('condition', 'new')}
         type="button"
@@ -85,10 +86,27 @@ function CriticalCommerceStateProbe() {
         Select 256GB storage
       </button>
       <button
+        onClick={() => commerce.handleAttributeSelection('ram', '16GB')}
+        type="button"
+      >
+        Select 16GB RAM
+      </button>
+      <button
         onClick={() => commerce.handleAttributeSelection('ram', '8GB')}
         type="button"
       >
         Select 8GB RAM
+      </button>
+      <button
+        onClick={() =>
+          commerce.handleAttributeSelection(
+            'processor',
+            'Intel Core Ultra 7 155H'
+          )
+        }
+        type="button"
+      >
+        Select Intel Core Ultra 7 processor
       </button>
       <button
         disabled={!commerce.canAddToCart}
@@ -629,7 +647,7 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     });
   });
 
-  it('preselects single-option visible axes from the default SKU', () => {
+  it('does not render fixed axes from the default SKU as choices', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider
         cartProduct={{
@@ -660,11 +678,12 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
       </OgabasseyPdpCriticalCommerceProvider>
     );
 
-    expect(screen.getByText('axes:storage')).toBeInTheDocument();
-    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('axes:')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
   });
 
-  it('preselects metadata-only single-option axes for critical variants', () => {
+  it('uses fixed metadata without rendering a selector for it', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider
         cartProduct={{
@@ -688,8 +707,8 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
       </OgabasseyPdpCriticalCommerceProvider>
     );
 
-    expect(screen.getByText('axes:storage')).toBeInTheDocument();
-    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('axes:')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:')).toBeInTheDocument();
     expect(screen.getByText('ready')).toBeInTheDocument();
   });
 
@@ -739,5 +758,124 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
 
     expect(cartMocks.addToCart).not.toHaveBeenCalled();
+  });
+
+  it('lets an M16 R2 deep link switch variants without metadata locking the matrix', () => {
+    const m16Variants: ProductVariant[] = [
+      {
+        attributes: {
+          camera: 'Webcam',
+          graphics: '8GB RTX 4070 Graphics',
+          keyboard: 'Backlit keyboard',
+          model_number: 'DYMSR54',
+          operating_system: 'Windows 11 Pro',
+          processor: 'Intel Ultra 7 155H',
+          ram: '16GB RAM',
+          storage: '1TB SSD',
+        },
+        condition: 'used' as const,
+        id: 'm16-used-16',
+        merchant_id: 'merchant-1',
+        price_override: 2_145_000,
+        product_id: 'alienware-m16-r2',
+        stock_quantity: 0,
+      },
+      {
+        attributes: {
+          camera: 'Webcam',
+          graphics: '8GB NVIDIA RTX 4070 Graphics',
+          keyboard: 'Backlit keyboard',
+          model_number: 'M16-R2',
+          operating_system: 'Windows 11 Home',
+          processor: 'Intel Ultra 9 185H',
+          ram: '32GB RAM',
+          storage: '1TB SSD',
+        },
+        condition: 'used' as const,
+        id: 'm16-used-32',
+        merchant_id: 'merchant-1',
+        price_override: 2_420_000,
+        product_id: 'alienware-m16-r2',
+        stock_quantity: 0,
+      },
+      {
+        attributes: {
+          camera: 'Webcam',
+          graphics: '8GB NVIDIA GeForce RTX 4070 Graphics',
+          keyboard: 'Backlit keyboard',
+          model_number: 'DYMSR54',
+          operating_system: 'Windows 11 Pro',
+          processor: 'Intel Core Ultra 7 155H',
+          ram: '64GB RAM',
+          storage: '1TB SSD',
+          wireless: 'WLAN and Bluetooth',
+        },
+        condition: 'new' as const,
+        id: 'm16-new-64',
+        merchant_id: 'merchant-1',
+        price_override: 4_330_000,
+        product_id: 'alienware-m16-r2',
+        stock_quantity: 0,
+      },
+    ];
+
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'used',
+          id: 'alienware-m16-r2',
+          manage_stock: false,
+          name: 'Alienware M16 R2',
+          price: 2_145_000,
+          variants: m16Variants,
+        }}
+        initialVariantSelection={{
+          attributes: m16Variants[2]?.attributes ?? {},
+          condition: 'new',
+          variantId: 'm16-new-64',
+        }}
+        variantAxes={[
+          'condition',
+          'ram',
+          'processor',
+          'storage',
+          'camera',
+          'keyboard',
+          'operating_system',
+          'model_number',
+        ]}
+        variantCount={3}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:condition,ram,processor')).toBeInTheDocument();
+    expect(screen.getByText('4330000')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select used condition/i })
+    );
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /select 16gb ram/i }));
+    expect(screen.getByText('2145000')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /select intel core ultra 7 processor/i,
+      })
+    );
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({ price: 2_145_000 }),
+      1,
+      expect.objectContaining({ variantId: 'm16-used-16' })
+    );
   });
 });

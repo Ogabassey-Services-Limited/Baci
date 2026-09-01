@@ -18,10 +18,10 @@ import {
   compactVariantOptions,
   DEFAULT_CRITICAL_PRICE_CURRENCY,
   getVariantAxesWithMultipleOptions,
-  normalizeCriticalVariantAttributes,
   normalizeCriticalVariantProduct,
   pickInitialSelectedAttributes,
 } from './critical-commerce-selection';
+import { buildCriticalInitialVariantIntent } from './critical-commerce-initial-intent';
 import {
   OgabasseyPdpCriticalCommerceContext,
   type OgabasseyPdpCriticalCommerceProviderProps,
@@ -57,27 +57,12 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const hiddenRequiredVariantAxes = requiredVariantAxes.filter(
     (axis) => !renderableVariantAxes.includes(axis)
   );
-  const normalizedInitialVariantAttributes =
-    normalizeCriticalVariantAttributes(initialVariantSelection?.attributes);
-  const explicitVariantCondition =
-    normalizeCanonicalProductCondition(
-      normalizedInitialVariantAttributes.condition ??
-        initialVariantSelection?.condition
-    ) || undefined;
-  const normalizedInitialSelectionAttributes = explicitVariantCondition
-    ? {
-        ...normalizedInitialVariantAttributes,
-        condition: explicitVariantCondition,
-      }
-    : normalizedInitialVariantAttributes;
-  const resolverInitialVariantAttributes = Object.fromEntries(
-    Object.entries(normalizedInitialVariantAttributes).filter(
-      ([axis]) => axis !== 'condition'
-    )
-  );
-  const initialExplicitSelectedAxes = Object.keys(
-    normalizedInitialSelectionAttributes
-  );
+  const initialVariantIntent = buildCriticalInitialVariantIntent({
+    attributes: initialVariantSelection?.attributes,
+    condition: initialVariantSelection?.condition,
+    requiredAxes: [...requiredVariantAxes, ...renderableVariantAxes],
+  });
+  const explicitVariantCondition = initialVariantIntent.explicitCondition;
   // PDP opens on the cheapest buyable variant unless the route supplied an
   // explicit condition. Preserve URL intent first, then fall back to the
   // PDP-only price-first default; feeds/cart keep the shared condition-first
@@ -100,7 +85,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     : null;
   const initialDisplayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
-        attributes: resolverInitialVariantAttributes,
+        attributes: initialVariantIntent.resolverAttributes,
         condition: explicitVariantCondition,
         variantId: initialVariantSelection?.variantId,
       }) ?? defaultVariantSelection)
@@ -109,7 +94,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     Record<string, string>
   >(() =>
     pickInitialSelectedAttributes({
-      explicitAttributes: normalizedInitialSelectionAttributes,
+      explicitAttributes: initialVariantIntent.selectedAttributes,
       fallbackAxisOptions: variantAxisOptions,
       renderableVariantAxes,
       selection: initialDisplayVariantSelection,
@@ -119,7 +104,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     string | undefined
   >(initialVariantSelection?.variantId);
   const [explicitSelectedAxes, setExplicitSelectedAxes] = useState<string[]>(
-    () => initialExplicitSelectedAxes
+    () => initialVariantIntent.explicitSelectedAxes
   );
   const selectedVariantCondition = selectedAttributes.condition;
   const resolverSelectedAttributes = Object.fromEntries(
