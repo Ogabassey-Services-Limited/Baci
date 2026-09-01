@@ -49,11 +49,15 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
     true;
   const hasDirectPurchasableOffer =
     product.offers?.some((offer) => getEffectiveStock(offer) > 0) === true;
+  const hasConfirmedUnavailableVariant =
+    product.has_variants === true &&
+    product.has_purchasable_variant === false &&
+    !hasDirectPurchasableVariant;
 
   return (
     product.manage_stock !== false &&
     hasInventorySignal &&
-    getEffectiveStock(product) === 0 &&
+    (hasConfirmedUnavailableVariant || getEffectiveStock(product) === 0) &&
     !hasDirectPurchasableVariant &&
     !hasDirectPurchasableOffer &&
     product.has_purchasable_condition_offer !== true &&
