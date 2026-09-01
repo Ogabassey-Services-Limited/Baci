@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   // An empty body is valid (mode defaults to 'auto'); malformed JSON is not —
-  // otherwise bad input silently books a paid Topship pickup instead of 400ing.
+  // otherwise bad input silently books a paid GIGL pickup instead of 400ing.
   let body: unknown = {};
   const rawBody = await request.text();
   if (rawBody.trim().length > 0) {

@@ -30,6 +30,18 @@ describe('buildPickupSender', () => {
     });
   });
 
+  it('infers Osun when a Google address ends in Osogbo without a state', () => {
+    const sender = buildPickupSender({
+      ...baseRepair,
+      pickup_address: '14 Testing Close, Oke Fia, Osogbo',
+    });
+
+    expect(sender).toMatchObject({
+      city: 'Osogbo',
+      state: 'Osun',
+    });
+  });
+
   it('returns null when there is no pickup address', () => {
     expect(
       buildPickupSender({ ...baseRepair, pickup_address: null })
@@ -84,7 +96,7 @@ describe('pickupFailure', () => {
     ['already_booked', false],
     ['missing_pickup_address', true],
     ['repair_center_unconfigured', true],
-    ['topship_unavailable', true],
+    ['gigl_unavailable', true],
     ['booking_failed', true],
     ['shipment_save_failed', false],
   ];

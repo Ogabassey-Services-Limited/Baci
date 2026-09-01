@@ -8,7 +8,7 @@ import {
   createRepairBooking,
 } from '@/lib/repairs/create-repair-core';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
-import { topshipProvider } from '@/lib/shipping/providers/topship';
+import { shippingService } from '@/lib/shipping';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
@@ -75,7 +75,7 @@ export async function calculateRepairShipping(
   place: PlaceDetails,
   merchantIdentifier: string
 ): Promise<ShippingCalculationResult> {
-  // Rate limit first — this fans out to the paid Topship quoting API and is
+  // Rate limit first — this calls the GIGL quoting API and is
   // callable by anonymous storefront customers.
   const allowed = await ensureActionRateLimit('repair-shipping', {
     requests: 10,
@@ -148,8 +148,8 @@ export async function calculateRepairShipping(
       };
     }
 
-    // 2. Calculate via Topship for other locations (customer -> repair center).
-    const quotes = await topshipProvider.getQuotes({
+    // 2. Calculate GIGL doorstep collection (customer -> repair center).
+    const quotes = await shippingService.getProviderQuotes('GIGL', {
       sessionId: `repair-${Date.now()}`,
       shipmentType: 'domestic',
       items: [
@@ -192,7 +192,7 @@ export async function calculateRepairShipping(
     }
 
     const validQuotes = quotes
-      .filter((q) => q.price > 0)
+      .filter((q) => q.price > 0 && !q.isStationPickup)
       .sort((a, b) => a.price - b.price);
 
     if (validQuotes.length === 0) {

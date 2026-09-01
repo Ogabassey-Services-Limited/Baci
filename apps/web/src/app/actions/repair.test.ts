@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RepairBookingInput } from '@/lib/validations/repair';
 import { calculateRepairShipping, createRepair } from './repair';
+import { validRepairInput } from './repair.test-fixtures';
 
 const mocks = vi.hoisted(() => ({
   createRepairBooking: vi.fn(),
@@ -31,26 +31,15 @@ vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mocks.ensureActionRateLimit,
 }));
 
-vi.mock('@/lib/shipping/providers/topship', () => ({
-  topshipProvider: {
-    getQuotes: mocks.getQuotes,
+vi.mock('@/lib/shipping', () => ({
+  shippingService: {
+    getProviderQuotes: mocks.getQuotes,
   },
 }));
 
 const merchantId = '123e4567-e89b-12d3-a456-426614174000';
 // Shipping estimates take the PUBLIC storefront identifier, not the raw UUID.
 const merchantSlug = 'ogabassey';
-
-const validRepairInput: RepairBookingInput = {
-  customerName: 'Ada Lovelace',
-  customerEmail: 'ada@example.com',
-  customerPhone: '08012345678',
-  deviceType: 'Smartphone',
-  deviceModel: 'iPhone 15',
-  issueDescription: 'The screen is cracked and the battery drains quickly.',
-  preferredDate: '2026-06-03',
-  serviceType: 'dropoff',
-};
 
 describe('createRepair', () => {
   beforeEach(() => {
@@ -150,7 +139,7 @@ describe('calculateRepairShipping', () => {
     mocks.getRepairCenterAddress.mockResolvedValue(lagosRepairCenter);
   });
 
-  it('returns a rate-limit error without requesting Topship quotes', async () => {
+  it('returns a rate-limit error without requesting GIGL quotes', async () => {
     mocks.ensureActionRateLimit.mockResolvedValueOnce(false);
 
     const result = await calculateRepairShipping(validPlace, merchantSlug);
@@ -168,7 +157,7 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid place details without requesting Topship quotes', async () => {
+  it('rejects invalid place details without requesting GIGL quotes', async () => {
     const result = await calculateRepairShipping(
       { ...validPlace, formattedAddress: 'a'.repeat(501) },
       merchantSlug
@@ -183,7 +172,7 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
-  it('rejects incomplete place details without requesting Topship quotes', async () => {
+  it('rejects incomplete place details without requesting GIGL quotes', async () => {
     const result = await calculateRepairShipping(
       { ...validPlace, city: '', state: '' },
       merchantSlug
@@ -264,7 +253,7 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
-  it('quotes Topship from the repair center for out-of-state addresses', async () => {
+  it('quotes GIGL doorstep collection for out-of-state addresses', async () => {
     mocks.getQuotes.mockResolvedValueOnce([
       { price: 5000 },
       { price: 3000 },
@@ -277,6 +266,7 @@ describe('calculateRepairShipping', () => {
     expect(result.price).toBe(3000);
     expect(result.error).toBeUndefined();
     expect(mocks.getQuotes).toHaveBeenCalledWith(
+      'GIGL',
       expect.objectContaining({
         receiver: expect.objectContaining({ state: 'Lagos', city: 'Ikeja' }),
         sender: expect.objectContaining({ state: 'Rivers' }),
@@ -286,7 +276,7 @@ describe('calculateRepairShipping', () => {
 
   it('falls back to a friendly error when quoting fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mocks.getQuotes.mockRejectedValueOnce(new Error('topship down'));
+    mocks.getQuotes.mockRejectedValueOnce(new Error('gigl down'));
 
     try {
       const result = await calculateRepairShipping(validPlace, merchantSlug);

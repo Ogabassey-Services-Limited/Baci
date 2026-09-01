@@ -120,7 +120,7 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: true,
       trackingNumber: 'TRK-1',
-      carrierName: 'Topship',
+      carrierName: 'GIG Logistics',
       shipmentId: 'ship-1',
       pickupScheduledAt: null,
     });
@@ -145,7 +145,7 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
   it('returns 200 with a recoverable failure the UI can show', async () => {
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
-      reason: 'topship_unavailable',
+      reason: 'gigl_unavailable',
       message: 'No coverage',
       canRetryManually: true,
     });

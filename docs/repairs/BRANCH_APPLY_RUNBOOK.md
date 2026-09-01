@@ -63,7 +63,7 @@ Standard flow. After the DB migrations are on prod, deploy `codex/repairs-catalo
 
 ## 6. Post-go-live validation
 - Storefront: `ogabassey.com/repairs` shows the device picker; a device page lists quotes; booking returns a ticket # and fires the merchant push + customer email.
-- Dashboard: the booking appears; status advance / estimated_cost / admin_notes work; "Request courier pickup" either books Topship or offers the manual fallback.
+- Dashboard: the booking appears; status advance / estimated_cost / admin_notes work; "Request courier pickup" either books GIGL doorstep collection or offers the manual fallback.
 - Customer status page `/repair/status`: ticket + email returns status; wrong email returns "not found".
 - Mobile: storefront repairs screen shows the catalogue (falls back to WhatsApp only if flag off); mobile-admin shows the booking and the push deep-link opens it.
 
@@ -73,6 +73,6 @@ Standard flow. After the DB migrations are on prod, deploy `codex/repairs-catalo
 
 ## 8. Known follow-ups / external actions (NOT code)
 - **Meta feed policy:** services-as-products in Meta Commerce Manager is policy-gray. Ingest `/feeds/facebook-repairs.xml` into a **Meta test catalog** and confirm acceptance **before** pointing the live Facebook repairs page at it.
-- **Topship pickup** needs a **funded Topship wallet** and is reliable **Lagos/Abuja** only — do a staging dry-run; the manual-fallback path covers the rest.
+- **GIGL pickup** needs a **funded GIGL account** and a supported doorstep route — do a staging dry-run; when GIGL only offers service-centre delivery, prompt for customer drop-off or use the manual fallback.
 - **Branded fallback image (optional):** feed items with no linked-product image, no `repair_devices.image_url`, and no merchant `logo_url` are omitted from the FB feed. Provide a branded repair-service placeholder asset if full coverage is wanted, or ensure devices have images / linked products.
 - **`shipping_quotes` PII exposure — already fixed upstream.** The baseline `shipping_quotes` public SELECT `USING (true)` over `quote_request` PII is resolved by migration `20260707015215_scope_shipping_quotes_to_merchant.sql` (merged from `main`): it revokes anon on the table, adds `merchant_id`-scoped `has_merchant_access()` policies, and routes the one guest-reachable read through the SECURITY-DEFINER RPC `get_checkout_shipping_quote` (strips `sender`, omits `provider_metadata`). Repairs uses its own private `repair_pickup_quotes` table regardless. **Action:** just confirm `20260707015215` is applied to the target DB (it ships via `main`'s normal migration flow, not this feature's set).

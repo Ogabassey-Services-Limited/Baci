@@ -7,3 +7,5 @@
  * default `p_lock_timeout_seconds` (migration 20260711171500).
  */
 export const REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS = 15 * 60;
+
+export const REPAIR_PICKUP_PROVIDER = 'GIGL' as const;

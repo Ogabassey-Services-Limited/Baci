@@ -38,7 +38,7 @@ interface RepairContactStepProps {
 
 /**
  * Step 1 of the repair booking wizard: contact details, drop-off/pickup
- * choice (with a live Topship shipping estimate for pickup), and an
+ * choice (with a live GIGL shipping estimate for pickup), and an
  * optional preferred date.
  */
 export function RepairContactStep({

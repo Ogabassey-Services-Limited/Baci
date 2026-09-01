@@ -1,5 +1,5 @@
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
+import { resolveRepairPickupLocation } from './resolve-repair-pickup-location';
 
 /**
  * Minimal repair fields needed to build a courier pickup shipment
@@ -23,7 +23,7 @@ export type PickupFailureReason =
   | 'booking_in_progress'
   | 'missing_pickup_address'
   | 'repair_center_unconfigured'
-  | 'topship_unavailable'
+  | 'gigl_unavailable'
   | 'booking_failed'
   | 'shipment_save_failed';
 
@@ -79,14 +79,14 @@ const FAILURE_COPY: Record<
       'Add your repair-center pickup address in settings before arranging courier pickup.',
     canRetryManually: true,
   },
-  topship_unavailable: {
+  gigl_unavailable: {
     message:
-      "Courier pickup isn't available for this address right now (Topship covers Lagos & Abuja). You can mark pickup arranged manually.",
+      "GIG Logistics pickup isn't available for this address right now. Ask the customer to drop the device at a GIGL service centre or arrange pickup manually.",
     canRetryManually: true,
   },
   booking_failed: {
     message:
-      'The courier booking failed (check your Topship wallet balance). You can mark pickup arranged manually.',
+      'GIG Logistics could not confirm the pickup. Check the GIGL account balance and booking details, or arrange pickup manually.',
     canRetryManually: true,
   },
   shipment_save_failed: {
@@ -110,7 +110,7 @@ export function pickupFailure(
 
 /**
  * Builds the shipment sender from the customer's pickup address (free-text),
- * deriving city/state with the shared address parser. Returns null when the
+ * deriving city/state with the Nigerian repair-location resolver. Returns null when the
  * booking has no pickup address to collect from.
  */
 export function buildPickupSender(
@@ -121,7 +121,7 @@ export function buildPickupSender(
     return null;
   }
 
-  const location = deriveMerchantLocation(pickupAddress);
+  const location = resolveRepairPickupLocation(pickupAddress);
   return {
     name: repair.customer_name?.trim() || 'Customer',
     phone: repair.customer_phone?.trim() || '',
