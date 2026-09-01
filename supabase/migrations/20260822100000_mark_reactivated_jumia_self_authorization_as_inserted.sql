@@ -217,4 +217,3 @@ REVOKE ALL ON FUNCTION public.persist_jumia_self_authorization(
 GRANT EXECUTE ON FUNCTION public.persist_jumia_self_authorization(
   uuid, text, text, timestamptz, timestamptz, text[], text[], text[], text[], text[]
 ) TO authenticated;
-
