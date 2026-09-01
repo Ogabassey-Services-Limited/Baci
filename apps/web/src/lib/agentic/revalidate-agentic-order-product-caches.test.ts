@@ -54,7 +54,7 @@ describe('revalidateAgenticOrderProductCaches', () => {
 
   it('revalidates tracked product slugs and queues the article lookup', async () => {
     const supabase = makeSupabase({
-      data: [{ manage_stock: true, slug: 'phone-1' }],
+      data: [{ id: 'product-1', manage_stock: true, slug: 'phone-1' }],
       error: null,
     });
 
@@ -80,6 +80,25 @@ describe('revalidateAgenticOrderProductCaches', () => {
     expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
       'phone-1',
     ]);
+  });
+
+  it('does not queue an article purge for unlimited-stock products', async () => {
+    const supabase = makeSupabase({
+      data: [{ id: 'product-1', manage_stock: false, slug: 'phone-1' }],
+      error: null,
+    });
+
+    await revalidateAgenticOrderProductCaches({
+      merchantId: 'merchant-1',
+      productIds: ['product-1'],
+      sessionId: 'session-1',
+      slugLookupFailureMessage: 'slug lookup failed',
+      outerFailureMessage: 'cache revalidation failed',
+      supabase: supabase as never,
+    });
+
+    expect(mockScheduleBlogPurge).not.toHaveBeenCalled();
+    expect(mockRevalidateDashboard).toHaveBeenCalledWith('merchant-1');
   });
 
   it('fails open when the slug query errors', async () => {

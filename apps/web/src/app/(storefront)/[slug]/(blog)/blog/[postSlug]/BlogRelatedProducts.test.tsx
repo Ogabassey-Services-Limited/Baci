@@ -197,4 +197,25 @@ describe('BlogRelatedProducts', () => {
 
     expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
   });
+
+  it('keeps an unmanaged nonempty variant set available when child quantity is zero', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-unmanaged-variants',
+            name: 'Galaxy S25',
+            manage_stock: false,
+            has_variants: true,
+            has_purchasable_variant: false,
+            variants: [{ stock_quantity: 0 }],
+            slug: 'galaxy-s25',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
+  });
 });

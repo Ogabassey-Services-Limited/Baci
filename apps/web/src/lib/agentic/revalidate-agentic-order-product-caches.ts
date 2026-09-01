@@ -5,6 +5,7 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 
 interface ProductCacheRow {
+  id: string;
   manage_stock: boolean | null;
   slug: string;
 }
@@ -41,16 +42,10 @@ export async function revalidateAgenticOrderProductCaches({
       return;
     }
 
-    scheduleOrderProductBlogPurgeAfterResponse({
-      merchantId,
-      productIds: normalizedProductIds,
-      supabase,
-    });
-
     try {
       const { data: products, error } = await supabase
         .from('products')
-        .select('slug, manage_stock')
+        .select('id, slug, manage_stock')
         .in('id', normalizedProductIds)
         .eq('merchant_id', merchantId)
         .returns<ProductCacheRow[]>();
@@ -71,6 +66,14 @@ export async function revalidateAgenticOrderProductCaches({
         (product) => product.manage_stock === true
       );
       if (trackedProducts.length > 0) {
+        // Article rails change only when inventory-tracked products mutate.
+        // Unlimited-stock sales still refresh dashboard state, but do not
+        // enqueue an unnecessary relationship lookup and CDN purge.
+        scheduleOrderProductBlogPurgeAfterResponse({
+          merchantId,
+          productIds: trackedProducts.map((product) => product.id),
+          supabase,
+        });
         productCacheRevalidation.revalidateProducts(merchantId, undefined, {
           feedScope: 'merchant',
         });

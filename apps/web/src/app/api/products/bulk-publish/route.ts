@@ -6,6 +6,7 @@ import {
   revalidateProducts,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -124,6 +125,12 @@ export async function POST(request: NextRequest) {
         // Relationship/category fallback reads can span many pages. Queue the
         // article enrichment after the response so publishing cannot time out
         // after the database update has already committed.
+        // Expire the merchant-scoped article enrichment before a URL or
+        // hostname purge can trigger a cache refill with the pre-publish
+        // product snapshot. The post-response enrichment also expires this
+        // tag, but it runs in a separate task and therefore cannot protect the
+        // purge scheduled immediately below.
+        expireProductBlogCache(merchantId);
         scheduleStorefrontProductPurge(
           merchantContext.merchantSlug,
           publicPurgeEntries

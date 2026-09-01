@@ -52,6 +52,7 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
   const hasConfirmedUnavailableVariant =
     product.has_variants === true &&
     product.has_purchasable_variant === false &&
+    (product.manage_stock === true || (product.variants?.length ?? 0) === 0) &&
     !hasDirectPurchasableVariant;
   const hasOutOfStockManagedParent =
     product.manage_stock === true &&
