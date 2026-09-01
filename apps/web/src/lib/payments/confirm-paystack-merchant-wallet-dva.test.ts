@@ -157,4 +157,42 @@ describe('verified merchant-wallet DVA credit', () => {
       'db secret'
     );
   });
+  it('credits a reference once across duplicate confirmation calls', async () => {
+    let balance = 0;
+    let seen = false;
+    const s = client([{ merchant_id: 'm' }]);
+    s.rpc.mockImplementation(
+      async (_name: string, args: { p_amount: number }) => {
+        if (seen)
+          return {
+            data: [{ new_balance: balance, first_credit: false }],
+            error: null,
+          };
+        seen = true;
+        balance += args.p_amount;
+        return {
+          data: [{ new_balance: balance, first_credit: true }],
+          error: null,
+        };
+      }
+    );
+    const first = await confirmPaystackMerchantWalletDva(
+      input(s, { verifiedAmount: { amount: 9999, currency: 'NGN' } })
+    );
+    const second = await confirmPaystackMerchantWalletDva(
+      input(s, { verifiedAmount: { amount: 9999, currency: 'NGN' } })
+    );
+    expect(first).toMatchObject({
+      kind: 'match',
+      balance: 9999,
+      firstCredit: true,
+    });
+    expect(second).toMatchObject({
+      kind: 'match',
+      balance: 9999,
+      firstCredit: false,
+    });
+    expect(balance).toBe(9999);
+    expect(s.rpc).toHaveBeenCalledTimes(2);
+  });
 });

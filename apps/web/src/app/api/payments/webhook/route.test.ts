@@ -13,6 +13,7 @@ const mockHandlePaystackSavingsWebhookTransaction = vi.hoisted(() => vi.fn());
 const mockProcessMerchantInvoicePartialPayment = vi.hoisted(() => vi.fn());
 const mockProcessWalletFundedOrderPayment = vi.hoisted(() => vi.fn());
 const mockRunPaidOrderSideEffects = vi.hoisted(() => vi.fn());
+const mockPersistMerchantWalletAssignmentEvent = vi.hoisted(() => vi.fn());
 
 // Mock environment variables
 vi.mock('@/env', () => ({
@@ -47,6 +48,10 @@ vi.mock('@/lib/payments/process-merchant-invoice-partial-payment', () => ({
 
 vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
   runPaidOrderSideEffects: mockRunPaidOrderSideEffects,
+}));
+vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
+  persistMerchantWalletAssignmentEvent:
+    mockPersistMerchantWalletAssignmentEvent,
 }));
 
 vi.mock('@/lib/customer-savings-paystack-webhook', () => ({
@@ -6373,6 +6378,67 @@ describe('POST /api/payments/webhook', () => {
           reference: 'REF123',
         })
       );
+    });
+  });
+
+  it('handles a signed dedicated-account assignment before charge logic', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'match',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      handled: 'merchant_wallet_assignment',
+    });
+    expect(mockPersistMerchantWalletAssignmentEvent).toHaveBeenCalled();
+  });
+
+  it('returns review for a signed assignment conflict without entering charge flow', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'review',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'Paystack assignment accepted for review',
+      code: 'MERCHANT_WALLET_ASSIGNMENT_REVIEW',
     });
   });
 });

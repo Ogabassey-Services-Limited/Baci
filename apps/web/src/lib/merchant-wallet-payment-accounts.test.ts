@@ -196,4 +196,71 @@ describe('merchant wallet payment-account provisioning', () => {
       (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
     ).toBe('match');
   });
+  it('treats an exact fulfilled replay as success through the locked RPC', async () => {
+    const supabase = client();
+    (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: [{ id: 'account-1' }],
+      error: null,
+    });
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        account_name: 'A',
+        currency: 'NGN',
+      },
+    };
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('match');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_merchant_wallet_payment_account',
+      expect.anything()
+    );
+  });
+  it('reviews a conflicting fulfilled replay while calling the same RPC', async () => {
+    const supabase = client();
+    (supabase.rpc as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('conflicting_assignment_replay')
+    );
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        account_name: 'Changed',
+        currency: 'NGN',
+      },
+    };
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('review');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_merchant_wallet_payment_account',
+      expect.anything()
+    );
+  });
+  it('allows a later retry after a provider failure is transitioned to failed', async () => {
+    customer.mockResolvedValueOnce({ success: false }).mockResolvedValueOnce({
+      success: true,
+      data: { customer_code: 'CUS2' },
+    });
+    const first = await expect(
+      requestMerchantWalletAccount(client(), { id: 'm1', email: 'e' })
+    ).rejects.toThrow('Paystack customer provisioning failed');
+    expect(first).toBeDefined();
+    const second = await requestMerchantWalletAccount(client(), {
+      id: 'm1',
+      email: 'e',
+    });
+    expect(second.status).toBe('pending');
+    expect(dva).toHaveBeenCalledTimes(1);
+  });
 });

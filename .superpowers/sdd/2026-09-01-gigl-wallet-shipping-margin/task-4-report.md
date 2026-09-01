@@ -40,3 +40,7 @@ Assignment replay decisions now always call the locked service RPC; TypeScript p
 ## Coverage specialist pass
 
 Head: `666020270eec8033263bd9d19671e06d0eb921ab` (`test: cover merchant wallet DVA funding`). Replaced placeholder assertions with 59 executed behavioral cases across 6 owned files: wallet route (5), funding-account handlers (11), assignment/provisioning helper (14), verified credit helper (10), webhook assignment (10), and migration contract (6). Focused Task 4 run: 59 passing tests in 6 files. Web lint and typecheck passed; diff check passed. Existing webhook route suite was not run in this specialist pass. No runtime behavior or production state was changed.
+
+## P2 closure follow-up
+
+Added signed `POST` assignment fixtures (handled and 409 review), exact fulfilled/conflicting replay assertions through the same locked persist RPC seam, successful failure-transition plus later provisioning retry, and an in-memory reference-ledger duplicate credit test proving the excess amount is credited once. Focused Task 4 plus legacy webhook run: 7 files, 144 passing tests. Web lint, typecheck, and diff-check passed. No runtime or provider changes.
