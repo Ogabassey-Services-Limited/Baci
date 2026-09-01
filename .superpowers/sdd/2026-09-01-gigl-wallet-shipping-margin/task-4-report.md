@@ -3,7 +3,7 @@
 ## Base/head
 
 - Base: `93e935689aacedfe836694ce21dd9e58f4bcf57d`
-- Head: pending commit (`feat: fund merchant wallet by bank transfer`)
+- Head: `9f43728a31` (`fix: complete merchant wallet DVA funding`), following base implementation `927ab2c3ef`.
 
 ## RED/GREEN evidence
 
