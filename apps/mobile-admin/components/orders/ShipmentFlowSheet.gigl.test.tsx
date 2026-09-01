@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShipmentFlowSheet } from './ShipmentFlowSheet';
 
 vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }));
@@ -108,6 +108,7 @@ function gigl(canBook: boolean, error: string | null = null) {
   return {
     addressDraft: {},
     error,
+    ensureFreshQuoteForConfirmation: vi.fn().mockResolvedValue(true),
     fundingAccount: null,
     missingFields: [],
     quote,
@@ -152,7 +153,9 @@ const base = {
 };
 
 describe('ShipmentFlowSheet manual-order GIG flow', () => {
-  it('shows fresh GIG quote and keeps explicit booking disabled until funded', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows fresh GIG quote and keeps explicit booking disabled until funded', async () => {
     const { rerender } = render(
       <ShipmentFlowSheet {...base} giglShipping={gigl(false)} />
     );
@@ -169,7 +172,9 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
     });
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
-    expect(base.onContinueFromMethod).toHaveBeenCalledOnce();
+    await vi.waitFor(() =>
+      expect(base.onContinueFromMethod).toHaveBeenCalledOnce()
+    );
   });
 
   it('preserves saved checkout provider behavior', () => {
@@ -183,6 +188,30 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
     );
     expect(screen.getByText('Use Topship')).toBeInTheDocument();
     expect(screen.queryByText('Ship with GIG')).not.toBeInTheDocument();
+  });
+
+  it('blocks the stale-quote tap and requires a new tap after refresh', async () => {
+    const shipping = gigl(true) as unknown as {
+      ensureFreshQuoteForConfirmation: ReturnType<typeof vi.fn>;
+    };
+    shipping.ensureFreshQuoteForConfirmation
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    render(<ShipmentFlowSheet {...base} giglShipping={shipping as never} />);
+    const confirm = screen.getByRole('button', {
+      name: 'Book with GIG Logistics',
+    });
+
+    fireEvent.click(confirm);
+    await vi.waitFor(() =>
+      expect(shipping.ensureFreshQuoteForConfirmation).toHaveBeenCalledOnce()
+    );
+    expect(base.onContinueFromMethod).not.toHaveBeenCalled();
+
+    fireEvent.click(confirm);
+    await vi.waitFor(() =>
+      expect(base.onContinueFromMethod).toHaveBeenCalledOnce()
+    );
   });
 
   it('leaves Self Fulfill available after a provider error', () => {

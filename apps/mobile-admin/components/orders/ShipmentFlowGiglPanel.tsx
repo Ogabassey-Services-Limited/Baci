@@ -46,9 +46,11 @@ const FIELD_LABELS: Record<OrderGiglMissingField, string> = {
 };
 
 function ActionButton({
+  disabled = false,
   label,
   onPress,
 }: {
+  disabled?: boolean;
   label: string;
   onPress: () => void;
 }) {
@@ -57,6 +59,8 @@ function ActionButton({
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={[panelStyles.button, { backgroundColor: colors.primary }]}
     >
@@ -141,7 +145,11 @@ export function ShipmentFlowGiglPanel({
       ) : null}
 
       {quote && wallet && !wallet.canBook && !fundingAccount ? (
-        <ActionButton label="Fund wallet" onPress={onFundWallet} />
+        <ActionButton
+          disabled={state === 'funding'}
+          label="Fund wallet"
+          onPress={onFundWallet}
+        />
       ) : null}
       {state === 'funding_pending' && !fundingAccount ? (
         <Text style={{ color: colors.textSecondary }}>

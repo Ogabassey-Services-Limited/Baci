@@ -110,4 +110,12 @@ describe('ShipmentFlowGiglPanel', () => {
     );
     expect(screen.getByText(/temporarily unavailable/)).toBeTruthy();
   });
+
+  it('disables duplicate funding consent while provisioning is in flight', () => {
+    render(<ShipmentFlowGiglPanel {...base} state="funding" />);
+    expect(screen.getByRole('button', { name: 'Fund wallet' })).toHaveProperty(
+      'disabled',
+      true
+    );
+  });
 });

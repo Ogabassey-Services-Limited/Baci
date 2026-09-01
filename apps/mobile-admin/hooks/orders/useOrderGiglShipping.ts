@@ -12,75 +12,33 @@ import {
   OrderGiglShippingError,
   requestMerchantWalletFundingAccount,
 } from '@/lib/order-gigl-shipping';
+import {
+  GIGL_MAX_POLL_COUNT,
+  GIGL_POLL_INTERVAL_MS,
+  isOrderGiglQuoteFresh,
+  type OrderGiglShippingParams,
+  type OrderGiglShippingState,
+  type OrderGiglWalletState,
+  toCompleteOrderGiglReceiver,
+  toOrderGiglAddressDraft,
+} from '@/lib/order-gigl-shipping-state';
 
-const POLL_INTERVAL_MS = 3_000;
-const MAX_POLL_COUNT = 20;
-
-export type OrderGiglShippingState =
-  | 'idle'
-  | 'loading'
-  | 'ready'
-  | 'missing_address'
-  | 'funding'
-  | 'funding_pending'
-  | 'polling'
-  | 'error';
-
-interface InitialAddress {
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  phone?: string | null;
-}
-
-interface WalletState {
-  availableBalance: number;
-  canBook: boolean;
-  shortfall: number;
-}
-
-interface Params {
-  enabled: boolean;
-  initialAddress?: InitialAddress;
-  orderId: string;
-}
-
-function initialDraft(address?: InitialAddress): Partial<OrderGiglReceiver> {
-  return {
-    ...(address?.address ? { address: address.address } : {}),
-    ...(address?.city ? { city: address.city } : {}),
-    ...(address?.state ? { state: address.state } : {}),
-    ...(address?.phone ? { phone: address.phone } : {}),
-  };
-}
-
-function completeReceiver(
-  draft: Partial<OrderGiglReceiver>
-): OrderGiglReceiver | undefined {
-  if (!draft.address || !draft.city || !draft.state || !draft.phone) {
-    return undefined;
-  }
-  return {
-    address: draft.address,
-    city: draft.city,
-    state: draft.state,
-    phone: draft.phone,
-  };
-}
+export type { OrderGiglShippingState } from '@/lib/order-gigl-shipping-state';
 
 export function useOrderGiglShipping({
   enabled,
   initialAddress,
   orderId,
-}: Params) {
+}: OrderGiglShippingParams) {
   const queryClient = useQueryClient();
   const [quote, setQuote] = useState<OrderGiglQuote | null>(null);
   const quoteRef = useRef<OrderGiglQuote | null>(null);
-  const [wallet, setWallet] = useState<WalletState | null>(null);
+  const [wallet, setWallet] = useState<OrderGiglWalletState | null>(null);
+  const walletRef = useRef<OrderGiglWalletState | null>(null);
   const [fundingAccount, setFundingAccount] =
     useState<MerchantWalletFundingAccount | null>(null);
   const [addressDraft, setAddressDraft] = useState<Partial<OrderGiglReceiver>>(
-    initialDraft(initialAddress)
+    toOrderGiglAddressDraft(initialAddress)
   );
   const addressRef = useRef(addressDraft);
   const [missingFields, setMissingFields] = useState<OrderGiglMissingField[]>(
@@ -91,6 +49,8 @@ export function useOrderGiglShipping({
   const controllerRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const confirmationRef = useRef(false);
+  const fundingRef = useRef(false);
   const enabledRef = useRef(enabled);
 
   enabledRef.current = enabled;
@@ -110,22 +70,32 @@ export function useOrderGiglShipping({
     queryClient.invalidateQueries({ queryKey: ['merchant-wallet'] });
   };
 
+  const invalidateQuote = () => {
+    setQuote(null);
+    quoteRef.current = null;
+    setWallet(null);
+    walletRef.current = null;
+  };
+
   const applyQuoteResult = (
     result: Awaited<ReturnType<typeof getOrderGiglQuote>>
   ) => {
     setQuote(result.quote);
-    setWallet({
+    quoteRef.current = result.quote;
+    const nextWallet = {
       availableBalance: result.availableBalance,
       canBook: result.canBook,
       shortfall: result.shortfall,
-    });
+    };
+    setWallet(nextWallet);
+    walletRef.current = nextWallet;
     setMissingFields([]);
     setError(null);
     setState('ready');
   };
 
   const requestQuote = async () => {
-    if (!enabledRef.current || !orderId) return;
+    if (!enabledRef.current || !orderId) return null;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -134,10 +104,13 @@ export function useOrderGiglShipping({
     try {
       const result = await getOrderGiglQuote(
         orderId,
-        completeReceiver(addressRef.current),
+        toCompleteOrderGiglReceiver(addressRef.current),
         controller.signal
       );
-      if (!controller.signal.aborted) applyQuoteResult(result);
+      if (!controller.signal.aborted) {
+        applyQuoteResult(result);
+        return result;
+      }
     } catch (requestError: unknown) {
       if (controller.signal.aborted) return;
       if (
@@ -148,6 +121,7 @@ export function useOrderGiglShipping({
       ) {
         const typed = requestError as OrderGiglShippingError;
         if (typed.code === 'ORDER_SHIPPING_ADDRESS_INCOMPLETE') {
+          invalidateQuote();
           setMissingFields(typed.missing ?? []);
           setState('missing_address');
           return;
@@ -160,6 +134,7 @@ export function useOrderGiglShipping({
       );
       setState('error');
     }
+    return null;
   };
 
   const updateAddressField = (field: OrderGiglMissingField, value: string) => {
@@ -168,6 +143,7 @@ export function useOrderGiglShipping({
       addressRef.current = next;
       return next;
     });
+    invalidateQuote();
   };
 
   const refreshBalance = async () => {
@@ -180,16 +156,27 @@ export function useOrderGiglShipping({
       shortfall,
     };
     setWallet(next);
+    walletRef.current = next;
     if (next.canBook) {
       stopPolling();
-      setState('ready');
-      invalidateFundingQueries();
+      setWallet({ ...next, canBook: false });
+      walletRef.current = { ...next, canBook: false };
+      const refreshed = await requestQuote();
+      if (refreshed?.canBook) invalidateFundingQueries();
+      return refreshed
+        ? {
+            availableBalance: refreshed.availableBalance,
+            canBook: refreshed.canBook,
+            shortfall: refreshed.shortfall,
+          }
+        : walletRef.current;
     }
     return next;
   };
 
   const startFunding = async () => {
-    if (!enabledRef.current) return;
+    if (!enabledRef.current || fundingRef.current) return;
+    fundingRef.current = true;
     setState('funding');
     setError(null);
     try {
@@ -208,6 +195,26 @@ export function useOrderGiglShipping({
           : 'Unable to prepare wallet funding.'
       );
       setState('error');
+    } finally {
+      fundingRef.current = false;
+    }
+  };
+
+  const ensureFreshQuoteForConfirmation = async () => {
+    if (
+      confirmationRef.current ||
+      !quoteRef.current ||
+      !walletRef.current?.canBook
+    ) {
+      return false;
+    }
+    if (isOrderGiglQuoteFresh(quoteRef.current)) return true;
+    confirmationRef.current = true;
+    try {
+      await requestQuote();
+      return false;
+    } finally {
+      confirmationRef.current = false;
     }
   };
 
@@ -226,11 +233,11 @@ export function useOrderGiglShipping({
         );
         setState('error');
       });
-      if (pollCountRef.current >= MAX_POLL_COUNT) {
+      if (pollCountRef.current >= GIGL_MAX_POLL_COUNT) {
         stopPolling();
         setState('ready');
       }
-    }, POLL_INTERVAL_MS);
+    }, GIGL_POLL_INTERVAL_MS);
   };
 
   const reset = () => {
@@ -241,10 +248,9 @@ export function useOrderGiglShipping({
     setState('idle');
   };
 
-  // Track scalar address fields because the controller recreates the wrapper object.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scalar dependencies prevent a render loop while keeping the draft current
   useEffect(() => {
-    const next = initialDraft(initialAddress);
+    const next = toOrderGiglAddressDraft(initialAddress);
     setAddressDraft(next);
     addressRef.current = next;
   }, [
@@ -254,7 +260,6 @@ export function useOrderGiglShipping({
     initialAddress?.state,
   ]);
 
-  // Quote requests intentionally run only when this order's method step opens.
   // biome-ignore lint/correctness/useExhaustiveDependencies: request functions are render-local and including them would repeat the network request
   useEffect(() => {
     if (enabled) void requestQuote();
@@ -279,6 +284,7 @@ export function useOrderGiglShipping({
   return {
     addressDraft,
     error,
+    ensureFreshQuoteForConfirmation,
     fundingAccount,
     missingFields,
     quote,

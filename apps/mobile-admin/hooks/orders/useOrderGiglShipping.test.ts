@@ -61,6 +61,7 @@ describe('useOrderGiglShipping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    vi.setSystemTime('2026-09-01T17:00:00.000Z');
     api.getQuote.mockResolvedValue(result);
     api.getFundingAccount.mockResolvedValue(null);
   });
@@ -134,7 +135,39 @@ describe('useOrderGiglShipping', () => {
     expect(hook.current.state).toBe('funding_pending');
   });
 
+  it('deduplicates funding provisioning while consent is in flight', async () => {
+    let resolveAccount: (value: null) => void = () => undefined;
+    api.getFundingAccount.mockReturnValue(
+      new Promise<null>((resolve) => {
+        resolveAccount = resolve;
+      })
+    );
+    api.requestFundingAccount.mockResolvedValue({
+      account: null,
+      status: 'pending',
+    });
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+    const first = hook.current.startFunding();
+    const second = hook.current.startFunding();
+    expect(api.getFundingAccount).toHaveBeenCalledOnce();
+    resolveAccount(null);
+    await act(async () => {
+      await Promise.all([first, second]);
+    });
+    expect(api.requestFundingAccount).toHaveBeenCalledOnce();
+  });
+
   it('polls every three seconds and stops when wallet covers the quote', async () => {
+    api.getQuote.mockResolvedValueOnce(result).mockResolvedValueOnce({
+      ...result,
+      availableBalance: 11000,
+      shortfall: 0,
+      canBook: true,
+    });
     api.getWallet
       .mockResolvedValueOnce({ availableBalance: 5000, currency: 'NGN' })
       .mockResolvedValueOnce({ availableBalance: 11000, currency: 'NGN' });
@@ -149,9 +182,117 @@ describe('useOrderGiglShipping', () => {
     expect(api.getWallet).toHaveBeenCalledTimes(1);
     await act(() => vi.advanceTimersByTimeAsync(3000));
     expect(api.getWallet).toHaveBeenCalledTimes(2);
+    expect(api.getQuote).toHaveBeenCalledTimes(2);
     expect(hook.current.wallet?.canBook).toBe(true);
     await act(() => vi.advanceTimersByTimeAsync(6000));
     expect(api.getWallet).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes an expiring quote and requires a second confirmation tap', async () => {
+    const funded = {
+      ...result,
+      availableBalance: 11000,
+      shortfall: 0,
+      canBook: true,
+    };
+    api.getQuote.mockResolvedValueOnce(funded).mockResolvedValueOnce({
+      ...funded,
+      quote: {
+        ...funded.quote,
+        price: 12000,
+        expiresAt: '2026-09-01T19:00:00.000Z',
+      },
+      availableBalance: 12000,
+    });
+    vi.setSystemTime('2026-09-01T17:59:45.000Z');
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+
+    let allowed = true;
+    await act(async () => {
+      allowed = await hook.current.ensureFreshQuoteForConfirmation();
+    });
+    expect(allowed).toBe(false);
+    expect(hook.current.quote?.price).toBe(12000);
+    await act(async () => {
+      allowed = await hook.current.ensureFreshQuoteForConfirmation();
+    });
+    expect(allowed).toBe(true);
+  });
+
+  it('keeps booking disabled when the post-funding replacement quote costs more', async () => {
+    api.getQuote.mockResolvedValueOnce(result).mockResolvedValueOnce({
+      ...result,
+      quote: {
+        ...result.quote,
+        price: 12000,
+        expiresAt: '2026-09-01T19:00:00.000Z',
+      },
+      availableBalance: 11000,
+      shortfall: 1000,
+      canBook: false,
+    });
+    api.getWallet.mockResolvedValue({
+      availableBalance: 11000,
+      currency: 'NGN',
+    });
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+    act(() => hook.current.startTransferPoll());
+    await act(() => vi.advanceTimersByTimeAsync(3000));
+
+    expect(hook.current.quote?.price).toBe(12000);
+    expect(hook.current.wallet).toMatchObject({
+      canBook: false,
+      shortfall: 1000,
+    });
+  });
+
+  it('invalidates the old quote as soon as an address field changes', async () => {
+    api.getQuote.mockResolvedValue({
+      ...result,
+      availableBalance: 11000,
+      shortfall: 0,
+      canBook: true,
+    });
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+    act(() => hook.current.updateAddressField('city', 'Lekki'));
+    expect(hook.current.quote).toBeNull();
+    expect(hook.current.wallet).toBeNull();
+  });
+
+  it('clears a prior bookable quote when the server reports missing fields', async () => {
+    api.getQuote
+      .mockResolvedValueOnce({
+        ...result,
+        availableBalance: 11000,
+        shortfall: 0,
+        canBook: true,
+      })
+      .mockRejectedValueOnce({
+        code: 'ORDER_SHIPPING_ADDRESS_INCOMPLETE',
+        missing: ['city'],
+        message: 'Incomplete',
+      });
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+    await act(() => hook.current.requestQuote());
+    expect(hook.current.quote).toBeNull();
+    expect(hook.current.wallet).toBeNull();
+    expect(hook.current.missingFields).toEqual(['city']);
   });
 
   it('stops polling after 60 seconds and when disabled', async () => {

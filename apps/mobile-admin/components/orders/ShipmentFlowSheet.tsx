@@ -139,12 +139,19 @@ export function ShipmentFlowSheet({
     onStepBack();
   };
 
-  const handlePrimaryAction =
-    step === 'details'
-      ? onContinueFromDetails
-      : step === 'method'
-        ? onContinueFromMethod
-        : onConfirmSelfFulfillment;
+  const handlePrimaryAction = async () => {
+    if (step === 'details') return onContinueFromDetails();
+    if (step === 'rider') return onConfirmSelfFulfillment();
+    if (
+      selectedMode === 'provider' &&
+      !canUseProvider &&
+      giglShipping &&
+      !(await giglShipping.ensureFreshQuoteForConfirmation())
+    ) {
+      return;
+    }
+    onContinueFromMethod();
+  };
 
   return (
     <Modal
@@ -252,10 +259,11 @@ export function ShipmentFlowSheet({
                 step === 'method' &&
                 selectedMode === 'provider' &&
                 !canUseProvider &&
-                !giglShipping?.wallet?.canBook
+                (!giglShipping?.wallet?.canBook ||
+                  giglShipping.state === 'loading')
               }
               onBack={handleBack}
-              onPrimaryAction={handlePrimaryAction}
+              onPrimaryAction={() => void handlePrimaryAction()}
               primaryActionLabel={primaryActionLabel}
               selectedMode={selectedMode}
               showBack={showBack}
