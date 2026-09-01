@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger';
 
 export type AbortableQuery<T> = PromiseLike<T> & {
   abortSignal?: (signal: AbortSignal) => PromiseLike<T>;
+  retry?: (shouldRetry: boolean) => PromiseLike<T>;
 };
 
 export interface StorefrontPdpSemanticRpcOptions {
@@ -65,6 +66,16 @@ export async function runStorefrontPdpSemanticRpc<T>(
     typeof query.abortSignal === 'function'
       ? query.abortSignal(timeoutSignal)
       : query;
+  // AbortSignal.timeout() rejects with a native `TimeoutError`. The installed
+  // PostgREST client only suppresses automatic retries for `AbortError`, so a
+  // timed-out optional read can otherwise fan out into four attempts. Keep the
+  // read to one attempt; the guard preserves compatibility with test doubles
+  // and thenables that do not expose PostgREST's retry builder method.
+  const boundedQueryWithRetry = boundedQuery as AbortableQuery<T>;
+  const singleAttemptQuery =
+    typeof boundedQueryWithRetry.retry === 'function'
+      ? boundedQueryWithRetry.retry(false)
+      : boundedQuery;
   const deadline = createAbortDeadlinePromise(timeoutSignal);
   const startedAt = performance.now();
   const trace = (fields: Omit<BoundaryTrace, 'elapsedMs'>) => {
@@ -83,7 +94,7 @@ export async function runStorefrontPdpSemanticRpc<T>(
     // Some fetch implementations resolve an aborted PostgREST request well
     // after the signal fires. Race the response as well as aborting the
     // transport so the optional PDP work cannot extend the route deadline.
-    response = await Promise.race([boundedQuery, deadline.promise]);
+    response = await Promise.race([singleAttemptQuery, deadline.promise]);
   } catch (error) {
     trace({
       errorCode: readStringField(error, 'code'),

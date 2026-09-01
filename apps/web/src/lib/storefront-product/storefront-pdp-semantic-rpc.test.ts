@@ -9,6 +9,10 @@ type AbortableQueryMock<T> = PromiseLike<T> & {
   abortSignal: (signal: AbortSignal) => PromiseLike<T>;
 };
 
+type RetryableQueryMock<T> = PromiseLike<T> & {
+  retry: (shouldRetry: boolean) => PromiseLike<T>;
+};
+
 function createAbortableQuery<T>(
   response: T,
   abortSignal: AbortableQueryMock<T>['abortSignal']
@@ -22,6 +26,13 @@ function createPendingAbortableQuery<T>(
 ): AbortableQueryMock<T> {
   const promise = new Promise<T>(() => undefined);
   return Object.assign(promise, { abortSignal });
+}
+
+function createPendingRetryableQuery<T>(
+  retry: RetryableQueryMock<T>['retry']
+): RetryableQueryMock<T> {
+  const promise = new Promise<T>(() => undefined);
+  return Object.assign(promise, { retry });
 }
 
 describe('runStorefrontPdpSemanticRpc', () => {
@@ -128,5 +139,33 @@ describe('runStorefrontPdpSemanticRpc', () => {
         timeoutSignalAborted: true,
       })
     );
+  });
+
+  it('disables PostgREST retries for a native TimeoutError deadline', async () => {
+    const timeoutController = new AbortController();
+    const timeoutError = new DOMException(
+      'The operation timed out',
+      'TimeoutError'
+    );
+    timeoutController.abort(timeoutError);
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal);
+
+    const retry = vi.fn<(shouldRetry: boolean) => PromiseLike<void>>(() =>
+      Promise.reject(timeoutError)
+    );
+    const abortSignal = vi.fn<(signal: AbortSignal) => PromiseLike<void>>(() =>
+      createPendingRetryableQuery<void>(retry)
+    );
+    const query = createPendingAbortableQuery<void>(abortSignal);
+
+    await expect(
+      runStorefrontPdpSemanticRpc(query, {
+        deadlineMs: 5_000,
+        traceThresholdMs: 4_000,
+      })
+    ).rejects.toBe(timeoutError);
+
+    expect(retry).toHaveBeenCalledOnce();
+    expect(retry).toHaveBeenCalledWith(false);
   });
 });
