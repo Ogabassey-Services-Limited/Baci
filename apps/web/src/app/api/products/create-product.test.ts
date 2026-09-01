@@ -80,7 +80,10 @@ vi.mock('@/schemas/products', () => ({
 
 import { createProduct } from './create-product';
 
-function setupAuthenticatedProduct(invoke: ReturnType<typeof vi.fn>) {
+function setupAuthenticatedProduct(
+  invoke: ReturnType<typeof vi.fn>,
+  status?: 'active' | 'draft'
+) {
   const merchantQuery = {
     eq: vi.fn(),
     select: vi.fn(),
@@ -133,7 +136,11 @@ function setupAuthenticatedProduct(invoke: ReturnType<typeof vi.fn>) {
   mocks.getProductEmbeddingText.mockReturnValue('embedding text');
 
   return new NextRequest('http://localhost:3000/api/products', {
-    body: JSON.stringify({ name: 'Test product', price: 1000 }),
+    body: JSON.stringify({
+      name: 'Test product',
+      price: 1000,
+      ...(status ? { status } : {}),
+    }),
     method: 'POST',
   });
 }
@@ -201,6 +208,39 @@ describe('createProduct', () => {
       body: { id: 'product-1', text: 'embedding text', type: 'product' },
       signal: expect.any(AbortSignal),
     });
+  });
+
+  it('queues a blog purge for an active product after creation', async () => {
+    const response = await createProduct(
+      setupAuthenticatedProduct(
+        vi.fn().mockResolvedValue({ error: null }),
+        'active'
+      )
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.scheduleNewProductBlogPurgeAfterResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: undefined,
+        merchantId: 'merchant-1',
+        merchantSlug: 'test-store',
+        name: 'Test product',
+        productId: 'product-1',
+        slug: 'test-product',
+        status: 'active',
+      })
+    );
+  });
+
+  it('does not queue a blog purge for the default draft status', async () => {
+    const response = await createProduct(
+      setupAuthenticatedProduct(vi.fn().mockResolvedValue({ error: null }))
+    );
+
+    expect(response.status).toBe(201);
+    expect(
+      mocks.scheduleNewProductBlogPurgeAfterResponse
+    ).not.toHaveBeenCalled();
   });
 
   it.each([

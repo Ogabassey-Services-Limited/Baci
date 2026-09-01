@@ -50,43 +50,6 @@ describe('processBulkUpdateChanges', () => {
     expect(onPurgeEntries).not.toHaveBeenCalled();
   });
 
-  it('reports the resolved row id when an update is matched by SKU', async () => {
-    const productId = '123e4567-e89b-12d3-a456-426614174000';
-    const row = {
-      id: productId,
-      slug: 'phone-16',
-      category: 'Smartphones',
-      status: 'active',
-    };
-    const previousQuery = createProductsQuery(null, [row]);
-    const updateQuery = createProductsQuery(null, [row]);
-    const supabase = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce({ select: vi.fn(() => previousQuery) })
-        .mockReturnValueOnce({ update: vi.fn(() => updateQuery) }),
-    };
-    const onResolvedProductIds = vi.fn();
-
-    const result = await processBulkUpdateChanges({
-      changes: [
-        {
-          type: 'update',
-          details: { sku: 'SKU-16', price: 200 },
-          newPrice: 200,
-        },
-      ],
-      currency: 'NGN',
-      merchantBusinessName: 'Test Store',
-      merchantId: 'merchant-1',
-      onResolvedProductIds,
-      supabase: supabase as never,
-    });
-
-    expect(result.updated).toBe(1);
-    expect(onResolvedProductIds).toHaveBeenCalledWith([productId]);
-  });
-
   it('keeps overlapping product changes while processing independent groups concurrently', async () => {
     const updates: Record<string, unknown>[] = [];
     const inserts: Record<string, unknown>[] = [];

@@ -38,4 +38,32 @@ describe('hydrateRelatedBlogProductSerializedInventory', () => {
     expect(result[0]?.has_purchasable_variant).toBe(true);
     expect(mockHydrate).toHaveBeenCalledWith({}, 'merchant-1', products);
   });
+
+  it('marks a serialized variant rail unavailable when canonical units are zero', async () => {
+    const products = [
+      {
+        id: 'product-2',
+        name: 'iPad 10',
+        slug: 'ipad-10',
+        category_slug: 'tablets',
+        has_variants: true,
+        variants: [
+          {
+            id: 'variant-2',
+            inventory_tracking_policy: 'serialized_strict',
+            stock_quantity: 0,
+          },
+        ],
+      },
+    ];
+    mockHydrate.mockResolvedValueOnce(products);
+
+    const result = await hydrateRelatedBlogProductSerializedInventory(
+      {} as never,
+      'merchant-1',
+      products
+    );
+
+    expect(result[0]?.has_purchasable_variant).toBe(false);
+  });
 });

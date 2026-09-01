@@ -278,16 +278,18 @@ export async function createProduct(request: NextRequest) {
       category: body.category,
       images: resolvedImages,
     });
-    scheduleNewProductBlogPurgeAfterResponse({
-      category: body.category,
-      merchantId,
-      merchantSlug: merchantContext.merchantSlug,
-      name: body.name,
-      productId: product.id,
-      slug,
-      status: body.status,
-      supabase,
-    });
+    if (body.status === 'active') {
+      scheduleNewProductBlogPurgeAfterResponse({
+        category: body.category,
+        merchantId,
+        merchantSlug: merchantContext.merchantSlug,
+        name: body.name,
+        productId: product.id,
+        slug,
+        status: body.status,
+        supabase,
+      });
+    }
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error in POST /api/products:', error);
