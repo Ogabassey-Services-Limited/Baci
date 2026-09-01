@@ -24,4 +24,10 @@ describe('priceGiglQuote', () => {
       'GIGL provider cost must be finite'
     );
   });
+
+  it('rejects tariffs whose kobo arithmetic would overflow safely', () => {
+    expect(() => priceGiglQuote(Number.MAX_SAFE_INTEGER)).toThrow(
+      'GIGL provider cost is too large'
+    );
+  });
 });

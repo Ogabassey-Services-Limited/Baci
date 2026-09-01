@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
     // Store carrier quotes for later booking. Merchant-rate quotes are NEVER
     // persisted: shipping_quotes' provider CHECK constraint rejects 'MERCHANT'
     // and the order route recomputes merchant fees from rate config instead.
-    await Promise.all(
+    const persistenceResults = await Promise.all(
       response.quotes.all
         .filter((quote) => quote.provider !== MERCHANT_PROVIDER_CODE)
         .map((quote) =>
@@ -310,6 +310,19 @@ export async function POST(request: NextRequest) {
           )
         )
     );
+    const persistenceFailure = persistenceResults.find(
+      (result) => result.error
+    );
+    if (persistenceFailure?.error) {
+      console.error('Error persisting shipping quote', {
+        code: persistenceFailure.error.code,
+        message: persistenceFailure.error.message,
+      });
+      return NextResponse.json(
+        { error: 'Failed to get shipping quotes' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(toPublicQuoteResponse(response));
   } catch (error) {

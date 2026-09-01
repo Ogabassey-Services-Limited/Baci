@@ -45,3 +45,11 @@ None material. The existing route's approved admin-client boundary and merchant/
 - The migration is append-only and un-applied remotely by design; deployment must apply it through the normal migration pipeline.
 - Full monorepo tests were not run in this task because the baseline ledger records the suite as prohibitively long; focused route/provider/refresh/migration coverage passed.
 - Existing unrelated mobile-storefront lint warnings remain outside this task's files.
+
+## Fix Round 1
+
+- Fixed international GIGL pricing to use the shared `priceGiglQuote` projection and expose the same internal snapshot for persistence.
+- Quote upsert results are now inspected; any persistence error is logged with safe error metadata and returns the existing controlled 500 response before quote exposure.
+- Added regression coverage for international economics, upsert failure, and safe arithmetic overflow handling.
+- Round 1 verification passed: 9 focused test files / 21 tests, web lint, web typecheck, and `git diff --check`.
+- Fix commit: `fix: complete GIGL quote economics`.

@@ -21,10 +21,16 @@ export function priceGiglQuote(providerCost: number): GiglPricingSnapshot {
   if (providerCostKobo <= 0) {
     throw new Error('GIGL provider cost must be positive');
   }
+  if (!Number.isSafeInteger(providerCostKobo)) {
+    throw new Error('GIGL provider cost is too large');
+  }
   const chargedTotalKobo = Math.ceil(
     (providerCostKobo * (10_000 + GIGL_PLATFORM_MARGIN_BPS)) / 10_000
   );
   const marginKobo = chargedTotalKobo - providerCostKobo;
+  if (!Number.isSafeInteger(chargedTotalKobo)) {
+    throw new Error('GIGL provider cost is too large');
+  }
   return {
     providerCost: providerCostKobo / 100,
     platformMargin: marginKobo / 100,
