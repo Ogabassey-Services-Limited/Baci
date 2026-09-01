@@ -86,7 +86,7 @@ A merchant shipping charge record owns the state machine for a manual order:
 
 ```text
 quoted -> reserved -> provider_submitting -> booked
-                              |                
+                              |
                               +-> refunded            (definitive rejection)
                               +-> needs_reconciliation (ambiguous outcome)
 ```
