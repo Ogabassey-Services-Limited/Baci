@@ -375,12 +375,12 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260831160000_preserve_jumia_rotation_during_shop_persistence.sql',
-    sha256: '3145585b6010eca986e80b10e1a3836f38ef56c1e80553d678f9f10eb3e82a9a',
+    sha256: 'a21211f8b0231e5eb38bb16d82f45ab09d14515408cf6d6d0f930f974388e72c',
   },
   {
     repositoryPath:
       'supabase/migrations/20260831160100_release_jumia_authorization_refresh_lease.sql',
-    sha256: '24e445f3836d390f19b908a1f5ef2b189a9539d018f94eff6114631702867122',
+    sha256: '5bfe665193f30e2529c3fef9f7ec147df5c89b6ac112c24f9178d732968bc3a5',
   },
 ]
   .sort((left, right) =>

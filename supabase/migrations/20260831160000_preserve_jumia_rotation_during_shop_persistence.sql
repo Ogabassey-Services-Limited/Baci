@@ -97,20 +97,20 @@ BEGIN
   -- Lock the shared grant before comparing its version. This prevents a
   -- worker rotation from interleaving between the comparison and persistence.
   SELECT
-    authorization.id,
-    authorization.credential_ciphertext,
-    authorization.token_expires_at,
-    authorization.refresh_token_expires_at,
-    authorization.rotation_version
+    auth_row.id,
+    auth_row.credential_ciphertext,
+    auth_row.token_expires_at,
+    auth_row.refresh_token_expires_at,
+    auth_row.rotation_version
   INTO
     v_existing_authorization_id,
     v_current_credential_ciphertext,
     v_current_token_expires_at,
     v_current_refresh_token_expires_at,
     v_current_rotation_version
-  FROM public.jumia_authorizations AS authorization
-  WHERE authorization.merchant_id = p_merchant_id
-    AND authorization.client_key_hash = p_client_key_hash
+  FROM public.jumia_authorizations AS auth_row
+  WHERE auth_row.merchant_id = p_merchant_id
+    AND auth_row.client_key_hash = p_client_key_hash
   FOR UPDATE;
 
   SELECT

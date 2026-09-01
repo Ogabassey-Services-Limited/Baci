@@ -49,13 +49,13 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  UPDATE public.jumia_authorizations AS authorization
+  UPDATE public.jumia_authorizations AS auth_row
   SET refresh_lease_token = NULL,
       refresh_lease_expires_at = NULL,
       updated_at = now()
-  WHERE authorization.id = p_authorization_id
-    AND authorization.merchant_id = p_merchant_id
-    AND authorization.refresh_lease_token = p_refresh_lease_token;
+  WHERE auth_row.id = p_authorization_id
+    AND auth_row.merchant_id = p_merchant_id
+    AND auth_row.refresh_lease_token = p_refresh_lease_token;
 
   GET DIAGNOSTICS v_rows = ROW_COUNT;
   RETURN v_rows = 1;
