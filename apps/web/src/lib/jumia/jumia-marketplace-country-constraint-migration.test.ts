@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 const migrationPath =
-  '../../../../../supabase/migrations/20260831120000_align_jumia_marketplace_country_constraint.sql';
+  '../../../../../supabase/migrations/20260831125000_align_jumia_marketplace_country_constraint.sql';
 
 describe('Jumia marketplace country constraint migration', () => {
   it('scopes the replacement constraint before the follow-up migration runs', async () => {
