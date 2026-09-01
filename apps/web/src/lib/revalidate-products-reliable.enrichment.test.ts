@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockRevalidateProducts = vi.fn();
 const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
+const mockScheduleStorefrontHostnamePurge = vi.fn();
 const mockEnrichProductPurgeEntries = vi.fn();
 const mockExpireProductBlogCache = vi.fn();
 
@@ -14,6 +15,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/storefront-product-purge-hostnames', () => ({
+  scheduleStorefrontHostnamePurge: (...args: unknown[]) =>
+    mockScheduleStorefrontHostnamePurge(...args),
 }));
 vi.mock('@/lib/expire-product-blog-cache', () => ({
   expireProductBlogCache: (...args: unknown[]) =>
@@ -86,6 +91,28 @@ describe('revalidateProductsReliable enrichment path', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+  });
+
+  it('skips product and article enrichment for hostname-wide purges', async () => {
+    const supabase = { from: vi.fn() };
+    const products = [{ id: 'product-id', slug: 'iphone-15' }];
+
+    await revalidateProductsReliable('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products,
+      supabase: supabase as never,
+      purgeWholeStorefront: true,
+    });
+
+    expect(mockEnrichProductPurgeEntries).not.toHaveBeenCalled();
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'iphone-15',
+      'product-id',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    expect(mockScheduleStorefrontHostnamePurge).toHaveBeenCalledWith(
+      'ogabassey'
     );
   });
 });

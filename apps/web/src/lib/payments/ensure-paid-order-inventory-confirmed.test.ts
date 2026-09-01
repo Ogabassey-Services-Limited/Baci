@@ -6,8 +6,13 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 
 const mockRevalidateProducts = vi.fn();
+const mockScheduleOrderBlogPurgeForOrderAfterResponse = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+}));
+vi.mock('@/lib/schedule-order-blog-purge-for-order-after-response', () => ({
+  scheduleOrderBlogPurgeForOrderAfterResponse: (...args: unknown[]) =>
+    mockScheduleOrderBlogPurgeForOrderAfterResponse(...args),
 }));
 
 interface MockSupabaseRpcClient {
@@ -60,6 +65,7 @@ function createRollbackMissingRowBuilder() {
 describe('ensurePaidOrderInventoryConfirmed', () => {
   beforeEach(() => {
     mockRevalidateProducts.mockReset();
+    mockScheduleOrderBlogPurgeForOrderAfterResponse.mockReset();
   });
 
   it('succeeds without throwing when RPC returns no exception codes', async () => {
@@ -183,6 +189,13 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(
       'merchant-123'
     );
+    expect(
+      mockScheduleOrderBlogPurgeForOrderAfterResponse
+    ).toHaveBeenCalledExactlyOnceWith({
+      supabase: mockSupabase,
+      merchantId: 'merchant-123',
+      orderId: 'order-123',
+    });
   });
 
   it('revalidates product caches AND still rejects when a re-claim is followed by an exception on a different item', async () => {

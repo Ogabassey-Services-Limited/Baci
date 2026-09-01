@@ -254,6 +254,7 @@ describe('POST /api/products/bulk-publish', () => {
       productIds: ['product-1'],
       entries: [{ slug: 'baci-phone', categorySegment: 'phones' }],
       categorySlugs: ['phones'],
+      skipProductPurge: true,
     });
     expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]

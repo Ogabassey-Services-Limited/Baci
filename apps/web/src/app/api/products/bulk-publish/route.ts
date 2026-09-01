@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
           categorySlugs: publicPurgeEntries.map(
             (entry) => entry.categorySegment
           ),
+          skipProductPurge: true,
         });
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk publish', {

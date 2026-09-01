@@ -66,6 +66,30 @@ describe('scheduleProductBlogPurge', () => {
     });
   });
 
+  it('merges a pre-delete snapshot with post-delete category fallback posts', async () => {
+    mockLookup.mockResolvedValue(['category-guide']);
+
+    await scheduleProductBlogPurge({
+      supabase,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      blogPostSlugs: ['direct-guide'],
+      categorySlugs: ['smartphones'],
+    });
+
+    expect(mockLookup).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      [],
+      ['smartphones']
+    );
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
+      blogPostSlugs: ['direct-guide', 'category-guide'],
+    });
+  });
+
   it('is a no-op when the public merchant slug or entries are missing', async () => {
     await scheduleProductBlogPurge({
       supabase,
@@ -101,6 +125,57 @@ describe('scheduleProductBlogPurge', () => {
     expect(mockSchedule).not.toHaveBeenCalled();
   });
 
+  it('schedules only blog URLs when the core product purge already ran', async () => {
+    mockLookup.mockResolvedValue(['pixel-guide']);
+
+    await scheduleProductBlogPurge({
+      supabase,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      skipProductPurge: true,
+    });
+
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
+      blogPostSlugs: ['pixel-guide'],
+      blogPostsOnly: true,
+    });
+  });
+
+  it('does not restore a core purge when deferred-only lookup fails', async () => {
+    mockLookup.mockRejectedValue(new Error('temporary read failure'));
+
+    await scheduleProductBlogPurge({
+      supabase,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      skipProductPurge: true,
+    });
+
+    expect(mockSchedule).not.toHaveBeenCalled();
+  });
+
+  it('retains pre-delete blog slugs when category fallback lookup fails', async () => {
+    mockLookup.mockRejectedValue(new Error('temporary read failure'));
+
+    await scheduleProductBlogPurge({
+      supabase,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      blogPostSlugs: ['direct-guide'],
+      categorySlugs: ['smartphones'],
+    });
+
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
+      blogPostSlugs: ['direct-guide'],
+    });
+  });
+
   it('swallows lookup failures so product mutations remain successful', async () => {
     mockLookup.mockRejectedValue(new Error('temporary read failure'));
 
@@ -114,6 +189,6 @@ describe('scheduleProductBlogPurge', () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(mockSchedule).not.toHaveBeenCalled();
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries);
   });
 });

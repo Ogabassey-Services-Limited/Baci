@@ -247,6 +247,7 @@ export async function POST(request: NextRequest) {
             (entry) => entry.categorySegment
           ),
           skipWhenNoLinkedPosts: true,
+          skipProductPurge: true,
         });
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk import', {

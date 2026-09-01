@@ -94,6 +94,23 @@ describe('scheduleStorefrontProductPurge', () => {
     );
   });
 
+  it('can purge only linked blog documents after the product URLs were evicted', () => {
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { blogPostSlugs: ['iphone-guide'], blogPostsOnly: true }
+    );
+
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
+      'https://ogabassey.com/blog',
+      'https://ogabassey.com/blog/iphone-guide',
+      'https://ogabassey.com/blog/iphone-guide/opengraph-image',
+      'https://www.ogabassey.com/blog',
+      'https://www.ogabassey.com/blog/iphone-guide',
+      'https://www.ogabassey.com/blog/iphone-guide/opengraph-image',
+    ]);
+  });
+
   it('purges URLs instead of hostnames at the exact 50-entry threshold', () => {
     const entries = Array.from({ length: 50 }, (_, index) => ({
       slug: `product-${index}`,
@@ -107,25 +124,21 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
   });
 
-  it('uses a hostname purge when related article URLs exceed the bounded target count', () => {
-    vi.mocked(buildStorefrontProductPurgeUrls).mockReturnValueOnce(
-      Array.from(
-        { length: 301 },
-        (_, index) => `https://ogabassey.com/${index}`
-      )
+  it('keeps large article-only purges scoped to the generated blog URLs', () => {
+    const blogPostSlugs = Array.from(
+      { length: 100 },
+      (_, index) => `guide-${index}`
     );
 
     scheduleStorefrontProductPurge(
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
-      { blogPostSlugs: ['large-guide-set'] }
+      { blogPostSlugs, blogPostsOnly: true }
     );
 
-    expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
-    expect(mockPurgeCloudflareHostnamesConfirmed).toHaveBeenCalledWith([
-      'ogabassey.com',
-      'www.ogabassey.com',
-    ]);
+    const [purgedUrls] = mockPurgeCloudflareUrls.mock.calls[0] ?? [];
+    expect(purgedUrls).toHaveLength(402);
+    expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
   });
 
   it('keeps URL purges at the exact bounded target count', () => {

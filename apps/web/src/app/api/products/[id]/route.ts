@@ -42,6 +42,7 @@ import {
   generateProductSlug,
   generateSlug,
 } from '@/lib/seo-utils';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
@@ -953,6 +954,12 @@ export async function PUT(
         merchantId,
         productPurgeEntries.map((entry) => entry.slug)
       );
+      // Evict the core PDP/listing URLs before waiting on any paginated blog
+      // relationship reads. Article enrichment is deliberately deferred below.
+      scheduleStorefrontProductPurge(
+        merchantContext.merchantSlug,
+        productPurgeEntries
+      );
       scheduleProductBlogPurgeAfterResponse({
         supabase,
         merchantId,
@@ -962,6 +969,7 @@ export async function PUT(
         categorySlugs: productPurgeEntries.map(
           (entry) => entry.categorySegment
         ),
+        skipProductPurge: true,
       });
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after update', {
@@ -1048,23 +1056,7 @@ export async function DELETE(
       supabase,
       merchantId,
       [id],
-      productToDelete
-        ? [
-            resolveProductPurgeCategorySegmentForRow({
-              ...(productToDelete as {
-                id?: string | null;
-                slug?: string | null;
-                name?: string | null;
-                category?: string | null;
-                categories?: unknown;
-                product_categories?: unknown;
-              }),
-              // The route parameter is still authoritative if a legacy
-              // projection omits the primary key from the pre-read row.
-              id,
-            }),
-          ].filter((segment): segment is string => Boolean(segment))
-        : []
+      []
     );
 
     // Keep the delete itself lean — the purge inputs were pre-read above.
@@ -1119,6 +1111,10 @@ export async function DELETE(
             }),
           },
         ];
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          purgeEntries
+        );
         scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
@@ -1126,6 +1122,8 @@ export async function DELETE(
           productIds: [id],
           entries: purgeEntries,
           blogPostSlugs: linkedBlogPostSlugs,
+          categorySlugs: [purgeEntries[0]?.categorySegment],
+          skipProductPurge: true,
         });
       } else {
         // The pre-read errored or came back null, yet the delete above
@@ -1140,6 +1138,9 @@ export async function DELETE(
           { id, preReadError }
         );
         revalidateProductSlugs(merchantId, [id]);
+        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+          { slug: id, categorySegment: null },
+        ]);
         scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
@@ -1147,6 +1148,7 @@ export async function DELETE(
           productIds: [id],
           entries: [{ slug: id, categorySegment: null }],
           blogPostSlugs: linkedBlogPostSlugs,
+          skipProductPurge: true,
         });
       }
     } catch (purgeError) {

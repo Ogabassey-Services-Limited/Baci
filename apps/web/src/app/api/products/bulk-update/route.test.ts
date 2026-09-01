@@ -448,6 +448,7 @@ describe('POST /api/products/bulk-update', () => {
       productIds: [],
       entries: [{ slug: 'updated-product', categorySegment: 'electronics' }],
       categorySlugs: ['electronics'],
+      skipProductPurge: true,
     });
   });
 

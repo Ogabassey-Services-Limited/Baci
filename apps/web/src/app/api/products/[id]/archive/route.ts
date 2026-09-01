@@ -158,6 +158,7 @@ export async function PATCH(
       productIds: [product.id],
       entries: purgeEntries,
       categorySlugs: [purgeEntries[0]?.categorySegment],
+      skipProductPurge: true,
     });
   } catch (purgeError) {
     console.warn('Skipped Cloudflare product purge after archive', {

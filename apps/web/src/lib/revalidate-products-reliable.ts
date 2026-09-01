@@ -76,7 +76,7 @@ export async function revalidateProductsReliable(
       let purgeEntries = buildInternalProductPurgeEntries(products);
       let blogPostSlugs: string[] = [];
 
-      if (supabase) {
+      if (supabase && !purgeWholeStorefront) {
         try {
           const enriched = await enrichProductPurgeEntries(
             supabase,
