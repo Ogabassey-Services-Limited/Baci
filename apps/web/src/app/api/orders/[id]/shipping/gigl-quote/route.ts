@@ -6,6 +6,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { ShippingService } from '@/lib/shipping';
 import { buildOrderGiglQuoteRequest } from '@/lib/shipping/build-order-gigl-quote-request';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
@@ -28,6 +29,12 @@ export async function POST(request: NextRequest, context: Params) {
   const auth = await authenticateApiRequest(request);
   if (!auth.user || !auth.supabase)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid)
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
   const access = await getUserAccess(auth.supabase);
   if (
     !access?.isOwner ||
@@ -124,49 +131,30 @@ export async function POST(request: NextRequest, context: Params) {
       { status: 503 }
     );
   const quote = [...eligible].sort((a, b) => a.price - b.price)[0];
-  const { error: upsertError } = await auth.supabase
-    .from('shipping_quotes')
-    .upsert(
-      toShippingQuoteUpsert(quote, {
+  const { data: binding, error: bindError } = await auth.supabase.rpc(
+    'bind_admin_gigl_quote',
+    {
+      p_order_id: id,
+      p_merchant_id: access.merchantId,
+      p_quote: toShippingQuoteUpsert(quote, {
         merchantId: access.merchantId,
         sessionId: id,
         quoteRequest: built.request,
-      })
-    );
-  if (upsertError)
-    return NextResponse.json(
-      { error: 'Failed to persist quote' },
-      { status: 500 }
-    );
-  const { error: updateError } = await auth.supabase
-    .from('orders')
-    .update({
-      selected_quote_id: quote.id,
-      shipping_provider: 'GIGL',
-      shipping_address: built.request.receiver,
-      shipping_funding_source: 'merchant_wallet',
-    })
-    .eq('id', id)
-    .eq('merchant_id', access.merchantId)
-    .is('shipment_id', null);
-  if (updateError)
-    return NextResponse.json(
-      { error: 'Failed to bind quote' },
-      { status: 500 }
-    );
-  const { data: wallet, error: walletError } = await auth.supabase.rpc(
-    'get_wallet_summary',
-    { p_merchant_id: access.merchantId }
+      }),
+      p_receiver: built.request.receiver,
+    }
   );
-  if (walletError)
+  if (bindError)
     return NextResponse.json(
-      { error: 'Failed to load wallet' },
-      { status: 500 }
+      {
+        error: bindError.message.includes('already')
+          ? 'Order already shipped or booked'
+          : 'Failed to bind quote',
+      },
+      { status: bindError.message.includes('already') ? 409 : 500 }
     );
-  const availableBalance = Math.max(
-    0,
-    Number((Array.isArray(wallet) ? wallet[0] : wallet)?.available_balance ?? 0)
-  );
+  const result = Array.isArray(binding) ? binding[0] : binding;
+  const availableBalance = Math.max(0, Number(result?.available_balance ?? 0));
   const shortfall = Math.max(0, quote.price - availableBalance);
   return NextResponse.json({
     quote: publicQuote(quote),

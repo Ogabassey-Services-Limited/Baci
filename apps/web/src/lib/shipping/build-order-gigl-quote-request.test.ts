@@ -55,6 +55,26 @@ describe('buildOrderGiglQuoteRequest', () => {
       expect.objectContaining({ name: 'iPhone 15', quantity: 1, weight: 1 }),
     ]);
   });
+  it('falls back for unsupported units and rejects invalid quantities', async () => {
+    const unsupported = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        order_items: [
+          { ...base.order_items[0], weight_value: 2, weight_unit: 'lb' },
+        ],
+      },
+      sender
+    );
+    expect(unsupported.ok && unsupported.request.items[0].weight).toBe(1);
+    const invalid = await buildOrderGiglQuoteRequest(
+      { ...base, order_items: [{ ...base.order_items[0], quantity: 1.5 }] },
+      sender
+    );
+    expect(invalid).toMatchObject({
+      ok: false,
+      code: 'ORDER_SHIPPING_ITEM_INVALID',
+    });
+  });
   it('reports exact missing receiver fields and rejects empty items', async () => {
     const missing = await buildOrderGiglQuoteRequest(
       { ...base, shipping_address: {} },

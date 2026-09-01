@@ -26,7 +26,10 @@ export type OrderGiglQuoteBuildResult =
   | { ok: true; request: QuoteRequest }
   | {
       ok: false;
-      code: 'ORDER_SHIPPING_ADDRESS_INCOMPLETE' | 'ORDER_SHIPPING_ITEMS_EMPTY';
+      code:
+        | 'ORDER_SHIPPING_ADDRESS_INCOMPLETE'
+        | 'ORDER_SHIPPING_ITEMS_EMPTY'
+        | 'ORDER_SHIPPING_ITEM_INVALID';
       missing?: string[];
       status: number;
     };
@@ -35,14 +38,8 @@ function weightKg(value: unknown, unit: unknown): number | null {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   const u = String(unit ?? 'kg').toLowerCase();
-  const factor =
-    u === 'g' || u === 'gram' || u === 'grams'
-      ? 0.001
-      : u === 'lb' || u === 'lbs'
-        ? 0.453592
-        : u === 'oz' || u === 'ounces'
-          ? 0.0283495
-          : 1;
+  if (u !== 'kg' && u !== 'g') return null;
+  const factor = u === 'g' ? 0.001 : 1;
   return n * factor;
 }
 
@@ -88,19 +85,27 @@ export async function buildOrderGiglQuoteRequest(
     item.product_id ? [item.product_id] : []
   );
   const products = await lookupProducts(ids);
-  const items: ShipmentItem[] = rows.map((item) => {
+  const items: ShipmentItem[] = [];
+  for (const item of rows) {
+    const quantity = Number(item.quantity ?? 1);
+    if (
+      !Number.isInteger(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(quantity)
+    )
+      return { ok: false, code: 'ORDER_SHIPPING_ITEM_INVALID', status: 400 };
     const product = item.product_id ? products[item.product_id] : undefined;
     const weight =
       weightKg(item.weight_value, item.weight_unit) ??
       weightKg(product?.weight_value, product?.weight_unit) ??
       1;
-    return {
+    items.push({
       name: String(item.name ?? 'Item'),
-      quantity: Math.max(1, Number(item.quantity ?? 1)),
+      quantity,
       weight,
       value: Number(item.price ?? 0),
-    };
-  });
+    });
+  }
   return {
     ok: true,
     request: {
