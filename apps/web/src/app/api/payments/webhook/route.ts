@@ -40,6 +40,7 @@ import { isGo54Configured, registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
+import { confirmPaystackMerchantWalletDva } from '@/lib/payments/confirm-paystack-merchant-wallet-dva';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { isMerchantInvoicePartialBalanceReview } from '@/lib/payments/is-merchant-invoice-partial-balance-review';
@@ -803,6 +804,28 @@ export async function POST(request: NextRequest) {
       // so the webhook's normal flow flips it to completed and runs
       // side effects via the A1 outbox. Ambiguous matches file a
       // `reconciliation_review` row and return 409.
+      if (!resolvedAgenticTransaction) {
+        const merchantWalletDva = await confirmPaystackMerchantWalletDva({
+          supabase,
+          accountNumber: receiverAccountNumber,
+          gatewayReference: reference,
+          verifiedAmount,
+          paystackResponse: gatewayResponse,
+        });
+        if (merchantWalletDva.kind === 'review') {
+          return NextResponse.json(merchantWalletDva.body, {
+            status: merchantWalletDva.status,
+          });
+        }
+        if (merchantWalletDva.kind === 'match') {
+          return NextResponse.json({
+            success: true,
+            balance: merchantWalletDva.balance,
+            firstCredit: merchantWalletDva.firstCredit,
+          });
+        }
+      }
+
       if (!resolvedAgenticTransaction) {
         const orderAccountResult = await confirmPaystackDvaByOrderAccount({
           supabase,
