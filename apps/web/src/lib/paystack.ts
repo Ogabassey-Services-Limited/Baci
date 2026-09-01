@@ -842,8 +842,7 @@ export async function createDedicatedAccount(
     logger.info({
       message: 'DVA created successfully',
       customerCode,
-      accountNumber: result.data.account_number,
-      bank: result.data.bank.name,
+      outcome: 'account_assigned',
     });
   }
 

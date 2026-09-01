@@ -88,13 +88,27 @@ export async function requestMerchantWalletAccount(
       source: 'merchant_wallet_funding',
     },
   });
+  if (!customer.success) {
+    await supabase.rpc('fail_merchant_wallet_funding_request', {
+      p_request_id: request.id,
+      p_merchant_id: merchant.id,
+    });
+    throw new Error('Paystack customer provisioning failed');
+  }
   if (customer.success) {
     // Provider account data is intentionally not persisted by this user-facing path.
-    await createDedicatedAccount(customer.data.customer_code, {
+    const dva = await createDedicatedAccount(customer.data.customer_code, {
       firstName: merchant.firstName,
       lastName: merchant.lastName,
       phone: merchant.phone,
     });
+    if (!dva.success) {
+      await supabase.rpc('fail_merchant_wallet_funding_request', {
+        p_request_id: request.id,
+        p_merchant_id: merchant.id,
+      });
+      throw new Error('Paystack DVA provisioning failed');
+    }
   }
   return { status: 'pending' as const, account: null, requestId: request.id };
 }

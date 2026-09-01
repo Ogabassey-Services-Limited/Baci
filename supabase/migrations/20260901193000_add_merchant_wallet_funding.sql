@@ -34,9 +34,18 @@ RETURNS public.merchant_wallet_payment_accounts LANGUAGE plpgsql SECURITY DEFINE
 END; $$;
 REVOKE ALL ON FUNCTION public.persist_merchant_wallet_payment_account(uuid,uuid,text,text,text,text,text,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.persist_merchant_wallet_payment_account(uuid,uuid,text,text,text,text,text,text) TO service_role;
+CREATE OR REPLACE FUNCTION public.fail_merchant_wallet_funding_request(p_request_id uuid,p_merchant_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ BEGIN
+  IF (SELECT auth.uid()) IS NULL OR NOT EXISTS (SELECT 1 FROM public.merchants WHERE id=p_merchant_id AND user_id=(SELECT auth.uid())) THEN RAISE EXCEPTION 'merchant_owner_required' USING ERRCODE='42501'; END IF;
+  UPDATE public.merchant_wallet_funding_account_requests SET status='failed' WHERE id=p_request_id AND merchant_id=p_merchant_id AND status='pending';
+END; $$;
+REVOKE ALL ON FUNCTION public.fail_merchant_wallet_funding_request(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fail_merchant_wallet_funding_request(uuid,uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.credit_merchant_wallet_funding(p_merchant_id uuid,p_amount numeric,p_currency text,p_reference text,p_account_number text)
 RETURNS TABLE(new_balance numeric, first_credit boolean) LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_balance numeric; v_source_id uuid; BEGIN
+  IF coalesce((SELECT auth.role()), '') <> 'service_role' THEN RAISE EXCEPTION 'service_role_required' USING ERRCODE='42501'; END IF;
   IF p_currency <> 'NGN' OR p_amount <= 0 THEN RAISE EXCEPTION 'invalid_funding_amount' USING ERRCODE='22023'; END IF;
+  IF (SELECT count(*) FROM public.merchant_wallet_payment_accounts WHERE merchant_id=p_merchant_id AND account_number=p_account_number AND currency='NGN' AND status='active') <> 1 THEN RAISE EXCEPTION 'merchant_wallet_account_mismatch' USING ERRCODE='P0001'; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('merchant-wallet-funding:'||p_reference,0));
   v_source_id := (substr(md5(p_merchant_id::text||':'||p_reference),1,8)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),9,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),13,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),17,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),21,12))::uuid;
   IF EXISTS (SELECT 1 FROM public.wallet_transactions WHERE source_type='merchant_wallet_topup' AND source_id=v_source_id) THEN

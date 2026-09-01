@@ -39,6 +39,7 @@ import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { isGo54Configured, registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { persistMerchantWalletAssignmentEvent } from '@/lib/merchant-wallet-payment-accounts';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackMerchantWalletDva } from '@/lib/payments/confirm-paystack-merchant-wallet-dva';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
@@ -638,6 +639,29 @@ export async function POST(request: NextRequest) {
       gateway,
       event: body.event,
     });
+
+    if (
+      gateway === 'paystack' &&
+      body.event === 'dedicatedaccount.assign.success'
+    ) {
+      const assignment = await persistMerchantWalletAssignmentEvent(
+        createServiceClient(),
+        body as unknown as Record<string, unknown>
+      );
+      if (assignment.kind === 'match') {
+        return NextResponse.json({
+          success: true,
+          handled: 'merchant_wallet_assignment',
+        });
+      }
+      return NextResponse.json(
+        {
+          error: 'Paystack assignment accepted for review',
+          code: 'MERCHANT_WALLET_ASSIGNMENT_REVIEW',
+        },
+        { status: 409 }
+      );
+    }
 
     // Extract reference and check event type based on gateway
     let reference: string;

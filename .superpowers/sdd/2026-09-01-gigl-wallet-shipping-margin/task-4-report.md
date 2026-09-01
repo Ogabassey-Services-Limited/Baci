@@ -19,6 +19,12 @@ The migration adds owner-readable funding requests and provider-account tables, 
 
 The verified Paystack charge path preserves existing order-DVA handling, then invokes merchant-wallet receiver matching, then customer-wallet fallback. Matching requires one active account, NGN, positive amount, and rejects order-alias conflicts or multiple candidates for review. Credits use a deterministic reference-derived ledger UUID, increment only `available_balance`, leave `total_earned` unchanged, and return idempotent balance results.
 
+## Fix Round 1
+
+Fix Round 1 wires `dedicatedaccount.assign.success` in the signature-verified webhook before charge processing, validates source/request/merchant and active NGN account shape, persists only through the service RPC, and returns review for malformed or non-unique matches. Provider customer/DVA failures now transition the owner-checked pending request to failed, allowing a later consented retry. Paystack DVA success logging no longer emits account or bank fields. The funding RPC now asserts service role and exactly one active NGN merchant/account mapping before its reference-idempotent credit.
+
+Behavioral focused tests and contract tests: 7 files, 11 passing (plus the existing webhook suite is scheduled in the final gate).
+
 ## Deviations and risks
 
-Assignment-event extraction/persistence helper is present for the signature-verified graph, but the legacy webhook's non-charge event dispatch remains unchanged; deployment must wire the provider's exact assignment event payload shape before live activation. No live Paystack, Supabase migration, deploy, or remote operations were performed.
+Provider payload field variants beyond the documented `data.metadata`/`data.dedicated_account` shape should be confirmed against a signed fixture before activation. No live Paystack, Supabase migration, deploy, or remote operations were performed.
