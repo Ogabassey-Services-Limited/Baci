@@ -47,6 +47,12 @@ describe('Jumia credential hardening migrations', () => {
       /CREATE OR REPLACE FUNCTION public\.find_jumia_authorization_metadata\([\s\S]*?uuid,[\s\S]*?text\)/i
     );
     expect(sql).toMatch(
+      /FROM public\.jumia_authorizations AS auth_row[\s\S]*?auth_row\.id/i
+    );
+    expect(sql).not.toMatch(
+      /FROM public\.jumia_authorizations AS authorization/i
+    );
+    expect(sql).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.find_jumia_authorization_metadata\(uuid, text\)[\s\S]*?TO authenticated, service_role/i
     );
   });

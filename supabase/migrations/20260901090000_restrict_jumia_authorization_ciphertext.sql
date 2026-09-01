@@ -64,20 +64,20 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    authorization.id,
-    authorization.token_expires_at,
-    authorization.refresh_token_expires_at,
-    authorization.rotation_version
-  FROM public.jumia_authorizations AS authorization
-  WHERE authorization.merchant_id = p_merchant_id
-    AND authorization.client_key_hash = p_client_key_hash
+    auth_row.id,
+    auth_row.token_expires_at,
+    auth_row.refresh_token_expires_at,
+    auth_row.rotation_version
+  FROM public.jumia_authorizations AS auth_row
+  WHERE auth_row.merchant_id = p_merchant_id
+    AND auth_row.client_key_hash = p_client_key_hash
     AND EXISTS (
       SELECT 1
       FROM public.marketplace_integrations AS integration
       WHERE integration.merchant_id = p_merchant_id
         AND integration.platform = 'jumia'
         AND integration.connection_method = 'self_authorization'
-        AND integration.jumia_authorization_id = authorization.id
+        AND integration.jumia_authorization_id = auth_row.id
         AND integration.is_active = true
     );
 END;
