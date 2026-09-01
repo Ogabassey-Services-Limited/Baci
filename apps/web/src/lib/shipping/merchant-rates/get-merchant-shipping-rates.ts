@@ -126,7 +126,13 @@ async function loadMerchantShippingRatesRpc(
       // Retry only the first transient result. A second failure is returned to
       // the caller so existing fail-soft/fail-loud boundaries stay intact.
     } catch (error) {
-      if (attempt === MAX_RPC_ATTEMPTS - 1 || !isRetryableRpcError(error)) {
+      if (attempt === MAX_RPC_ATTEMPTS - 1) {
+        // A retry was already authorized by the preceding attempt. Return the
+        // terminal rejection as an RPC error result so each public boundary
+        // can preserve its documented fail-soft or fail-loud behavior.
+        return { data: null, error };
+      }
+      if (!isRetryableRpcError(error)) {
         throw error;
       }
       // Retry the same read-only RPC once when the awaitable itself rejects.

@@ -116,12 +116,21 @@ describe('getMerchantShippingRates', () => {
     expect(payload.merchantCountry).toBe('IN');
   });
 
-  it('fails soft to empty payload on RPC error', async () => {
+  it('fails soft when a retryable RPC result is followed by a transport rejection', async () => {
     // Arrange
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const supabase = clientWith({ error: new Error('rpc down') });
+    const transportError = new TypeError('fetch failed');
+    const supabase = {
+      rpc: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'schema cache reload', code: 'PGRST002' },
+        })
+        .mockRejectedValueOnce(transportError),
+    } as never;
 
     // Act
     const payload = await getMerchantShippingRates(supabase, 'merchant-1');
@@ -191,11 +200,18 @@ describe('getMerchantShippingRatesOrThrow', () => {
     expect(payload.rates[0]?.currency).toBe('NGN');
   });
 
-  it('throws MerchantShippingRatesLoadError on RPC error instead of failing soft', async () => {
+  it('wraps a transport rejection after a retryable RPC error instead of leaking the raw error', async () => {
     // Arrange
-    const supabase = clientWith({
-      error: { message: 'schema cache reload', code: 'PGRST002' },
-    });
+    const transportError = new TypeError('fetch failed');
+    const supabase = {
+      rpc: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'schema cache reload', code: 'PGRST002' },
+        })
+        .mockRejectedValueOnce(transportError),
+    } as never;
 
     // Act + Assert
     await expect(
