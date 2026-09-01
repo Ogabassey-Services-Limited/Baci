@@ -40,6 +40,11 @@ const settlementArgsSchema = z.object({
     order_id: z.string().trim().min(1),
     platform_fee: moneyInputSchema.nullish(),
   }),
+  orderShippingFundingSource: z
+    .enum(['customer_checkout', 'merchant_wallet'])
+    .nullable()
+    .optional(),
+  orderShippingRetainedAmount: moneyInputSchema.nullish().optional(),
 });
 
 function throwSettlementRpcError(error: unknown): never {
@@ -65,6 +70,8 @@ export function buildSettlementExecutor(args: {
   settlementGateway: 'juicyway' | 'korapay' | 'paystack';
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
+  orderShippingFundingSource?: 'customer_checkout' | 'merchant_wallet' | null;
+  orderShippingRetainedAmount?: number | string | null;
 }): StepExecutor {
   const parsedArgs = settlementArgsSchema.safeParse(args);
   if (!parsedArgs.success) {
@@ -124,6 +131,39 @@ export function buildSettlementExecutor(args: {
     const normalizedGrossAmount = grossAmountKobo / KOBO_PER_NAIRA;
     const normalizedGatewayFee = gatewayFeeKobo / KOBO_PER_NAIRA;
     const platformFee = platformFeeKobo / KOBO_PER_NAIRA;
+    const hasEconomicsSnapshot =
+      validatedArgs.orderShippingFundingSource !== undefined;
+    const retainedShippingAmount =
+      validatedArgs.orderShippingFundingSource === 'customer_checkout'
+        ? toNumber(
+            validatedArgs.orderShippingRetainedAmount ?? 0,
+            'retained shipping amount'
+          )
+        : 0;
+    if (
+      !Number.isFinite(retainedShippingAmount) ||
+      retainedShippingAmount < 0
+    ) {
+      throw new Error('Invalid retained shipping amount');
+    }
+    const totalPlatformFee = platformFee + retainedShippingAmount;
+    const totalPlatformFeeKobo = Math.round(totalPlatformFee * KOBO_PER_NAIRA);
+    if (gatewayFeeKobo + totalPlatformFeeKobo > grossAmountKobo) {
+      throw new Error(
+        `Settlement fees exceed gross amount: gatewayFee=${normalizedGatewayFee}, platformFee=${totalPlatformFee}, grossAmount=${normalizedGrossAmount}`
+      );
+    }
+    const metadata = {
+      [`${validatedArgs.settlementGateway}_reference`]:
+        validatedArgs.externalGatewayReference,
+      verified_gateway_fee: normalizedGatewayFee,
+      ...(hasEconomicsSnapshot
+        ? {
+            commerce_platform_fee: platformFee,
+            retained_shipping_amount: retainedShippingAmount,
+          }
+        : {}),
+    };
 
     const { error } = await validatedArgs.supabase.rpc(
       'record_merchant_settlement',
@@ -134,12 +174,8 @@ export function buildSettlementExecutor(args: {
         p_gateway_reference: validatedArgs.externalGatewayReference,
         p_gross_amount: normalizedGrossAmount,
         p_merchant_id: validatedArgs.transaction.merchant_id,
-        p_metadata: {
-          [`${validatedArgs.settlementGateway}_reference`]:
-            validatedArgs.externalGatewayReference,
-          verified_gateway_fee: normalizedGatewayFee,
-        },
-        p_platform_fee: platformFee,
+        p_metadata: metadata,
+        p_platform_fee: hasEconomicsSnapshot ? totalPlatformFee : platformFee,
         p_source_id: validatedArgs.transaction.order_id,
         p_source_type: 'order',
       }
@@ -149,6 +185,12 @@ export function buildSettlementExecutor(args: {
       gateway_fee: normalizedGatewayFee,
       gross_amount: normalizedGrossAmount,
       platform_fee: platformFee,
+      ...(hasEconomicsSnapshot
+        ? {
+            commerce_platform_fee: platformFee,
+            retained_shipping_amount: retainedShippingAmount,
+          }
+        : {}),
     };
   };
 }
