@@ -78,7 +78,7 @@ function arrangeOrderlessRepairShipment() {
   });
 }
 
-describe('repair pickup shipment tracking', () => {
+describe('GIGL repair pickup shipment tracking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.shipmentMaybeSingle.mockResolvedValue({
