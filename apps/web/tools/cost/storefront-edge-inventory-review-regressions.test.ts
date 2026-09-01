@@ -29,7 +29,14 @@ async function createInventory(repoRoot: string, originMainSha: string) {
 
 afterEach(async () => {
   await Promise.all(
-    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true }))
+    temporaryRoots.splice(0).map((root) =>
+      rm(root, {
+        force: true,
+        maxRetries: 5,
+        recursive: true,
+        retryDelay: 50,
+      })
+    )
   );
 });
 
