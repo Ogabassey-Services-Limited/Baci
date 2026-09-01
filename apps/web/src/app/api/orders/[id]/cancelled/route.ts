@@ -9,6 +9,11 @@ import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
+const SERIALIZED_INVENTORY_POLICIES = new Set([
+  'serialized_strict',
+  'serialized_then_unlimited',
+]);
+
 /**
  * POST /api/orders/[id]/cancelled
  * Atomically cancels a merchant-owned order and queues trusted refund/email work.
@@ -112,12 +117,16 @@ export async function POST(
       if (productIds.length > 0) {
         const { data: products, error: productsError } = await supabase
           .from('products')
-          .select('id, slug, manage_stock')
+          .select('id, slug, manage_stock, inventory_tracking_policy')
           .eq('merchant_id', merchantId)
           .in('id', productIds);
         if (productsError) throw productsError;
         const trackedProducts = (products ?? []).filter(
-          (product) => product.manage_stock === true
+          (product) =>
+            product.manage_stock === true ||
+            SERIALIZED_INVENTORY_POLICIES.has(
+              product.inventory_tracking_policy ?? ''
+            )
         );
         if (trackedProducts.length > 0) {
           productCacheRevalidation.revalidateProducts(merchantId, undefined, {

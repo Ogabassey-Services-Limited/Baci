@@ -201,4 +201,41 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(mocks.revalidateProducts).not.toHaveBeenCalled();
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
   });
+
+  it('purges serialized inventory products even when legacy stock management is off', async () => {
+    const { productsIn, supabase } = createSupabase();
+    productsIn.mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          manage_stock: false,
+          inventory_tracking_policy: 'serialized_strict',
+          slug: 'serialized-phone',
+        },
+      ],
+      error: null,
+    });
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+
+    const response = await POST(request({ confirm_cancellation: true }), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'serialized-phone',
+    ]);
+    expect(
+      mocks.scheduleOrderProductBlogPurgeAfterResponse
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productIds: ['product-1'],
+        supabase,
+      })
+    );
+  });
 });

@@ -21,11 +21,7 @@ export interface ScheduleProductBlogPurgeInput {
 
 function normalizeBlogPostSlugs(slugs: readonly string[]) {
   return Array.from(
-    new Set(
-      slugs
-        .map((slug) => slug.trim().toLowerCase())
-        .filter((slug) => slug.length > 0)
-    )
+    new Set(slugs.map((slug) => slug.trim()).filter((slug) => slug.length > 0))
   );
 }
 

@@ -223,7 +223,7 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
 
     expect(result).toEqual(['womens-fashion-guide']);
     expect(categoryOrSpy.mock.calls[0]?.[0]).toContain(
-      'category.ilike.*women*s*fashion*'
+      'category.ilike.*w*o*m*e*n*s*f*a*s*h*i*o*n*'
     );
   });
 

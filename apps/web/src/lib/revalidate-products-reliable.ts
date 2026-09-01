@@ -32,6 +32,8 @@ interface RevalidateProductsReliableOptions {
   merchantSlug?: string;
   /** Products whose public URLs should also be evicted from Cloudflare. */
   products?: readonly InternalRevalidateProductEntry[];
+  /** Every product slug whose per-slug Next cache must be invalidated. */
+  nextProductSlugs?: readonly string[];
   /** Optional merchant-scoped client for linked blog purge enrichment. */
   supabase?: SupabaseClient;
   /** Evict every public storefront document for structural/high-cardinality changes. */
@@ -58,7 +60,20 @@ export async function revalidateProductsReliable(
   merchantId: string,
   options: RevalidateProductsReliableOptions = {}
 ): Promise<void> {
-  const { merchantSlug, products, supabase, purgeWholeStorefront } = options;
+  const {
+    merchantSlug,
+    products,
+    nextProductSlugs: requestedNextProductSlugs,
+    supabase,
+    purgeWholeStorefront,
+  } = options;
+  const nextProductSlugs = Array.from(
+    new Set(
+      (requestedNextProductSlugs ?? [])
+        .map((slug) => slug.trim())
+        .filter((slug) => slug.length > 0)
+    )
+  );
   const shouldPurgeProducts = Boolean(
     merchantSlug && !purgeWholeStorefront && products && products.length > 0
   );
@@ -71,19 +86,31 @@ export async function revalidateProductsReliable(
     // Per-slug Next cache busting needs only merchantId — run it for every
     // products-carrying call, decoupled from the merchant-slug-gated Cloudflare
     // purge (a failed slug lookup must not skip the Next-layer bust).
-    if (products && products.length > 0) {
-      let resolvedSlugs = collectResolvedProductSlugs(products);
-      let purgeEntries = buildInternalProductPurgeEntries(products);
+    if ((products && products.length > 0) || nextProductSlugs.length > 0) {
+      let resolvedSlugs =
+        nextProductSlugs.length > 0
+          ? nextProductSlugs
+          : products
+            ? collectResolvedProductSlugs(products)
+            : [];
+      let purgeEntries = buildInternalProductPurgeEntries(products ?? []);
       let blogPostSlugs: string[] = [];
 
-      if (supabase && !purgeWholeStorefront) {
+      if (
+        supabase &&
+        products &&
+        products.length > 0 &&
+        !purgeWholeStorefront
+      ) {
         try {
           const enriched = await enrichProductPurgeEntries(
             supabase,
             merchantId,
             products
           );
-          resolvedSlugs = enriched.resolvedSlugs;
+          resolvedSlugs = Array.from(
+            new Set([...resolvedSlugs, ...enriched.resolvedSlugs])
+          );
           purgeEntries = enriched.entries;
           blogPostSlugs = enriched.blogPostSlugs;
         } catch (error) {
@@ -156,6 +183,9 @@ export async function revalidateProductsReliable(
           merchantId,
           ...(merchantSlug ? { merchantSlug } : {}),
           ...(products && products.length > 0 ? { products } : {}),
+          ...(nextProductSlugs.length > 0
+            ? { productSlugs: nextProductSlugs }
+            : {}),
           ...(purgeWholeStorefront ? { purgeWholeStorefront: true } : {}),
         }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),

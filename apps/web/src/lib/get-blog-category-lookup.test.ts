@@ -15,7 +15,7 @@ describe('getBlogCategoryLookup', () => {
     ]);
     expect(lookup.canonicalSlugs).toEqual(['womens-fashion', 'product-news']);
     expect(lookup.canonicalFilter).toContain(
-      'category.ilike.*women*s*fashion*'
+      'category.ilike.*w*o*m*e*n*s*f*a*s*h*i*o*n*'
     );
     expect(lookup.canonicalFilter).toContain('category.ilike.*product*news*');
   });
@@ -29,6 +29,7 @@ describe('getBlogCategoryLookup', () => {
     const lookup = getBlogCategoryLookup(categories);
 
     expect(lookup.canonicalFilters.length).toBeGreaterThan(1);
+    expect(lookup.canonicalFilters.length).toBeLessThanOrEqual(8);
     expect(
       lookup.canonicalFilters.every((filter) => filter.length <= 2500)
     ).toBe(true);

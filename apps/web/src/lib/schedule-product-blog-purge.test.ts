@@ -45,7 +45,7 @@ describe('scheduleProductBlogPurge', () => {
       ['smartphones']
     );
     expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
-      blogPostSlugs: ['pixel-guide'],
+      blogPostSlugs: ['Pixel-Guide', 'pixel-guide'],
     });
     expect(mockExpire).toHaveBeenCalledWith('merchant-1');
   });
@@ -62,7 +62,22 @@ describe('scheduleProductBlogPurge', () => {
 
     expect(mockLookup).not.toHaveBeenCalled();
     expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
-      blogPostSlugs: ['guide-a', 'guide-b'],
+      blogPostSlugs: ['Guide-A', 'guide-a', 'guide-b'],
+    });
+  });
+
+  it('preserves mixed-case linked article slugs for case-sensitive cache keys', async () => {
+    await scheduleProductBlogPurge({
+      supabase,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      blogPostSlugs: ['Best-Phones-2026'],
+    });
+
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
+      blogPostSlugs: ['Best-Phones-2026'],
     });
   });
 

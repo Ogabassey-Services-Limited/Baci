@@ -54,7 +54,7 @@ function getPublishedBlogPostSlug(post: BlogPostFields | null | undefined) {
     return null;
   }
 
-  const slug = post.slug.trim().toLowerCase();
+  const slug = post.slug.trim();
   return slug.length > 0 ? slug : null;
 }
 

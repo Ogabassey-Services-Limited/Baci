@@ -64,8 +64,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { merchantId, merchantSlug, products, purgeWholeStorefront } =
-    parsed.data;
+  const {
+    merchantId,
+    merchantSlug,
+    productSlugs,
+    products,
+    purgeWholeStorefront,
+  } = parsed.data;
 
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
   revalidateProducts(merchantId);
@@ -146,6 +151,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // When the caller supplies product entries, resolve them against the DB and
   // bust their per-slug Next caches. The per-slug bust needs only merchantId,
   // so it remains independent of the merchant-slug-gated Cloudflare purge.
+  if (productSlugs && productSlugs.length > 0) {
+    revalidateProductSlugs(merchantId, productSlugs);
+  }
   if (products && products.length > 0) {
     try {
       // Enrich from the product ROWS with the SAME resolution `/api/cache/revalidate`
@@ -167,7 +175,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // BEFORE scheduling the edge purge: the PDP snapshot is tagged per-slug
       // and is NOT invalidated by the slug-less revalidateProducts above, so a
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
-      revalidateProductSlugs(merchantId, resolvedSlugs);
+      revalidateProductSlugs(
+        merchantId,
+        Array.from(new Set([...(productSlugs ?? []), ...resolvedSlugs]))
+      );
       if (authoritativeMerchantSlug && !purgeWholeStorefront) {
         // Related blog enrichment shares the merchant product tag. Expire it
         // before the edge purge can cause an article MISS to refill stale data.

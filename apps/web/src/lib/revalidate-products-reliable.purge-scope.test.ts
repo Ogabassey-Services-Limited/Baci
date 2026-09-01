@@ -93,6 +93,30 @@ describe('revalidateProductsReliable purge scope', () => {
     );
   });
 
+  it('forwards the complete per-slug set separately from bounded edge entries', async () => {
+    mockRevalidateProducts.mockImplementation(() => {
+      throw new Error('no store');
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    const products = [{ slug: 'representative-phone', category: 'Phones' }];
+    const productSlugs = ['phone-1', 'phone-2', 'phone-3'];
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      products,
+      nextProductSlugs: productSlugs,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect((init as RequestInit).body).toBe(
+      JSON.stringify({
+        merchantId: 'merchant-1',
+        products,
+        productSlugs,
+      })
+    );
+  });
+
   it('forwards the hostname-purge contract through the HTTP fallback', async () => {
     mockRevalidateProducts.mockImplementation(() => {
       throw new Error('no store');

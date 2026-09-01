@@ -78,12 +78,22 @@ describe('commitBumpaProducts high-cardinality purge', () => {
       ),
     });
 
-    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
-      merchantSlug: 'ogabassey',
-      products: [{ slug: 'imported-phone-0', category: 'Phones' }],
-      supabase,
-      purgeWholeStorefront: true,
-    });
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({
+        merchantSlug: 'ogabassey',
+        products: [{ slug: 'imported-phone-0', category: 'Phones' }],
+        supabase,
+        purgeWholeStorefront: true,
+      })
+    );
+    const [, options] = mockRevalidateProductsReliable.mock.calls[0] as [
+      string,
+      { nextProductSlugs: string[] },
+    ];
+    expect(options.nextProductSlugs).toHaveLength(1001);
+    expect(options.nextProductSlugs[0]).toBe('imported-phone-0');
+    expect(options.nextProductSlugs.at(-1)).toBe('imported-phone-1000');
   });
 
   it('requests a hostname purge when an existing product changes category', async () => {

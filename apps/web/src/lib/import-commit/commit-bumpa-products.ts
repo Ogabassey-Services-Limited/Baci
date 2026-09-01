@@ -236,18 +236,29 @@ export async function commitBumpaProducts({
         }
         const merchantSlug = merchantRow?.slug ?? null;
         const purgeProducts = boundImportPurgeEntries(changedProducts);
+        const nextProductSlugs = Array.from(
+          new Set(
+            changedProducts
+              .map((product) => product.slug?.trim())
+              .filter((slug): slug is string => Boolean(slug))
+          )
+        );
         const purgeWholeStorefront =
           hasCategoryMove || purgeProducts.length < changedProducts.length;
-        await revalidateProductsReliable(
-          merchantId,
-          merchantSlug && purgeProducts.length > 0
+        const revalidationOptions = {
+          ...(merchantSlug && purgeProducts.length > 0
             ? {
                 merchantSlug,
                 products: purgeProducts,
                 supabase,
                 ...(purgeWholeStorefront ? { purgeWholeStorefront: true } : {}),
               }
-            : undefined
+            : {}),
+          nextProductSlugs,
+        };
+        await revalidateProductsReliable(
+          merchantId,
+          nextProductSlugs.length > 0 ? revalidationOptions : undefined
         );
       } catch (error) {
         console.error(

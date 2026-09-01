@@ -68,6 +68,10 @@ export const internalRevalidateProductsBodySchema = z
   .object({
     merchantId: z.string().trim().min(1).max(255),
     merchantSlug: z.string().trim().min(1).max(255).optional(),
+    productSlugs: z
+      .array(z.string().trim().min(1).max(300))
+      .max(10_000)
+      .optional(),
     products: z
       .array(internalRevalidateProductEntrySchema)
       .max(1000)
