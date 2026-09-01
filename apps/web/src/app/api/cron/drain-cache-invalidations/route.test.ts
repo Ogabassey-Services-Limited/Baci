@@ -11,7 +11,7 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
 }));
 
-import { GET } from './route';
+import { GET, resetDeadLetterAlertCacheForTests } from './route';
 
 const claim = {
   attempts: 1,
@@ -48,6 +48,7 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', 'cron-secret');
+    resetDeadLetterAlertCacheForTests();
     mocks.createServiceClient.mockReturnValue({ rpc });
     claimCalls = 0;
     rpc.mockImplementation((name: string) => {
