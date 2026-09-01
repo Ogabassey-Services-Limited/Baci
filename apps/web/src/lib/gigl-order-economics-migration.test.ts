@@ -45,8 +45,41 @@ describe('GIGL order economics migration contract', () => {
     expect(migration).toContain('ELSE 0');
     expect(migration).not.toMatch(/NEW\.(shipping_fee|subtotal|total)\s*:=/);
     expect(migration).toContain(
-      'BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source'
+      'BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source, shipping_provider_cost, shipping_platform_margin, shipping_platform_retained_amount, shipping_pricing_version'
     );
+  });
+
+  it('restamps every customer-checkout economics field from the quote', () => {
+    expect(migration).toContain(
+      'NEW.shipping_provider_cost := v_provider_cost;'
+    );
+    expect(migration).toContain(
+      'NEW.shipping_platform_margin := v_platform_margin;'
+    );
+    expect(migration).toContain(
+      'NEW.shipping_pricing_version := v_pricing_version;'
+    );
+    expect(migration).toContain(
+      "WHEN NEW.shipping_funding_source = 'customer_checkout' THEN v_price"
+    );
+    expect(migration).toContain('ELSE 0');
+  });
+
+  it('clears forged source and economics when there is no authoritative quote', () => {
+    const clearAssignments = [
+      'NEW.shipping_funding_source := NULL;',
+      'NEW.shipping_provider_cost := NULL;',
+      'NEW.shipping_platform_margin := NULL;',
+      'NEW.shipping_pricing_version := NULL;',
+      'NEW.shipping_platform_retained_amount := 0;',
+    ];
+    const noQuoteBranch = migration.slice(
+      migration.indexOf('IF NEW.selected_quote_id IS NULL THEN'),
+      migration.indexOf('SELECT sq.provider')
+    );
+    for (const assignment of clearAssignments) {
+      expect(noQuoteBranch).toContain(assignment);
+    }
   });
 
   it.each([
