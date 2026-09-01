@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ShippingBookingRejectedError } from '@/lib/shipping/types';
+import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import './book-repair-pickup.test-support';
 import { bookRepairPickup } from './book-repair-pickup';
 import {
@@ -41,7 +41,11 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const operations: string[] = [];
     mocks.bookShipment.mockRejectedValueOnce(
-      new ShippingBookingRejectedError('wallet empty')
+      new OrderShipmentBookingError(
+        'GIGL rejected the shipment booking request.',
+        400,
+        'GIGL_BOOKING_VALIDATION_FAILED'
+      )
     );
     const supabase = makeSupabase(happyResponses(), operations);
 
@@ -67,7 +71,11 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const operations: string[] = [];
     mocks.bookShipment.mockRejectedValueOnce(
-      new ShippingBookingRejectedError('wallet empty')
+      new OrderShipmentBookingError(
+        'GIGL rejected the shipment booking request.',
+        400,
+        'GIGL_BOOKING_VALIDATION_FAILED'
+      )
     );
     const supabase = makeSupabase(
       happyResponses({

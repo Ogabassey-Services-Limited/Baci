@@ -16,10 +16,10 @@ import {
   isTerminalRepairStatus,
 } from '@/lib/repairs/repair-status';
 import { shippingService } from '@/lib/shipping';
-import {
-  type BookingRequest,
-  type ShipmentBookingResult,
-  ShippingBookingRejectedError,
+import { shouldReleaseBookingLock } from '@/lib/shipping/order-shipment-booking-lock-errors';
+import type {
+  BookingRequest,
+  ShipmentBookingResult,
 } from '@/lib/shipping/types';
 
 /**
@@ -211,7 +211,7 @@ export async function bookRepairPickup(
       bookingRequest
     );
   } catch (error) {
-    if (error instanceof ShippingBookingRejectedError) {
+    if (shouldReleaseBookingLock(error)) {
       const released = await releaseRejectedRepairPickupReservation(
         supabase,
         merchantId,

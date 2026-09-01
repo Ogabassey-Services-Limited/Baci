@@ -8,6 +8,7 @@ import {
   createRepairBooking,
 } from '@/lib/repairs/create-repair-core';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
+import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
 import { shippingService } from '@/lib/shipping';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { RepairBookingInput } from '@/lib/validations/repair';
@@ -149,38 +150,41 @@ export async function calculateRepairShipping(
     }
 
     // 2. Calculate GIGL doorstep collection (customer -> repair center).
-    const quotes = await shippingService.getProviderQuotes('GIGL', {
-      sessionId: `repair-${Date.now()}`,
-      shipmentType: 'domestic',
-      items: [
-        {
-          name: 'Device for Repair',
-          quantity: 1,
-          weight: 1,
-          value: 50000,
-          category: 'gadgets',
+    const quotes = await shippingService.getProviderQuotes(
+      REPAIR_PICKUP_PROVIDER,
+      {
+        sessionId: `repair-${Date.now()}`,
+        shipmentType: 'domestic',
+        items: [
+          {
+            name: 'Device for Repair',
+            quantity: 1,
+            weight: 1,
+            value: 50000,
+            category: 'gadgets',
+          },
+        ],
+        receiver: {
+          name: repairCenter.name,
+          phone: repairCenter.phone,
+          email: repairCenter.email,
+          address: repairCenter.address,
+          city: repairCenter.city,
+          state: repairCenter.state,
+          country: repairCenter.country,
+          countryCode: repairCenter.countryCode,
         },
-      ],
-      receiver: {
-        name: repairCenter.name,
-        phone: repairCenter.phone,
-        email: repairCenter.email,
-        address: repairCenter.address,
-        city: repairCenter.city,
-        state: repairCenter.state,
-        country: repairCenter.country,
-        countryCode: repairCenter.countryCode,
-      },
-      sender: {
-        name: 'Customer',
-        phone: '0000000000',
-        address: placeDetails.formattedAddress,
-        city: placeDetails.city || placeDetails.state,
-        state: placeDetails.state,
-        country: placeDetails.country || 'Nigeria',
-        countryCode: 'NG',
-      },
-    });
+        sender: {
+          name: 'Customer',
+          phone: '0000000000',
+          address: placeDetails.formattedAddress,
+          city: placeDetails.city || placeDetails.state,
+          state: placeDetails.state,
+          country: placeDetails.country || 'Nigeria',
+          countryCode: 'NG',
+        },
+      }
+    );
 
     if (!quotes || quotes.length === 0) {
       return {
