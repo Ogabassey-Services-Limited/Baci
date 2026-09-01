@@ -59,7 +59,7 @@ BEGIN
        WHERE m.id = v_order.merchant_id
          AND m.user_id = auth.uid()
      )
-     OR v_order.shipping_funding_source <> 'merchant_wallet' THEN
+     OR v_order.shipping_funding_source IS DISTINCT FROM 'merchant_wallet' THEN
     RAISE EXCEPTION 'order_not_owned' USING ERRCODE='42501';
   END IF;
   SELECT * INTO v_quote FROM public.shipping_quotes WHERE id=p_quote_id AND merchant_id=v_order.merchant_id AND provider='GIGL' AND currency='NGN' AND expires_at > now();

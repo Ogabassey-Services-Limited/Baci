@@ -125,6 +125,44 @@ describe('refreshOrderShipmentQuote', () => {
     expect(supabase.from).toHaveBeenCalledWith('shipping_quotes');
   });
 
+  it('fails before the provider when refresh is disabled for a stale wallet quote', async () => {
+    const quote = createQuote({
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    await expect(
+      refreshOrderShipmentQuote(
+        createSupabase() as never,
+        quote,
+        'GIGL',
+        correctedSender,
+        { allowRefresh: false }
+      )
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+      status: 409,
+    });
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
+  it('fails before the provider when refresh is disabled for a changed sender', async () => {
+    const quote = createQuote({ sender: storedSender });
+
+    await expect(
+      refreshOrderShipmentQuote(
+        createSupabase() as never,
+        quote,
+        'GIGL',
+        correctedSender,
+        { allowRefresh: false }
+      )
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+      status: 409,
+    });
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
   it('preserves the selected pickup centre when refreshing a legacy GIGL rate ID', async () => {
     const quote = {
       ...createQuote({ sender: storedSender }),

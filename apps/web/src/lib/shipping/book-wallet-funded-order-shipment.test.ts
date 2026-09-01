@@ -192,6 +192,48 @@ describe('wallet-funded shipment orchestration', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('refunds once and releases the lock when wallet quote reconfirmation is required', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c-requote',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 'r'.repeat(64),
+    });
+    const book = vi
+      .fn()
+      .mockRejectedValue(
+        new OrderShipmentBookingError(
+          'Please reconfirm shipping',
+          409,
+          'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED'
+        )
+      );
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        {} as never,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        release
+      )
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+    });
+
+    expect(charge.refundMerchantShippingCharge).toHaveBeenCalledTimes(1);
+    expect(
+      charge.markMerchantShippingChargeForReconciliation
+    ).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
   it('returns an existing booked shipment without beginning another provider attempt', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
       charge: {

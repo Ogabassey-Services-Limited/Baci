@@ -24,6 +24,7 @@ describe('shouldReleaseBookingLock', () => {
   it('releases locks for pre-provider quote and origin failures', () => {
     for (const code of [
       'QUOTE_REFRESH_PERSIST_FAILED',
+      'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
       'QUOTE_PRICE_CHANGED',
       'MERCHANT_LOOKUP_FAILED',
       'MERCHANT_ORIGIN_MISSING',

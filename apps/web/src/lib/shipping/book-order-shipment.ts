@@ -70,7 +70,6 @@ export async function bookOrderShipment(
       'ORDER_NOT_FOUND'
     );
   }
-
   const existingShipment = await findReusableOrderShipment(
     supabase,
     merchantId,
@@ -90,7 +89,6 @@ export async function bookOrderShipment(
       'MISSING_SHIPPING_QUOTE'
     );
   }
-
   if (!isShippingProviderCode(typedOrder.shipping_provider)) {
     throw new OrderShipmentBookingError(
       'This order is not configured for provider-backed shipping.',
@@ -98,7 +96,6 @@ export async function bookOrderShipment(
       'INVALID_SHIPPING_PROVIDER'
     );
   }
-
   const orderItems = typedOrder.order_items ?? [];
   if (orderItems.length === 0) {
     throw new OrderShipmentBookingError(
@@ -107,7 +104,6 @@ export async function bookOrderShipment(
       'MISSING_ORDER_ITEMS'
     );
   }
-
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
@@ -175,7 +171,10 @@ export async function bookOrderShipment(
     supabase,
     typedStoredQuote,
     typedOrder.shipping_provider,
-    merchantSender
+    merchantSender,
+    typedOrder.shipping_funding_source === 'merchant_wallet'
+      ? { allowRefresh: false }
+      : undefined
   );
   if (typedOrder.shipping_funding_source !== 'merchant_wallet') {
     assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);

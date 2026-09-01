@@ -103,10 +103,12 @@ function createSupabase({
   upsertError = null,
   quoteExpiresAt = new Date(Date.now() - 60_000).toISOString(),
   storedSender = staleSender,
+  fundingSource,
 }: {
   upsertError?: { message: string } | null;
   quoteExpiresAt?: string;
   storedSender?: StoredSender;
+  fundingSource?: 'customer_checkout' | 'merchant_wallet' | null;
 } = {}) {
   const order = {
     id: 'order-1',
@@ -116,6 +118,7 @@ function createSupabase({
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
+    shipping_funding_source: fundingSource,
     shipping_address: {
       address: 'Receiver Road',
       city: 'Abuja',
@@ -251,6 +254,22 @@ describe('bugfix: expired domestic quote refresh sender', () => {
     expect(shippingService.getProviderQuotes).toHaveBeenCalled();
     expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
+
+  it('requires wallet quote reconfirmation instead of refreshing an expired quote', async () => {
+    await expect(
+      bookOrderShipment(
+        createSupabase({ fundingSource: 'merchant_wallet' }),
+        'merchant-1',
+        'order-1'
+      )
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+      status: 409,
+    });
+
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
 });
 
 describe('bugfix: unexpired domestic quote sender mismatch', () => {
@@ -296,5 +315,43 @@ describe('bugfix: unexpired domestic quote sender mismatch', () => {
       'GIGL',
       expect.objectContaining({ sender: correctedSender })
     );
+  });
+
+  it('books the original quote normally when a wallet quote is still fresh', async () => {
+    await bookOrderShipment(
+      createSupabase({
+        quoteExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        storedSender: correctedSender,
+        fundingSource: 'merchant_wallet',
+      }),
+      'merchant-1',
+      'order-1'
+    );
+
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({ quoteId: 'quote-1' })
+    );
+  });
+
+  it('requires wallet quote reconfirmation instead of refreshing a changed sender', async () => {
+    await expect(
+      bookOrderShipment(
+        createSupabase({
+          quoteExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+          storedSender: mismatchedCallerSender,
+          fundingSource: 'merchant_wallet',
+        }),
+        'merchant-1',
+        'order-1'
+      )
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+      status: 409,
+    });
+
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 });

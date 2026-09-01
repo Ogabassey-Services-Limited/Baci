@@ -31,11 +31,16 @@ export type OrderShipmentQuoteRecord = {
   pricing_version?: string | null;
 };
 
+export type RefreshOrderShipmentQuoteOptions = {
+  allowRefresh?: boolean;
+};
+
 export async function refreshOrderShipmentQuote(
   supabase: SupabaseClient,
   quote: OrderShipmentQuoteRecord,
   provider: ShippingProviderCode,
-  senderOverride?: ShippingAddress
+  senderOverride?: ShippingAddress,
+  options: RefreshOrderShipmentQuoteOptions = {}
 ): Promise<OrderShipmentQuoteRecord> {
   const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
   const domesticSenderNeedsRefresh = Boolean(
@@ -51,6 +56,14 @@ export async function refreshOrderShipmentQuote(
 
   if (!needsRefresh) {
     return quote;
+  }
+
+  if (options.allowRefresh === false) {
+    throw new OrderShipmentBookingError(
+      'The shipping quote changed or expired. Please get a new quote and confirm shipping before booking.',
+      409,
+      'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED'
+    );
   }
 
   if (!quoteRequest) {

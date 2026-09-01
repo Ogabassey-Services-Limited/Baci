@@ -35,7 +35,9 @@ describe('merchant shipping charge migration contract', () => {
     expect(sql).not.toMatch(/merchant_id\s*=\s*auth\.uid\(\)/);
     expect(sql).toContain("provider='GIGL'");
     expect(sql).toContain("currency='NGN'");
-    expect(sql).toContain("shipping_funding_source <> 'merchant_wallet'");
+    expect(sql).toContain(
+      "shipping_funding_source IS DISTINCT FROM 'merchant_wallet'"
+    );
     expect(sql).toContain("'gigl_shipping'");
     expect(sql).toContain('MERCHANT_WALLET_INSUFFICIENT');
     expect(sql).toContain("extensions.digest(p_attempt_token,'sha256')");
@@ -68,7 +70,7 @@ describe('merchant shipping charge migration contract', () => {
       reserve.indexOf('FROM public.orders WHERE id=p_order_id FOR SHARE')
     ).toBeLessThan(reserve.indexOf('m.id = v_order.merchant_id'));
     expect(reserve).toContain(
-      "v_order.shipping_funding_source <> 'merchant_wallet'"
+      "v_order.shipping_funding_source IS DISTINCT FROM 'merchant_wallet'"
     );
   });
 
