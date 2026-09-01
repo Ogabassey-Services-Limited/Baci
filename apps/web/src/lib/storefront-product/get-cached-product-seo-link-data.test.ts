@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data';
+import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-singleton';
 
 const mocks = vi.hoisted(() => ({
   getCachedPdpProductGuidePosts: vi.fn(),
@@ -61,6 +62,7 @@ const clusterGuidePosts = [
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    storefrontPdpSemanticReadCooldown.reset();
     mocks.getCachedPdpSemanticInventory.mockResolvedValue(inventory);
     mocks.getCachedPdpProductGuidePosts.mockResolvedValue(productGuidePosts);
     mocks.getPublishedClusterPosts.mockResolvedValue(clusterGuidePosts);
@@ -124,6 +126,38 @@ describe('getCachedProductSeoLinkData', () => {
 
     expect(mocks.getPublishedClusterPosts).not.toHaveBeenCalled();
     expect(mocks.getCachedPdpProductGuidePosts).not.toHaveBeenCalled();
+  });
+
+  it('skips a repeated inventory timeout while the shared cooldown is active', async () => {
+    mocks.getCachedPdpSemanticInventory.mockRejectedValueOnce(
+      new DOMException('inventory timed out', 'TimeoutError')
+    );
+
+    await expect(
+      getCachedProductSeoLinkData(
+        'merchant-1',
+        'laptops',
+        'ogabassey',
+        'prod-1',
+        'legion-5',
+        'Lenovo Legion 5',
+        'Lenovo',
+        false
+      )
+    ).rejects.toMatchObject({ name: 'TimeoutError' });
+    await expect(
+      getCachedProductSeoLinkData(
+        'merchant-1',
+        'laptops',
+        'ogabassey',
+        'prod-1',
+        'legion-5',
+        'Lenovo Legion 5',
+        'Lenovo',
+        false
+      )
+    ).resolves.toMatchObject({ inventory: [] });
+    expect(mocks.getCachedPdpSemanticInventory).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the PDP optional model usable when a guide read times out', async () => {

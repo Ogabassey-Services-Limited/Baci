@@ -90,4 +90,25 @@ describe('V2ThemeProvider seasonal hydration defaults', () => {
     expect(screen.getByTestId('theme')).toHaveTextContent('standard');
     expect(document.cookie).toContain('storefront-theme-v2=standard');
   });
+
+  it('chunks early-December reset delays below the browser timeout limit', () => {
+    vi.useFakeTimers({ now: new Date('2026-12-01T00:00:00Z') });
+    document.cookie = '';
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
+    render(
+      <V2ThemeProvider>
+        <Probe />
+      </V2ThemeProvider>
+    );
+    expect(setTimeoutSpy.mock.calls[0]?.[1]).toBeLessThanOrEqual(2_147_000_000);
+    act(() => vi.advanceTimersByTime(2_147_000_000));
+    expect(
+      setTimeoutSpy.mock.calls.every(
+        ([, delay]) => Number(delay) <= 2_147_000_000
+      )
+    ).toBe(true);
+    act(() => vi.advanceTimersToNextTimer());
+    expect(screen.getByTestId('theme')).toHaveTextContent('standard');
+    setTimeoutSpy.mockRestore();
+  });
 });

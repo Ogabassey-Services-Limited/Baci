@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 export type V2ThemeMode = 'standard' | 'santa';
+const MAX_BROWSER_TIMEOUT_MS = 2_147_000_000;
 
 interface V2ThemeContextType {
   theme: V2ThemeMode;
@@ -113,10 +114,19 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
     const cookieTheme = getCookie(THEME_COOKIE_NAME);
     const now = new Date();
     const boundary = new Date(now.getFullYear() + (isDecember ? 1 : 0), 0, 1);
-    const timer = window.setTimeout(() => {
-      setUserTheme('standard');
-      setCookie(THEME_COOKIE_NAME, 'standard');
-    }, Math.max(0, boundary.getTime() - now.getTime()));
+    let timer: number | undefined;
+    const schedule = () => {
+      const remainingMs = Math.max(0, boundary.getTime() - Date.now());
+      timer = window.setTimeout(() => {
+        if (remainingMs > MAX_BROWSER_TIMEOUT_MS) {
+          schedule();
+          return;
+        }
+        setUserTheme('standard');
+        setCookie(THEME_COOKIE_NAME, 'standard');
+      }, Math.min(remainingMs, MAX_BROWSER_TIMEOUT_MS));
+    };
+    schedule();
 
     // CRITICAL FIX: Clear the santa cookie outside December
     // This ensures Santa mode is NEVER shown in January onwards
@@ -125,11 +135,15 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
         setUserTheme('standard');
         setCookie(THEME_COOKIE_NAME, 'standard');
       }
-      return () => window.clearTimeout(timer);
+      return () => {
+        if (timer !== undefined) window.clearTimeout(timer);
+      };
     }
 
     if (cookieTheme === 'standard' || cookieTheme === 'santa') {
-      return () => window.clearTimeout(timer);
+      return () => {
+        if (timer !== undefined) window.clearTimeout(timer);
+      };
     }
 
     // If no cookie and no server-provided theme, persist the December default

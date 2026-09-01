@@ -80,19 +80,21 @@ export async function runCacheInvalidationCron({
   }
   const deadLettersPresent =
     payload.deadLettersPresent === true || result.cacheDeadLetter === true;
+  const claimed = Number(payload.claimed) || 0;
   const newlyObservedDeadLetters =
     deadLettersPresent && state.deadLettersPresent !== true;
   if (newlyObservedDeadLetters) {
+    const intervalMs = claimed > 0 ? MIN_INTERVAL_MS : MAX_INTERVAL_MS;
     logger.warn(
       JSON.stringify({
         event: CACHE_INVALIDATION_DEAD_LETTER_CODE,
-        intervalMs: MAX_INTERVAL_MS,
-        nextAllowedAt: now + MAX_INTERVAL_MS,
+        intervalMs,
+        nextAllowedAt: now + intervalMs,
       })
     );
     const nextState = {
-      nextAllowedAt: now + MAX_INTERVAL_MS,
-      intervalMs: MAX_INTERVAL_MS,
+      nextAllowedAt: now + intervalMs,
+      intervalMs,
       deadLettersPresent: true,
     };
     await persistState({
@@ -104,13 +106,12 @@ export async function runCacheInvalidationCron({
     });
     return {
       skipped: false,
-      claimed: 0,
+      claimed,
       deadLetter: true,
-      intervalMs: MAX_INTERVAL_MS,
+      intervalMs,
       nextAllowedAt: nextState.nextAllowedAt,
     };
   }
-  const claimed = Number(payload.claimed) || 0;
   const intervalMs =
     claimed > 0
       ? MIN_INTERVAL_MS

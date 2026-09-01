@@ -2,7 +2,9 @@ import type { SupportedClusterCategory } from '@/lib/storefront-content/content-
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { getCachedPdpProductGuidePosts } from './get-cached-pdp-product-guide-posts';
 import { getCachedPdpSemanticInventory } from './get-cached-pdp-semantic-inventory';
+import { runStorefrontPdpSemanticRpcWithCooldown } from './run-storefront-pdp-semantic-rpc-with-cooldown';
 import type { ProductSeoLinkData } from './storefront-pdp-semantic-enrichment';
+import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-singleton';
 
 export type { ProductSeoLinkData };
 
@@ -53,11 +55,18 @@ export async function getCachedProductSeoLinkData(
   // Inventory is the only required leg. Do not fan out two more Supabase
   // reads while it is already timing out; once it succeeds, the optional guide
   // legs run in parallel and can fail open independently.
-  const inventory = await getCachedPdpSemanticInventory(
-    merchantId,
-    categorySlug,
-    storeSlug
-  );
+  const inventoryScope = `${merchantId}:${categorySlug}`;
+  const inventory = storefrontPdpSemanticReadCooldown.isCoolingDown(
+    inventoryScope
+  )
+    ? []
+    : (
+        await runStorefrontPdpSemanticRpcWithCooldown(
+          getCachedPdpSemanticInventory(merchantId, categorySlug, storeSlug),
+          { deadlineMs: 5_000, traceThresholdMs: 1_000 },
+          inventoryScope
+        )
+      ).response;
 
   if (!blogEnabled) {
     return {

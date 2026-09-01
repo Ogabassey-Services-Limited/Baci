@@ -109,4 +109,26 @@ describe('adaptive cache invalidation scheduler', () => {
     });
     assert.equal(warnings.length, 1);
   });
+
+  it('keeps the fast cadence and claimed count when work and a new dead letter coexist', async () => {
+    const h = harness();
+    const warnings = [];
+    const result = await runCacheInvalidationCron({
+      env: { CACHE_INVALIDATION_STATE_FILE: '/tmp/state' },
+      now: 5_000,
+      run: async () => ({
+        body: JSON.stringify({ claimed: 3, deadLettersPresent: true }),
+      }),
+      read: h.read,
+      write: h.write,
+      makeDirectory: h.mkdir,
+      move: h.move,
+      logger: { warn: (line) => warnings.push(line) },
+    });
+    assert.equal(result.claimed, 3);
+    assert.equal(result.intervalMs, 120_000);
+    assert.equal(result.deadLetter, true);
+    assert.equal(JSON.parse(warnings[0]).intervalMs, 120_000);
+    assert.equal(h.state.deadLettersPresent, true);
+  });
 });
