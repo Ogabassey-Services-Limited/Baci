@@ -1,7 +1,11 @@
-# Task 5 Fix Round 1 report
+# Task 5 Fix Round 3 report
 
-- Base: `f7bc695da0fb14d1a90b4dd8dc1834b8dc88dfe8`
-- Fix Round 2 commit: `42d42ea31d07f5d89f9414cf7b7e6ba2a323c9b9`
-- Added quote-ID-only provenance validation, server-attested Admin quote persistence, CSRF enforcement, owner-checked transactional binding RPC, and strict weight/quantity validation.
-- Focused tests and TypeScript pass locally; no live provider/deploy/push/migration execution.
-- Remaining risk: full route matrix relies on mocked integration fixtures and should be rerun by the parent branch after cherry-pick.
+- Base: `9172bd3ee0`
+- Commit: pending (this report is committed with the trusted-edge implementation).
+- Admin-order quoting now runs through the existing `/api/shipping/quotes` edge in an explicit header-gated mode. Authentication, CSRF, owner/fulfillment permission, and authoritative order/item/sender loading all precede `createAdminClient`.
+- The service-role-only `persist_admin_gigl_quote` RPC atomically inserts the quote and immutable attestation snapshot. Authenticated clients have no attestation table grants; an immutable trigger rejects post-attestation quote updates/deletes.
+- The authenticated binder accepts only quote ID plus receiver, locks order/quote/attestation/wallet rows, and exact-compares order, merchant, provider, rate identity, request snapshot, currency, pricing version, expiry, station flag, price, provider cost, and margin before binding.
+- The legacy order-scoped alias delegates to the existing quote edge and cannot establish trust or persist through the user client.
+- Focused tests: `pnpm --dir apps/web exec vitest run src/app/api/shipping/quotes/admin-order-gigl-quote.test.ts src/lib/admin-gigl-quote-attestation-model.test.ts src/lib/admin-gigl-quote-binding-migration.test.ts 'src/app/api/orders/[id]/shipping/gigl-quote/route.test.ts' src/app/api/shipping/quotes/route.test.ts --reporter=dot` — 5 files, 62 tests passed. The Admin edge suite contains 32 behavioral route cases; the deterministic attestation model contains 18 executable contract cases (including forged provenance, missing attestation, immutable economics/rate/request snapshots, order concurrency, and rollback/no-mutation semantics). Web lint and typecheck pass for the touched files; `git diff --check` passed.
+- TypeScript command `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec tsc --noEmit --pretty false -p apps/web/tsconfig.json` completed without diagnostics; the default-memory invocation OOMed on the monorepo.
+- No live provider, deploy, remote migration, or push was run.

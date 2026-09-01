@@ -22,6 +22,7 @@ import {
 } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { QuoteRequestSchema } from '@/schemas/shipping';
+import { postAdminOrderGiglQuote } from './admin-order-gigl-quote';
 import {
   getMerchantRateQuotes,
   type MerchantRateQuoteResult,
@@ -68,7 +69,21 @@ function buildMerchantOnlyQuoteResponse(
 export async function POST(request: NextRequest) {
   try {
     // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    if (request.headers.get('x-baci-admin-order-mode') === '1') {
+      return await postAdminOrderGiglQuote(request);
+    }
     const body = await request.json();
+
+    if (
+      body &&
+      typeof body === 'object' &&
+      typeof body.admin_order_id === 'string'
+    ) {
+      return NextResponse.json(
+        { error: 'Admin order mode header required' },
+        { status: 400 }
+      );
+    }
 
     // Validate request
     const parseResult = QuoteRequestSchema.safeParse(body);

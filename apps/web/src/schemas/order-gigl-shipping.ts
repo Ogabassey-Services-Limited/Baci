@@ -13,4 +13,8 @@ export const orderGiglQuoteSchema = z.object({
   receiver: receiverOverride.optional(),
 });
 
+export const adminOrderGiglQuoteSchema = orderGiglQuoteSchema.extend({
+  admin_order_id: z.string().uuid(),
+});
+
 export type OrderGiglQuoteInput = z.infer<typeof orderGiglQuoteSchema>;
