@@ -103,7 +103,7 @@ describe('ProductCard image memory behavior', () => {
       expect.objectContaining({
         imageSource: {
           height: 352,
-          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=82,format=webp,fit=cover/core-assets/products/phone.avif',
           width: 352,
         },
       })

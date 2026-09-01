@@ -97,7 +97,7 @@ describe('Hero bounded image sources', () => {
       expect.objectContaining({
         source: {
           height: 440,
-          uri: 'https://cdn.ogabassey.com/image/width=400,height=440,quality=75,format=jpeg/core-assets/products/hero.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=400,height=440,quality=82,format=webp/core-assets/products/hero.avif',
           width: 400,
         },
       })
@@ -111,7 +111,7 @@ describe('Hero bounded image sources', () => {
       expect.objectContaining({
         source: {
           height: 900,
-          uri: 'https://cdn.ogabassey.com/image/width=800,height=900,quality=75,format=jpeg,fit=cover/core-assets/products/hero.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=800,height=900,quality=82,format=webp,fit=cover/core-assets/products/hero.avif',
           width: 800,
         },
       })
@@ -125,7 +125,7 @@ describe('Hero bounded image sources', () => {
       expect.objectContaining({
         source: {
           height: 440,
-          uri: 'https://cdn.ogabassey.com/image/width=800,height=440,quality=75,format=jpeg,fit=cover/core-assets/products/hero.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=800,height=440,quality=82,format=webp,fit=cover/core-assets/products/hero.avif',
           width: 800,
         },
       })

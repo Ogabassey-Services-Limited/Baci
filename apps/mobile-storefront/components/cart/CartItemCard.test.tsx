@@ -74,7 +74,7 @@ describe('CartItemCard', () => {
       expect.objectContaining({
         source: {
           height: 128,
-          uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=75,format=jpeg/core-assets/products/phone.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=82,format=webp/core-assets/products/phone.avif',
           width: 128,
         },
       })

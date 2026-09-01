@@ -159,7 +159,7 @@ describe('JustLaunchedCarousel', () => {
         enforceEarlyResizing: true,
         source: {
           height: 304,
-          uri: 'https://cdn.ogabassey.com/image/width=244,height=304,quality=75,format=jpeg/core-assets/products/xiaomi.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=244,height=304,quality=82,format=webp/core-assets/products/xiaomi.avif',
           width: 244,
         },
       })

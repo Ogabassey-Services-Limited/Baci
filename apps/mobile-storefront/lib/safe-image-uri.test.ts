@@ -12,6 +12,17 @@ describe('resolveSafeImageUri', () => {
     );
   });
 
+  it('flattens managed WebP product assets to a static JPEG fallback', () => {
+    expect(
+      resolveSafeImageUri(
+        'https://cdn.ogabassey.com/core-assets/products/animated-product.webp',
+        { height: 160, width: 160 }
+      )
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=160,height=160,quality=82,format=jpeg/core-assets/products/animated-product.webp'
+    );
+  });
+
   it('normalizes legacy managed product paths without changing other hosts', () => {
     expect(
       resolveSafeImageUri('https://cdn.ogabassey.com/products/phone.avif', {

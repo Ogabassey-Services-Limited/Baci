@@ -61,7 +61,7 @@ describe('ProductImageGallery image bounds', () => {
       expect.objectContaining({
         source: {
           height: 600,
-          uri: 'https://cdn.ogabassey.com/image/width=800,height=600,quality=75,format=jpeg,fit=cover/core-assets/products/phone-side.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=800,height=600,quality=82,format=webp,fit=cover/core-assets/products/phone-side.avif',
           width: 800,
         },
       })
@@ -73,12 +73,12 @@ describe('ProductImageGallery image bounds', () => {
     ).toEqual([
       {
         height: 128,
-        uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+        uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=82,format=webp,fit=cover/core-assets/products/phone.avif',
         width: 128,
       },
       {
         height: 128,
-        uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=75,format=jpeg,fit=cover/core-assets/products/phone-side.avif',
+        uri: 'https://cdn.ogabassey.com/image/width=128,height=128,quality=82,format=webp,fit=cover/core-assets/products/phone-side.avif',
         width: 128,
       },
     ]);
