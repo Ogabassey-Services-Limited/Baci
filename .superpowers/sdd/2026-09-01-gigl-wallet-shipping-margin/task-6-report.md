@@ -41,4 +41,4 @@ keeps booking behind the existing explicit shipped-status confirmation.
 
 ## Commit
 
-Pending at report creation; updated after commit.
+Implementation commit: `865a4547c7`.
