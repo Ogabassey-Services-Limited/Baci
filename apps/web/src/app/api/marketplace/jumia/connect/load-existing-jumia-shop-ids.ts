@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 import { buildExistingJumiaShopIds } from '@/lib/jumia/jumia-shop-connection-identity';
 
 export async function loadExistingJumiaShopIds(
@@ -15,4 +16,19 @@ export async function loadExistingJumiaShopIds(
     throw new Error('Failed to load existing Jumia shops');
   }
   return buildExistingJumiaShopIds(existing ?? []);
+}
+
+export async function loadExistingJumiaShopIdsOrResponse(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<Set<string> | NextResponse> {
+  try {
+    return await loadExistingJumiaShopIds(supabase, merchantId);
+  } catch (error) {
+    console.error('[Jumia Connect] Failed to load existing shops:', error);
+    return NextResponse.json(
+      { error: 'Failed to load existing Jumia shops' },
+      { status: 503 }
+    );
+  }
 }

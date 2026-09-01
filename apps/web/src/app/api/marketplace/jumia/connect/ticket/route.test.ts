@@ -15,6 +15,8 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
   getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
+  hasBearerAuthScheme: (request: NextRequest) =>
+    request.headers.get('Authorization')?.startsWith('Bearer ') ?? false,
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
@@ -30,11 +32,14 @@ const TICKET_UUID = '00000000-0000-4000-8000-000000000099';
 const MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 const USER_ID = '00000000-0000-0000-0000-000000000002';
 
-function makeRequest(): NextRequest {
+function makeRequest(
+  headers: HeadersInit = { Authorization: 'Bearer test-token' }
+): NextRequest {
   return new NextRequest(
     'http://localhost/api/marketplace/jumia/connect/ticket',
     {
       method: 'POST',
+      headers,
     }
   );
 }
@@ -124,6 +129,15 @@ describe('POST /api/marketplace/jumia/connect/ticket', () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(404);
+  });
+
+  it('rejects cookie-only authentication because the ticket endpoint is bearer-only', async () => {
+    setupAuth();
+
+    const res = await POST(makeRequest({}));
+
+    expect(res.status).toBe(401);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 403 when missing integrations:manage permission', async () => {

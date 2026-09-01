@@ -70,10 +70,15 @@ export function getJumiaProductUpdateReadinessErrors(
   const readyCount = mappings.filter(
     (mapping) => mapping.jumia_product_id
   ).length;
-  if (readyCount > 0) return [];
+  const hasPendingMappings = mappings.some(
+    (mapping) => !mapping.jumia_product_id
+  );
+  if (readyCount > 0 && !hasPendingMappings) return [];
 
   const suffix =
-    'skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)';
+    readyCount > 0
+      ? 'skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)'
+      : 'skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)';
   return [
     ...(includesStatus ? [`Status update ${suffix}`] : []),
     ...(includesPrice ? [`Price update ${suffix}`] : []),
@@ -174,9 +179,11 @@ export async function pushStatusUpdates(
   feedErrors: string[]
 ): Promise<void> {
   const readyMappings = mappings.filter((mapping) => mapping.jumia_product_id);
-  if (readyMappings.length === 0) {
+  if (readyMappings.length !== mappings.length) {
     feedErrors.push(
-      'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
+      readyMappings.length > 0
+        ? 'Status update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)'
+        : 'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
     );
     return;
   }
@@ -218,9 +225,11 @@ export async function pushPriceUpdates(
   feedErrors: string[]
 ): Promise<void> {
   const readyMappings = mappings.filter((mapping) => mapping.jumia_product_id);
-  if (readyMappings.length === 0) {
+  if (readyMappings.length !== mappings.length) {
     feedErrors.push(
-      'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
+      readyMappings.length > 0
+        ? 'Price update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)'
+        : 'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
     );
     return;
   }

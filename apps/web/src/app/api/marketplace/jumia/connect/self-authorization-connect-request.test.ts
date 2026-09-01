@@ -5,6 +5,7 @@ import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
+  preserveJumiaSelfAuthorizationDiscoveryAfterRotation,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
@@ -30,6 +31,7 @@ vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
   claimJumiaSelfAuthorizationDiscovery: vi.fn(),
   consumeJumiaSelfAuthorizationDiscovery: vi.fn(),
   releaseJumiaSelfAuthorizationDiscovery: vi.fn(),
+  preserveJumiaSelfAuthorizationDiscoveryAfterRotation: vi.fn(),
   updateClaimedJumiaSelfAuthorizationDiscovery: vi.fn(),
 }));
 
@@ -100,6 +102,28 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue(null);
+    vi.mocked(
+      preserveJumiaSelfAuthorizationDiscoveryAfterRotation
+    ).mockImplementation(async (supabase, args) => {
+      if (args.discoveryId && args.claimToken) {
+        try {
+          await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
+            discoveryId: args.discoveryId,
+            merchantId: args.merchantId,
+            claimToken: args.claimToken,
+            credentialCiphertext: args.credentialCiphertext,
+          });
+          return null;
+        } catch {
+          // Keep the route test's store mock aligned with the real fallback.
+        }
+      }
+      return createJumiaSelfAuthorizationDiscovery(supabase, {
+        merchantId: args.merchantId,
+        clientKeyHash: args.clientKeyHash,
+        credentialCiphertext: args.credentialCiphertext,
+      });
+    });
   });
 
   it('returns 400 when a selection request is missing discoveryId', async () => {
@@ -220,6 +244,64 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       expect.objectContaining({
         p_credential_ciphertext: 'ciphertext',
         p_token_expires_at: '2026-03-27T10:00:00.000Z',
+      })
+    );
+  });
+
+  it('creates a recovery discovery when a claimed discovery cannot be updated after rotation', async () => {
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValueOnce({
+      claimToken: 'claim-1',
+      credentialCiphertext: 'ciphertext',
+    });
+    vi.mocked(
+      updateClaimedJumiaSelfAuthorizationDiscovery
+    ).mockRejectedValueOnce(new Error('discovery update unavailable'));
+    vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValueOnce(
+      'fallback-discovery'
+    );
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
+      async (_credentials, options) => {
+        await options?.onCredentialsRotated?.({
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+        });
+        throw new Error('Jumia shop discovery failed');
+      }
+    );
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        operation: 'discover',
+        clientId: 'client-1',
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: buildSupabase(),
+    });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Jumia shop discovery failed',
+      discoveryId: 'fallback-discovery',
+      retryable: true,
+    });
+    expect(updateClaimedJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
+    expect(createJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ credentialCiphertext: 'ciphertext' })
+    );
+    expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        claimToken: 'claim-1',
       })
     );
   });

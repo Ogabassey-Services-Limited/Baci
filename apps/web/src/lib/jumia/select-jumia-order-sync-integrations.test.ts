@@ -76,6 +76,34 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
     expect(selected[0]?.orderSyncScope).toBe('shared');
   });
 
+  it('keeps a shared neutral cache scope when a sibling has order sync disabled', () => {
+    const selected = selectJumiaOrderSyncIntegrations([
+      {
+        id: 'retail-disabled',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        jumia_authorization_id: 'authorization-1',
+        last_sync_at: null,
+        sync_config: { orders: false },
+      },
+      {
+        id: 'express-enabled',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-EXPRESS',
+        jumia_authorization_id: 'authorization-1',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+    ]);
+
+    expect(selected.map((row) => row.id)).toEqual(['express-enabled']);
+    expect(selected[0]?.orderSyncScope).toBe('shared');
+  });
+
   it('does not change the shared-scope owner when the database order changes', () => {
     const rows = [
       {

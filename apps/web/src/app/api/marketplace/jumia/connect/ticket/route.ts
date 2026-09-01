@@ -3,6 +3,7 @@ import { getConfiguredAppUrl } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
+  hasBearerAuthScheme,
   hasPermission,
 } from '@/lib/api-auth';
 import {
@@ -23,6 +24,9 @@ export async function POST(request: NextRequest) {
     // not cookie-based auth. CSRF attacks only exploit automatic cookie inclusion.
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!hasBearerAuthScheme(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

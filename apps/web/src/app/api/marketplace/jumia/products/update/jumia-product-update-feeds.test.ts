@@ -29,6 +29,19 @@ describe('getJumiaProductUpdateReadinessErrors', () => {
       'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
     ]);
   });
+
+  it('rejects a product-wide update while any variant is still pending', () => {
+    expect(
+      getJumiaProductUpdateReadinessErrors(
+        [{ jumia_product_id: 'JUMIA-1' }, { jumia_product_id: null }],
+        true,
+        true
+      )
+    ).toEqual([
+      'Status update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)',
+      'Price update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)',
+    ]);
+  });
 });
 
 describe('getJumiaPriceOverrideError', () => {
@@ -112,8 +125,7 @@ describe('pushStatusUpdates', () => {
     expect(mockUpdateStatus).not.toHaveBeenCalled();
   });
 
-  it('updates the variants that are ready when another variant is still pending', async () => {
-    mockUpdateStatus.mockResolvedValue('feed-status-partial');
+  it('does not submit a status feed while another variant is still pending', async () => {
     const feedIds: string[] = [];
     const feedErrors: string[] = [];
 
@@ -136,11 +148,11 @@ describe('pushStatusUpdates', () => {
       feedErrors
     );
 
-    expect(feedIds).toEqual(['feed-status-partial']);
-    expect(feedErrors).toEqual([]);
-    expect(mockUpdateStatus).toHaveBeenCalledWith(expect.anything(), [
-      { id: 'JUMIA-1', sellerSku: 'SKU-1', status: 'active' },
+    expect(feedIds).toEqual([]);
+    expect(feedErrors).toEqual([
+      'Status update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)',
     ]);
+    expect(mockUpdateStatus).not.toHaveBeenCalled();
   });
 
   it('uses the documented business-client status shape for selected marketplaces', async () => {
@@ -230,8 +242,7 @@ describe('pushPriceUpdates', () => {
     expect(mockUpdatePrice).not.toHaveBeenCalled();
   });
 
-  it('updates the variants that are ready when another variant is still pending', async () => {
-    mockUpdatePrice.mockResolvedValue('feed-price-partial');
+  it('does not submit a price feed while another variant is still pending', async () => {
     const feedIds: string[] = [];
     const feedErrors: string[] = [];
 
@@ -263,15 +274,11 @@ describe('pushPriceUpdates', () => {
       feedErrors
     );
 
-    expect(feedIds).toEqual(['feed-price-partial']);
-    expect(feedErrors).toEqual([]);
-    expect(mockUpdatePrice).toHaveBeenCalledWith(expect.anything(), [
-      expect.objectContaining({
-        id: 'JUMIA-1',
-        sellerSku: 'SKU-1',
-        price: expect.objectContaining({ value: 1500, currency: 'NGN' }),
-      }),
+    expect(feedIds).toEqual([]);
+    expect(feedErrors).toEqual([
+      'Price update skipped: one or more product variants have not been assigned a Jumia product ID yet (feed may still be processing)',
     ]);
+    expect(mockUpdatePrice).not.toHaveBeenCalled();
   });
 
   it('submits price feeds with the resolved marketplace currency', async () => {

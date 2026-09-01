@@ -11,6 +11,7 @@ import {
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
   loadJumiaSelfAuthorizationDiscovery,
+  preserveJumiaSelfAuthorizationDiscoveryAfterRotation,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from './self-authorization-discovery-store';
@@ -165,6 +166,33 @@ describe('jumia self-authorization discovery store', () => {
       'release_jumia_self_authorization_discovery',
       expect.objectContaining({
         p_claim_token: '00000000-0000-4000-8000-000000000088',
+      })
+    );
+  });
+
+  it('creates a new recovery record when a claimed rotation cannot be updated', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: false, error: null })
+      .mockResolvedValueOnce({
+        data: '00000000-0000-4000-8000-000000000077',
+        error: null,
+      });
+
+    await expect(
+      preserveJumiaSelfAuthorizationDiscoveryAfterRotation(mockSupabase, {
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        merchantId: 'merchant-1',
+        clientKeyHash: 'a'.repeat(64),
+        claimToken: '00000000-0000-4000-8000-000000000088',
+        credentialCiphertext: 'rotated-ciphertext',
+      })
+    ).resolves.toBe('00000000-0000-4000-8000-000000000077');
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'create_jumia_self_authorization_discovery',
+      expect.objectContaining({
+        p_credential_ciphertext: 'rotated-ciphertext',
       })
     );
   });

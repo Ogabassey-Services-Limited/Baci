@@ -8,6 +8,7 @@ import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
+  preserveJumiaSelfAuthorizationDiscoveryAfterRotation,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
@@ -17,7 +18,7 @@ import type {
   jumiaSelfAuthorizationSelectionSchema,
 } from '@/schemas/jumia/self-authorization';
 import { claimJumiaDiscoveryCredentials } from './claim-jumia-discovery-credentials';
-import { loadExistingJumiaShopIds } from './load-existing-jumia-shop-ids';
+import { loadExistingJumiaShopIdsOrResponse } from './load-existing-jumia-shop-ids';
 import { releaseJumiaDiscoveryClaim } from './release-jumia-discovery-claim';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 import { validateJumiaSelfAuthorizationForConnect } from './validate-jumia-self-authorization-for-connect';
@@ -26,6 +27,10 @@ type DiscoveryBody = z.infer<typeof jumiaSelfAuthorizationDiscoverySchema>;
 type SelectionBody = z.infer<typeof jumiaSelfAuthorizationSelectionSchema> & {
   connectionType: 'self_authorization';
 };
+function hashClientId(clientId: string): string {
+  return crypto.createHash('sha256').update(clientId).digest('hex');
+}
+
 export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   body: DiscoveryBody | SelectionBody;
   encryptionKey: string;
@@ -35,24 +40,20 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   const { body, encryptionKey, merchantId, supabase } = args;
   try {
     if ('operation' in body) {
-      let existingShopIds: Set<string>;
-      try {
-        existingShopIds = await loadExistingJumiaShopIds(supabase, merchantId);
-      } catch (error) {
-        console.error('[Jumia Connect] Failed to load existing shops:', error);
-        return NextResponse.json(
-          { error: 'Failed to load existing Jumia shops' },
-          { status: 503 }
-        );
-      }
-      const clientKeyHash = crypto
-        .createHash('sha256')
-        .update(body.clientId)
-        .digest('hex');
+      const existingShopIdsResult = await loadExistingJumiaShopIdsOrResponse(
+        supabase,
+        merchantId
+      );
+      if (existingShopIdsResult instanceof NextResponse)
+        return existingShopIdsResult;
+      const existingShopIds = existingShopIdsResult;
+      const clientKeyHash = hashClientId(body.clientId);
       let discoveryId: string | undefined;
       let discoveryClaim:
         | Awaited<ReturnType<typeof claimJumiaDiscoveryCredentials>>
         | undefined;
+      let credentialsRotated = false;
+      let rotatedCredentialsPersisted = false;
       let submittedCredentials = body.refreshToken
         ? { clientId: body.clientId, refreshToken: body.refreshToken }
         : undefined;
@@ -86,32 +87,35 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
           encryptionKey,
           merchantId,
           onCredentialsRotated: async ({ credentialCiphertext }) => {
-            if (discoveryClaim) {
-              await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
-                discoveryId: body.discoveryId ?? '',
-                merchantId,
-                claimToken: discoveryClaim.claimToken,
-                credentialCiphertext,
-              });
-            } else {
-              discoveryId = await createJumiaSelfAuthorizationDiscovery(
+            credentialsRotated = true;
+            const fallbackDiscoveryId =
+              await preserveJumiaSelfAuthorizationDiscoveryAfterRotation(
                 supabase,
                 {
+                  ...(discoveryClaim && {
+                    discoveryId: body.discoveryId,
+                    claimToken: discoveryClaim.claimToken,
+                  }),
                   merchantId,
                   clientKeyHash,
                   credentialCiphertext,
                 }
               );
-            }
+            if (fallbackDiscoveryId) discoveryId = fallbackDiscoveryId;
+            rotatedCredentialsPersisted = true;
           },
           submittedCredentials,
           supabase,
         });
       } catch (error) {
-        if (discoveryId) {
+        const retryableDiscoveryId =
+          discoveryId && (!credentialsRotated || rotatedCredentialsPersisted)
+            ? discoveryId
+            : undefined;
+        if (discoveryId || discoveryClaim) {
           if (discoveryClaim) {
             await releaseJumiaDiscoveryClaim({
-              discoveryId: body.discoveryId ?? discoveryId,
+              discoveryId: body.discoveryId ?? discoveryId ?? '',
               merchantId,
               claimToken: discoveryClaim.claimToken,
               supabase,
@@ -123,8 +127,10 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
                 error instanceof Error
                   ? error.message
                   : 'Jumia shop discovery failed',
-              discoveryId,
-              retryable: true,
+              ...(retryableDiscoveryId && {
+                discoveryId: retryableDiscoveryId,
+                retryable: true,
+              }),
             },
             { status: 502 }
           );
@@ -166,20 +172,14 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
     if (!('discoveryId' in body)) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
-    let existingShopIds: Set<string>;
-    try {
-      existingShopIds = await loadExistingJumiaShopIds(supabase, merchantId);
-    } catch (error) {
-      console.error('[Jumia Connect] Failed to load existing shops:', error);
-      return NextResponse.json(
-        { error: 'Failed to load existing Jumia shops' },
-        { status: 503 }
-      );
-    }
-    const clientKeyHash = crypto
-      .createHash('sha256')
-      .update(body.clientId)
-      .digest('hex');
+    const existingShopIdsResult = await loadExistingJumiaShopIdsOrResponse(
+      supabase,
+      merchantId
+    );
+    if (existingShopIdsResult instanceof NextResponse)
+      return existingShopIdsResult;
+    const existingShopIds = existingShopIdsResult;
+    const clientKeyHash = hashClientId(body.clientId);
     const discoveryClaim = await claimJumiaSelfAuthorizationDiscovery(
       supabase,
       {

@@ -113,6 +113,40 @@ export async function updateClaimedJumiaSelfAuthorizationDiscovery(
   }
 }
 
+/**
+ * Preserve rotated credentials even when a claimed discovery update races its
+ * expiry. A fresh discovery keeps the replacement token recoverable.
+ */
+export async function preserveJumiaSelfAuthorizationDiscoveryAfterRotation(
+  supabase: SupabaseClient,
+  args: {
+    discoveryId?: string;
+    merchantId: string;
+    clientKeyHash: string;
+    claimToken?: string;
+    credentialCiphertext: string;
+  }
+): Promise<string | null> {
+  if (args.discoveryId && args.claimToken) {
+    try {
+      await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
+        discoveryId: args.discoveryId,
+        merchantId: args.merchantId,
+        claimToken: args.claimToken,
+        credentialCiphertext: args.credentialCiphertext,
+      });
+      return null;
+    } catch {
+      // Fall through to a fresh record so rotated credentials remain usable.
+    }
+  }
+  return createJumiaSelfAuthorizationDiscovery(supabase, {
+    merchantId: args.merchantId,
+    clientKeyHash: args.clientKeyHash,
+    credentialCiphertext: args.credentialCiphertext,
+  });
+}
+
 export async function releaseJumiaSelfAuthorizationDiscovery(
   supabase: SupabaseClient,
   args: {
