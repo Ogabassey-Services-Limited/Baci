@@ -13,6 +13,7 @@ import {
   CHECKOUT_MERCHANT_ID,
   shippingAddressResolver,
 } from './checkout-screen.constants';
+import { shouldAutoCollapseCheckoutContact } from './should-auto-collapse-checkout-contact';
 import { useCheckoutSavedAddresses } from './use-checkout-saved-addresses';
 import { useCheckoutShipping } from './use-checkout-shipping';
 
@@ -58,6 +59,7 @@ export function useCheckoutAddressState({
     shouldUnregister: false,
   });
   const { control, getValues, reset, setValue } = form;
+  const settledContactFields = form.formState.touchedFields;
   // useWatch instead of watch(): watch() returns interior-mutable values that
   // force React Compiler to skip memoizing this hook (incompatible-library).
   const watchedState = useWatch({ control, name: 'state' });
@@ -119,11 +121,23 @@ export function useCheckoutAddressState({
       return;
     }
 
-    if (!wasContactComplete.current) {
+    if (
+      shouldAutoCollapseCheckoutContact({
+        hasInitialContactIdentity,
+        isContactComplete,
+        touchedFields: settledContactFields,
+        wasContactComplete: wasContactComplete.current,
+      })
+    ) {
       savedAddresses.setIsContactCollapsed(true);
+      wasContactComplete.current = true;
     }
-    wasContactComplete.current = true;
-  }, [isContactComplete, savedAddresses.setIsContactCollapsed]);
+  }, [
+    hasInitialContactIdentity,
+    isContactComplete,
+    savedAddresses.setIsContactCollapsed,
+    settledContactFields,
+  ]);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {

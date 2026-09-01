@@ -2,6 +2,8 @@ import { jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 
+const mockSetIsContactCollapsed = jest.fn();
+
 jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
   trackCheckoutRouteStarted: jest.fn(),
 }));
@@ -14,7 +16,7 @@ jest.mock('@/components/checkout/use-checkout-shipping', () => ({
 jest.mock('./use-checkout-saved-addresses', () => ({
   useCheckoutSavedAddresses: () => ({
     selectedSavedAddressId: null,
-    setIsContactCollapsed: jest.fn(),
+    setIsContactCollapsed: mockSetIsContactCollapsed,
     openNewAddressEditor: jest.fn(),
   }),
 }));
@@ -28,6 +30,7 @@ const baseProps = {
 };
 
 it('settles a guest email and reopens contact when it is edited', () => {
+  mockSetIsContactCollapsed.mockClear();
   const { result } = renderHook(() => useCheckoutAddressState(baseProps));
 
   act(() => {

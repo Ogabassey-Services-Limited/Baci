@@ -18,23 +18,7 @@ import {
   setupCheckoutTest,
   teardownCheckoutTest,
 } from './checkout.test-utils';
-
-function fillCheckoutContact() {
-  const firstNameInput = screen.queryByPlaceholderText('E.g. John');
-  if (!firstNameInput) return;
-
-  fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-  fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-  fireEvent.changeText(
-    screen.getByPlaceholderText('e.g. 08012345678'),
-    '08031234567'
-  );
-  fireEvent.changeText(
-    screen.getByPlaceholderText('john@example.com'),
-    'ada@example.com'
-  );
-  fireEvent(screen.getByPlaceholderText('john@example.com'), 'blur');
-}
+import { fillCheckoutContact } from './checkout-contact.test-utils';
 
 function fillLagosDeliveryAddress() {
   fireEvent.changeText(
