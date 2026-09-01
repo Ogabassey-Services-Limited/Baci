@@ -96,6 +96,8 @@ Required properties:
 - One active charge per order and selected quote.
 - Reserving is atomic: lock wallet, verify ownership/quote/current balance,
   decrement available balance, and append the debit ledger entry.
+- A token-gated begin-submission transition moves the charge from `reserved` to
+  `provider_submitting` immediately before the first external GIGL request.
 - Repeating the same request returns the existing reservation or booking; it
   never debits twice.
 - The API generates an unguessable attempt token before provider submission.

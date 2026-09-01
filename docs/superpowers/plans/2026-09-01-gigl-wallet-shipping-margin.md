@@ -313,6 +313,7 @@ git commit -m "feat: retain storefront GIGL shipping settlement"
 reserveMerchantShippingCharge({ orderId, quoteId, attemptToken })
 // -> { chargeId, chargedAmount, balanceAfter, status }
 
+beginMerchantShippingChargeSubmission({ chargeId, attemptToken })
 completeMerchantShippingCharge({ chargeId, attemptToken, shipmentId })
 refundMerchantShippingCharge({ chargeId, attemptToken, reasonCode })
 markMerchantShippingChargeForReconciliation({
@@ -340,9 +341,9 @@ available balance decremented by quote.price
 debit wallet transaction source_type = gigl_shipping
 duplicate order+quote reservation returns the existing debit
 insufficient funds raises MERCHANT_WALLET_INSUFFICIENT
-attempt-token-gated complete/refund/reconciliation transitions
+attempt-token-gated begin/complete/refund/reconciliation transitions
 refund appends one linked credit and restores available balance once
-authenticated grants limited to the four owner-checked RPCs
+authenticated grants limited to the five owner-checked RPCs
 table RLS enabled with owner read only and no direct write policy
 ```
 
@@ -362,8 +363,8 @@ bundled amount, currency, debit/refund transaction IDs, attempt-token digest,
 shipment/provider identifiers, failure code, and timestamps. Store only a SHA-256
 digest of the attempt token. Use the existing `wallet_transactions` values
 `debit` for reservation and `refund` for reversal; no payout pending-balance
-movement. Repeated reserve/complete/refund calls must return the terminal existing
-result.
+movement. Repeated reserve/begin/complete/refund calls must return the existing
+state or terminal result without a second debit or provider attempt.
 
 - [ ] **Step 4: Write failing orchestration tests**
 
