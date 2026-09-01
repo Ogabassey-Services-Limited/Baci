@@ -42,3 +42,39 @@ keeps booking behind the existing explicit shipped-status confirmation.
 ## Commit
 
 Implementation commit: `865a4547c7`.
+
+## Fix round 1
+
+Resolved the independent review's financial-consent and wallet-cache findings:
+
+- A quote within 30 seconds of expiry is refreshed on the confirmation tap.
+  That tap never books; the replacement amount and wallet state render first,
+  and only a new explicit tap can continue.
+- The first sufficient wallet poll refreshes the server-attested quote before
+  exposing `canBook`. A more expensive replacement remains blocked with its new
+  exact shortfall.
+- Address edits and server missing-address responses immediately discard the
+  prior quote and bookable wallet state.
+- Successful provider booking invalidates `merchant-wallet` after the four
+  existing order/dashboard invalidations; Self Fulfill keeps its prior cache
+  behavior.
+- Duplicate funding consent is guarded while provisioning is in flight.
+
+Fix-round RED evidence: the new focused regressions initially failed because
+the hook lacked `ensureFreshQuoteForConfirmation`, polling did not request a
+replacement quote, the sheet bypassed the freshness gate, and provider booking
+made only four cache invalidations.
+
+Fix-round GREEN evidence:
+
+- Reviewer-focused gate: 5 files / 28 tests passed.
+- Consolidated Task 6 plus controller/modal regressions: 12 files / 70 tests
+  passed.
+- Mobile Admin lint passed with 1,816 files checked.
+- Mobile Admin typecheck and `git diff --check` passed.
+- Hook: 300 lines; sheet: 289 lines; controller unchanged at 293 lines.
+
+Fix-round implementation commit: `dbd40db646`.
+
+No emulator/device, live GIG, live Paystack, deployment, or remote migration
+proof was performed in this round.
