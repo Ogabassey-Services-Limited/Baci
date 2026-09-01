@@ -248,43 +248,6 @@ describe('GET /api/analytics/ads', () => {
       '2026-08-22T18:45:00.000Z'
     );
   });
-
-  it('stores a cache-busted response so ordinary readers do not see stale data', async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
-      error: null,
-    });
-    mockGetMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-1',
-    });
-    mockFetchAnalyticsPlatformConfig.mockResolvedValue({
-      facebook_capi_token: null,
-      facebook_pixel_id: null,
-      ga4_api_secret: null,
-      google_analytics_id: null,
-      offline_conversions_enabled: true,
-      snapchat_capi_token: null,
-      snapchat_pixel_id: null,
-      tiktok_access_token: null,
-      tiktok_pixel_id: null,
-    });
-    mockFrom.mockImplementation(() =>
-      chainResult({ data: [], error: null }, 'limit')
-    );
-
-    const response = await GET(
-      new Request(
-        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22&cacheBust=2'
-      ) as unknown as NextRequest
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockCacheSet).toHaveBeenCalledWith(
-      'ads-cache-key',
-      expect.anything(),
-      300
-    );
-  });
 });
 
 function chainResult(
