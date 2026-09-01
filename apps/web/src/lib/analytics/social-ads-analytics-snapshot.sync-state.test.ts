@@ -16,6 +16,7 @@ describe('buildSocialAdsAnalyticsSnapshot sync freshness', () => {
         },
       ],
       endDate: '2026-08-22',
+      now: new Date('2026-08-22T10:00:00.000Z'),
       spendRows: [
         {
           account_timezone: 'UTC',

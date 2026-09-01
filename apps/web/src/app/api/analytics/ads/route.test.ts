@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
 const mockCookies = vi.fn();
@@ -48,11 +48,17 @@ import { GET } from './route';
 
 describe('GET /api/analytics/ads', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-22T10:00:00.000Z'));
     vi.clearAllMocks();
     mockCookies.mockResolvedValue({});
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockGetAdsAnalyticsCacheVersion.mockResolvedValue('ads-revision-1');
     mockBuildAdsAnalyticsCacheKey.mockReturnValue('ads-cache-key');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('authenticates before parsing an invalid analytics date query', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchAdReportingSnapshots,
   GOOGLE_ADS_SPEND_PAGE_SIZE,
@@ -23,6 +23,15 @@ function socialConnection() {
 }
 
 describe('fetchAdReportingSnapshots pagination', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-22T10:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('paginates only the selected Google customer before building metrics', async () => {
     const firstPage = Array.from(
       { length: GOOGLE_ADS_SPEND_PAGE_SIZE },
