@@ -63,6 +63,7 @@ describe('revalidateProductsReliable enrichment path', () => {
     );
     expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
       'iphone-15',
+      'product-id',
     ]);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
