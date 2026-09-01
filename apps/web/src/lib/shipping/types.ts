@@ -122,6 +122,10 @@ export interface ShippingQuote {
   providerRateId?: string; // For booking with provider
   expiresAt: Date;
   rawResponse?: unknown; // Raw provider response for debugging
+  providerCost?: number;
+  platformMargin?: number;
+  marginBasisPoints?: number;
+  pricingVersion?: string;
 
   // Station pickup (for areas without home delivery)
   isStationPickup?: boolean;

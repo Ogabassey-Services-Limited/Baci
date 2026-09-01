@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { toShippingQuoteUpsert } from '@/app/api/shipping/quotes/shipping-quote-persistence';
 import { shippingService } from '@/lib/shipping';
 import { domesticSendersDiffer } from '@/lib/shipping/merchant-sender-comparison';
 import {
@@ -24,6 +25,10 @@ export type OrderShipmentQuoteRecord = {
   expires_at: string;
   quote_request: unknown;
   provider_metadata: unknown;
+  provider_cost?: number | null;
+  platform_margin?: number | null;
+  platform_margin_bps?: number | null;
+  pricing_version?: string | null;
 };
 
 export async function refreshOrderShipmentQuote(
@@ -99,24 +104,18 @@ export async function refreshOrderShipmentQuote(
     expires_at: replacement.expiresAt.toISOString(),
     quote_request: persistedQuoteRequest,
     provider_metadata: replacement.rawResponse,
+    provider_cost: replacement.providerCost ?? null,
+    platform_margin: replacement.platformMargin ?? null,
+    platform_margin_bps: replacement.marginBasisPoints ?? null,
+    pricing_version: replacement.pricingVersion ?? null,
   };
 
   const { error: upsertError } = await supabase.from('shipping_quotes').upsert(
-    {
-      id: nextQuote.id,
-      merchant_id: quote.merchant_id,
-      session_id: persistedQuoteRequest.sessionId,
-      provider,
-      service_tier: nextQuote.service_tier,
-      carrier_name: nextQuote.carrier_name,
-      price: nextQuote.price,
-      currency: nextQuote.currency,
-      estimated_days: nextQuote.estimated_days,
-      provider_rate_id: nextQuote.provider_rate_id,
-      expires_at: nextQuote.expires_at,
-      quote_request: persistedQuoteRequest,
-      provider_metadata: nextQuote.provider_metadata,
-    },
+    toShippingQuoteUpsert(replacement, {
+      merchantId: quote.merchant_id,
+      sessionId: persistedQuoteRequest.sessionId,
+      quoteRequest: persistedQuoteRequest,
+    }),
     { onConflict: 'id' }
   );
 

@@ -26,8 +26,10 @@ import {
   getMerchantRateQuotes,
   type MerchantRateQuoteResult,
 } from './merchant-rate-quotes';
+import { toPublicQuoteResponse } from './public-quote-response';
 import { resolveQuoteMerchantContext } from './quote-merchant-context';
 import { resolveQuoteSender } from './resolve-quote-sender';
+import { toShippingQuoteUpsert } from './shipping-quote-persistence';
 
 /**
  * Build the merchant-rate-only quote response shared by BOTH non-NG paths: the
@@ -299,34 +301,17 @@ export async function POST(request: NextRequest) {
         .filter((quote) => quote.provider !== MERCHANT_PROVIDER_CODE)
         .map((quote) =>
           supabase.from('shipping_quotes').upsert(
-            {
-              id: quote.id,
-              merchant_id: quoteRequest.merchantId ?? null,
-              session_id: response.sessionId,
-              provider: quote.provider,
-              service_tier: quote.serviceTier,
-              carrier_name: quote.carrierName,
-              price: quote.price,
-              currency: quote.currency,
-              estimated_days: quote.estimatedDays,
-              min_days: quote.minDays,
-              max_days: quote.maxDays,
-              pickup_included: quote.pickupIncluded,
-              insurance_included: quote.insuranceIncluded,
-              is_station_pickup: quote.isStationPickup || false,
-              station_name: quote.stationName,
-              station_address: quote.stationAddress,
-              provider_rate_id: quote.providerRateId,
-              provider_metadata: quote.rawResponse,
-              expires_at: quote.expiresAt.toISOString(),
-              quote_request: quoteRequest,
-            },
+            toShippingQuoteUpsert(quote, {
+              merchantId: quoteRequest.merchantId,
+              sessionId: response.sessionId,
+              quoteRequest,
+            }),
             { onConflict: 'id' }
           )
         )
     );
 
-    return NextResponse.json(response);
+    return NextResponse.json(toPublicQuoteResponse(response));
   } catch (error) {
     console.error('Error getting shipping quotes:', error);
     return NextResponse.json(
