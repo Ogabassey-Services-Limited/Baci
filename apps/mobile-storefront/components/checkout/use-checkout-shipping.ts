@@ -196,6 +196,7 @@ export function useCheckoutShipping({
       shippingCitiesStateRef.current = watchedState;
       applyGoogleSuggestedCity(cities);
     },
+    onCitiesUnavailable: () => applyGoogleSuggestedCity([]),
     setIsLoadingCities,
     setShippingCities,
     state: watchedState,
@@ -220,7 +221,6 @@ export function useCheckoutShipping({
     currentShippingQuoteContextKey,
     currentQuotePreference,
     isCurrentQuoteContext,
-    items,
     resolvedQuoteKey,
     resolvedPreference,
     usesDoorQuotes,
