@@ -192,7 +192,7 @@ describe('CompareView', () => {
 
       expect(screen.getByTestId('compare-product-image').props.source).toEqual({
         height: 216,
-        uri: 'https://cdn.ogabassey.com/image/width=216,height=216,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+        uri: 'https://cdn.ogabassey.com/image/width=216,height=216,quality=82,format=webp,fit=cover/core-assets/products/phone.avif',
         width: 216,
       });
     });

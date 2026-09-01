@@ -19,7 +19,7 @@ describe('resolveSafeImageSource', () => {
         { fit: 'cover' }
       )
     ).toBe(
-      'https://cdn.ogabassey.com/image/quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif'
+      'https://cdn.ogabassey.com/image/quality=82,format=webp,fit=cover/core-assets/products/phone.avif'
     );
   });
 });

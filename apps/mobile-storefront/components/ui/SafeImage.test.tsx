@@ -130,7 +130,7 @@ describe('SafeImage', () => {
 
     expect(screen.getByTestId('product-image').props.source).toEqual({
       height: 120,
-      uri: 'https://cdn.ogabassey.com/image/width=100,height=120,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+      uri: 'https://cdn.ogabassey.com/image/width=100,height=120,quality=82,format=webp,fit=cover/core-assets/products/phone.avif',
       width: 100,
     });
   });
