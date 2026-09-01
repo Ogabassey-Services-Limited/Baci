@@ -66,4 +66,17 @@ describe('findRelatedProducts', () => {
       findRelatedProducts(current, candidates, 3).map(({ id }) => id)
     ).toEqual(['a-id', 'b-id', 'z-id']);
   });
+
+  it('handles a zero-priced current product without Infinity scoring', () => {
+    const current = product('current', { price: 0, category: 'current' });
+    const result = findRelatedProducts(
+      current,
+      [
+        product('zero', { price: 0, category: 'other' }),
+        product('paid', { price: 100, category: 'other' }),
+      ],
+      2
+    );
+    expect(result.map(({ id }) => id)).toEqual(['zero', 'paid']);
+  });
 });

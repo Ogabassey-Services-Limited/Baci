@@ -70,4 +70,54 @@ describe('domain cache database fallbacks', () => {
     await expect(fetchCustomDomain(client, 'shop')).resolves.toBeNull();
     errorSpy.mockRestore();
   });
+
+  it('fails open when database results are missing or contain an error', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const missingQuery = createQuery({ data: null, error: null });
+    const errorQuery = createQuery({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+    const missingClient = {
+      from: vi.fn(() => missingQuery),
+    } as unknown as SupabaseClient;
+    const errorClient = {
+      from: vi.fn(() => errorQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      fetchSlugForDomain(missingClient, 'missing.example.com')
+    ).resolves.toBeNull();
+    await expect(fetchCustomDomain(errorClient, 'missing')).resolves.toBeNull();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
+
+  it('does not guess when multiple active domains have no primary', async () => {
+    const query = createQuery({
+      data: {
+        id: 'merchant-1',
+        domains: [
+          {
+            domain: 'one.example.com',
+            is_primary: false,
+            status: 'active',
+            domain_type: 'custom',
+          },
+          {
+            domain: 'two.example.com',
+            is_primary: false,
+            status: 'active',
+            domain_type: 'purchased',
+          },
+        ],
+      },
+      error: null,
+    });
+    const client = {
+      from: vi.fn(() => query),
+    } as unknown as SupabaseClient;
+
+    await expect(fetchCustomDomain(client, 'shop')).resolves.toBeNull();
+  });
 });

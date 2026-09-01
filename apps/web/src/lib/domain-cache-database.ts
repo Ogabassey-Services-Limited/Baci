@@ -22,8 +22,13 @@ export async function fetchSlugForDomain(
     }
     if (!data) return null;
 
-    const merchant = data.merchants as unknown as { slug: string };
-    return merchant.slug ?? null;
+    if (!data.merchants || typeof data.merchants !== 'object') return null;
+    const merchant = Array.isArray(data.merchants)
+      ? data.merchants[0]
+      : data.merchants;
+    if (!merchant || typeof merchant !== 'object') return null;
+    const slug = Reflect.get(merchant, 'slug');
+    return typeof slug === 'string' ? slug : null;
   } catch (error) {
     console.error('[Domain Cache] Error fetching slug for domain', {
       domain,
@@ -53,26 +58,27 @@ export async function fetchCustomDomain(
     }
     if (!merchant) return null;
 
-    const domains = merchant.domains as Array<{
-      domain: string;
-      is_primary: boolean;
-      status: string;
-      domain_type: string;
-    }> | null;
+    const rawDomains = Reflect.get(merchant, 'domains');
+    const domains = Array.isArray(rawDomains)
+      ? rawDomains.filter(
+          (domain) => Boolean(domain) && typeof domain === 'object'
+        )
+      : [];
     const activeCustomDomains =
       domains?.filter(
         (domain) =>
           domain.status === 'active' &&
           (domain.domain_type === 'custom' ||
-            domain.domain_type === 'purchased')
+            domain.domain_type === 'purchased') &&
+          typeof domain.domain === 'string'
       ) ?? [];
     const primaryDomain = activeCustomDomains.find(
       (domain) => domain.is_primary
     );
 
-    if (primaryDomain) return primaryDomain.domain;
+    if (primaryDomain) return primaryDomain.domain as string;
     return activeCustomDomains.length === 1
-      ? activeCustomDomains[0].domain
+      ? (activeCustomDomains[0].domain as string)
       : null;
   } catch {
     return null;

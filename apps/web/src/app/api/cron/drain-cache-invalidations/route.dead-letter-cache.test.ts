@@ -51,6 +51,9 @@ describe('cache invalidation dead-letter alert cache', () => {
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
+    await expect(first.json()).resolves.toMatchObject({
+      deadLettersPresent: true,
+    });
     await expect(second.json()).resolves.toMatchObject({
       deadLettersPresent: true,
     });
@@ -73,9 +76,18 @@ describe('cache invalidation dead-letter alert cache', () => {
       return Promise.resolve({ data: true, error: null });
     });
 
-    await expect(GET(request())).resolves.toMatchObject({ status: 200 });
-    await expect(GET(request())).resolves.toMatchObject({ status: 200 });
-    await expect(GET(request())).resolves.toMatchObject({ status: 200 });
+    const first = await GET(request());
+    const second = await GET(request());
+    const third = await GET(request());
+    await expect(first.json()).resolves.toMatchObject({
+      deadLettersPresent: true,
+    });
+    await expect(second.json()).resolves.toMatchObject({
+      deadLettersPresent: false,
+    });
+    await expect(third.json()).resolves.toMatchObject({
+      deadLettersPresent: true,
+    });
 
     expect(
       rpc.mock.calls.filter(

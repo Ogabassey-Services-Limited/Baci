@@ -21,4 +21,15 @@ describe('createWarmPositiveCache', () => {
     expect(cache.get('third', 102)).toBeUndefined();
     expect(cache.get('second', 102)).toBe('merchant-b');
   });
+
+  it('deletes only the targeted key', () => {
+    const cache = createWarmPositiveCache({ maxEntries: 2, ttlMs: 60 });
+    cache.set('first', 'merchant-a', 100);
+    cache.set('second', 'merchant-b', 100);
+
+    cache.deleteKey('first');
+
+    expect(cache.get('first', 100)).toBeUndefined();
+    expect(cache.get('second', 100)).toBe('merchant-b');
+  });
 });

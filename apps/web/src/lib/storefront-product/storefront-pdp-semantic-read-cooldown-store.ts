@@ -1,11 +1,17 @@
+import {
+  STOREFRONT_PDP_SEMANTIC_COOLDOWN_MAX_ENTRIES,
+  STOREFRONT_PDP_SEMANTIC_FAILURE_COOLDOWN_MS,
+} from './storefront-pdp-semantic-read-cooldown-constants';
 import type { StorefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-types';
 
 export const createStorefrontPdpSemanticReadCooldown = (options?: {
   cooldownMs?: number;
   maxEntries?: number;
 }): StorefrontPdpSemanticReadCooldown => {
-  const cooldownMs = options?.cooldownMs ?? 30_000;
-  const maxEntries = options?.maxEntries ?? 128;
+  const cooldownMs =
+    options?.cooldownMs ?? STOREFRONT_PDP_SEMANTIC_FAILURE_COOLDOWN_MS;
+  const maxEntries =
+    options?.maxEntries ?? STOREFRONT_PDP_SEMANTIC_COOLDOWN_MAX_ENTRIES;
   const expires = new Map<string, number>();
   return {
     clear: (scope) => {

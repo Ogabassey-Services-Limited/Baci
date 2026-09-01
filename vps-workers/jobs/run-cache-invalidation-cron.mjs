@@ -51,7 +51,12 @@ export async function runCacheInvalidationCron({
 
   let result;
   try {
-    result = await run({ path: PATH, env, logger });
+    result = await run({
+      path: PATH,
+      env,
+      logger,
+      allowCacheDeadLetter: true,
+    });
   } catch (error) {
     // Preserve a short retry cadence for alerts/transient failures.
     const terminalAlert = error?.cacheDeadLetter === true;
@@ -73,7 +78,8 @@ export async function runCacheInvalidationCron({
   } catch {
     /* treat unknown 2xx body as work */
   }
-  const deadLettersPresent = payload.deadLettersPresent === true;
+  const deadLettersPresent =
+    payload.deadLettersPresent === true || result.cacheDeadLetter === true;
   const newlyObservedDeadLetters =
     deadLettersPresent && state.deadLettersPresent !== true;
   if (newlyObservedDeadLetters) {

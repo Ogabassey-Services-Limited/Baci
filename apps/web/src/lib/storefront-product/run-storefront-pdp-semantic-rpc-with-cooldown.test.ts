@@ -1,9 +1,40 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { runStorefrontPdpSemanticRpcWithCooldown } from './run-storefront-pdp-semantic-rpc-with-cooldown';
 import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-singleton';
 
+afterEach(() => {
+  storefrontPdpSemanticReadCooldown.reset();
+  vi.restoreAllMocks();
+});
+
+it('returns a successful bounded RPC response without entering cooldown', async () => {
+  const response = { data: { ok: true }, error: null };
+  await expect(
+    runStorefrontPdpSemanticRpcWithCooldown(
+      Promise.resolve(response),
+      { deadlineMs: 1000, traceThresholdMs: 100 },
+      'success-scope'
+    )
+  ).resolves.toMatchObject({ response });
+  expect(storefrontPdpSemanticReadCooldown.isCoolingDown('success-scope')).toBe(
+    false
+  );
+});
+
+it('rethrows non-timeout failures without entering cooldown', async () => {
+  await expect(
+    runStorefrontPdpSemanticRpcWithCooldown(
+      Promise.reject(new Error('database unavailable')),
+      { deadlineMs: 1000, traceThresholdMs: 100 },
+      'error-scope'
+    )
+  ).rejects.toThrow('database unavailable');
+  expect(storefrontPdpSemanticReadCooldown.isCoolingDown('error-scope')).toBe(
+    false
+  );
+});
+
 it('marks the shared scope when the bounded RPC times out', async () => {
-  storefrontPdpSemanticReadCooldown.clear('wrapper-test');
   const query = Promise.reject(new Error('request timed out'));
   await expect(
     runStorefrontPdpSemanticRpcWithCooldown(
@@ -18,6 +49,4 @@ it('marks the shared scope when the bounded RPC times out', async () => {
   expect(storefrontPdpSemanticReadCooldown.isCoolingDown('wrapper-test')).toBe(
     true
   );
-  storefrontPdpSemanticReadCooldown.clear('wrapper-test');
-  vi.restoreAllMocks();
 });

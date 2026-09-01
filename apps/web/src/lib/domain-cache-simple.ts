@@ -43,8 +43,17 @@ const edgeReverseCache = createWarmPositiveCache({
 });
 const edgeForwardGenerations = new Map<string, number>();
 const edgeReverseGenerations = new Map<string, number>();
+let generationSequence = 0;
 let reverseInvalidationEpoch = 0;
 const reverseSlugInvalidationEpochs = new Map<string, number>();
+function bumpGeneration(map: Map<string, number>, key: string): void {
+  if (!map.has(key) && map.size >= MAX_CACHE_SIZE) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  generationSequence += 1;
+  map.set(key, generationSequence);
+}
 
 function getReverseReadKey(domain: string, invalidationEpoch: number): string {
   return `${domain}:${invalidationEpoch}`;
@@ -153,10 +162,7 @@ export function invalidateForwardDomainCacheForSlug(slug: string): void {
   forwardDbReads.forget(normalizedSlug);
   domainCache.delete(normalizedSlug);
   edgeForwardCache.deleteKey(normalizedSlug);
-  edgeForwardGenerations.set(
-    normalizedSlug,
-    (edgeForwardGenerations.get(normalizedSlug) ?? 0) + 1
-  );
+  bumpGeneration(edgeForwardGenerations, normalizedSlug);
 }
 
 /**
@@ -175,6 +181,13 @@ const reverseDomainCache = new Map<string, ReverseCacheEntry>();
 export function invalidateReverseDomainCacheForSlug(slug: string): void {
   const normalizedSlug = normalizeSlug(slug);
   reverseInvalidationEpoch += 1;
+  if (
+    !reverseSlugInvalidationEpochs.has(normalizedSlug) &&
+    reverseSlugInvalidationEpochs.size >= MAX_CACHE_SIZE
+  ) {
+    const oldest = reverseSlugInvalidationEpochs.keys().next().value;
+    if (oldest !== undefined) reverseSlugInvalidationEpochs.delete(oldest);
+  }
   reverseSlugInvalidationEpochs.set(normalizedSlug, reverseInvalidationEpoch);
   for (const [domain, entry] of reverseDomainCache) {
     if (entry.slug === normalizedSlug) {
@@ -185,10 +198,7 @@ export function invalidateReverseDomainCacheForSlug(slug: string): void {
       edgeReverseReads.forget(previousReadKey);
       reverseDbReads.forget(previousReadKey);
       reverseDomainCache.delete(domain);
-      edgeReverseGenerations.set(
-        domain,
-        (edgeReverseGenerations.get(domain) ?? 0) + 1
-      );
+      bumpGeneration(edgeReverseGenerations, domain);
     }
   }
   edgeReverseCache.deleteValue(normalizedSlug);
@@ -201,10 +211,7 @@ export function invalidateReverseDomainCacheForDomain(domain: string): void {
   reverseDbReads.forget(readKey);
   reverseDomainCache.delete(normalizedDomain);
   edgeReverseCache.deleteKey(normalizedDomain);
-  edgeReverseGenerations.set(
-    normalizedDomain,
-    (edgeReverseGenerations.get(normalizedDomain) ?? 0) + 1
-  );
+  bumpGeneration(edgeReverseGenerations, normalizedDomain);
 }
 
 export async function getSlugForCustomDomain(
@@ -240,7 +247,8 @@ export async function getSlugForCustomDomain(
 
     if (
       (edgeReverseGenerations.get(normalizedDomain) ?? 0) !== generation ||
-      (slug &&
+      reverseInvalidationEpoch > invalidationEpoch ||
+      (slug !== null &&
         (reverseSlugInvalidationEpochs.get(slug) ?? 0) > invalidationEpoch)
     ) {
       return slug;
@@ -277,8 +285,9 @@ function readSlugFromEdgeConfig(domain: string): Promise<string | undefined> {
         return normalizedSlug;
       }
       if (
+        reverseInvalidationEpoch > invalidationEpoch ||
         (reverseSlugInvalidationEpochs.get(normalizedSlug) ?? 0) >
-        invalidationEpoch
+          invalidationEpoch
       ) {
         return normalizedSlug;
       }

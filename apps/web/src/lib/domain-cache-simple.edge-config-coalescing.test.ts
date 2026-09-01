@@ -100,6 +100,24 @@ describe('Edge Config read coalescing', () => {
     expect(mockEdgeGet).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps generation fences monotonic when a key is evicted and reused', async () => {
+    invalidateForwardDomainCacheForSlug('aba-forward');
+    let resolve: ((value: string) => void) | undefined;
+    mockEdgeGet.mockReturnValueOnce(new Promise<string>((r) => (resolve = r)));
+    const pending = getCustomDomainForSlug('aba-forward');
+    invalidateForwardDomainCacheForSlug('aba-forward');
+    for (let index = 0; index < 1000; index += 1) {
+      invalidateForwardDomainCacheForSlug(`aba-other-${index}`);
+    }
+    invalidateForwardDomainCacheForSlug('aba-forward');
+    resolve?.('stale.example.com');
+    await expect(pending).resolves.toBe('stale.example.com');
+    mockEdgeGet.mockResolvedValueOnce('fresh.example.com');
+    await expect(getCustomDomainForSlug('aba-forward')).resolves.toBe(
+      'fresh.example.com'
+    );
+  });
+
   it('normalizes a successful forward mapping before caching it', async () => {
     mockEdgeGet.mockResolvedValue('  Store.Example.COM.  ');
 
@@ -220,6 +238,49 @@ describe('Edge Config read coalescing', () => {
     await expect(pending).resolves.toBe('old-slug');
     await expect(fresh).resolves.toBe('new-slug');
     expect(mockEdgeGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps reverse slug fences safe after tombstone eviction', async () => {
+    invalidateReverseDomainCacheForSlug('aba-reverse');
+    let resolve: ((value: string) => void) | undefined;
+    mockEdgeGet.mockReturnValueOnce(new Promise<string>((r) => (resolve = r)));
+    const pending = getSlugForCustomDomain('aba-reverse.com');
+    invalidateReverseDomainCacheForSlug('aba-reverse');
+    for (let index = 0; index < 1000; index += 1) {
+      invalidateReverseDomainCacheForSlug(`aba-reverse-${index}`);
+    }
+    resolve?.('aba-reverse');
+    await expect(pending).resolves.toBe('aba-reverse');
+    mockEdgeGet.mockResolvedValueOnce('fresh-reverse');
+    await expect(getSlugForCustomDomain('aba-reverse.com')).resolves.toBe(
+      'fresh-reverse'
+    );
+  });
+
+  it('does not cache a pending null reverse DB result after slug invalidation', async () => {
+    mockEdgeGet.mockRejectedValue(new Error('provider outage'));
+    let resolveDb: ((value: { data: null }) => void) | undefined;
+    let dbStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => (dbStarted = resolve));
+    mockMaybeSingle.mockImplementationOnce(
+      () =>
+        new Promise<{ data: null }>((resolve) => {
+          resolveDb = resolve;
+          dbStarted?.();
+        })
+    );
+    const pending = getSlugForCustomDomain('null-race-reverse.com');
+    await started;
+    invalidateReverseDomainCacheForSlug('missing-slug');
+    resolveDb?.({ data: null });
+    await expect(pending).resolves.toBeNull();
+    await vi.advanceTimersByTimeAsync(0);
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    await expect(
+      getSlugForCustomDomain('null-race-reverse.com')
+    ).resolves.toBeNull();
+    expect(mockEdgeGet).toHaveBeenCalledTimes(2);
+    expect(mockFrom).toHaveBeenCalledTimes(2);
   });
 
   it('rejects malformed reverse slugs and does not cache them', async () => {

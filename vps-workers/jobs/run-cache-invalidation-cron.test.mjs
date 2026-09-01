@@ -81,7 +81,14 @@ describe('adaptive cache invalidation scheduler', () => {
     const result = await runCacheInvalidationCron({
       env: { CACHE_INVALIDATION_STATE_FILE: '/tmp/state' },
       now: 5_000,
-      run: async () => ({ body: JSON.stringify({ deadLettersPresent: true }) }),
+      run: (options) => {
+        assert.equal(options.allowCacheDeadLetter, true);
+        return {
+          status: 503,
+          cacheDeadLetter: true,
+          body: JSON.stringify({ code: 'cache_invalidation_dead_letter' }),
+        };
+      },
       read: h.read,
       write: h.write,
       makeDirectory: h.mkdir,
@@ -89,6 +96,12 @@ describe('adaptive cache invalidation scheduler', () => {
       logger: { warn: (line) => warnings.push(line) },
     });
     assert.equal(result.deadLetter, true);
+    assert.equal(result.intervalMs, 1_800_000);
+    assert.deepEqual(h.state, {
+      nextAllowedAt: 1_805_000,
+      intervalMs: 1_800_000,
+      deadLettersPresent: true,
+    });
     assert.deepEqual(JSON.parse(warnings[0]), {
       event: 'cache_invalidation_dead_letter',
       intervalMs: 1_800_000,

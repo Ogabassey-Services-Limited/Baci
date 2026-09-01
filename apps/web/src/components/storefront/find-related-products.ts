@@ -31,7 +31,11 @@ export function findRelatedProducts(
       score += 5;
     }
     const priceDiff =
-      Math.abs(product.price - currentProduct.price) / currentProduct.price;
+      currentProduct.price === 0
+        ? product.price === 0
+          ? 0
+          : Number.POSITIVE_INFINITY
+        : Math.abs(product.price - currentProduct.price) / currentProduct.price;
     if (priceDiff <= 0.3) score += 3;
     else if (priceDiff <= 0.5) score += 1;
     return { product, score };
