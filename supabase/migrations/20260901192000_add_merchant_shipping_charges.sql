@@ -34,7 +34,14 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TABLE public.merchant_shipping_charges ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS merchant_shipping_charges_owner_read ON public.merchant_shipping_charges;
 CREATE POLICY merchant_shipping_charges_owner_read ON public.merchant_shipping_charges
-  FOR SELECT TO authenticated USING (merchant_id = auth.uid());
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1
+      FROM public.merchants AS m
+      WHERE m.id = merchant_shipping_charges.merchant_id
+        AND m.user_id = auth.uid()
+    )
+  );
 REVOKE INSERT, UPDATE, DELETE ON public.merchant_shipping_charges FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.reserve_merchant_shipping_charge(
@@ -44,8 +51,17 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v_order public.orders%ROWTYPE; v_quote public.shipping_quotes%ROWTYPE;
   v_wallet public.merchant_wallets%ROWTYPE; v_existing public.merchant_shipping_charges%ROWTYPE; v_tx uuid;
 BEGIN
-  SELECT * INTO v_order FROM public.orders WHERE id=p_order_id AND merchant_id=auth.uid() FOR SHARE;
-  IF NOT FOUND OR v_order.shipping_funding_source <> 'merchant_wallet' THEN RAISE EXCEPTION 'order_not_owned' USING ERRCODE='42501'; END IF;
+  SELECT * INTO v_order FROM public.orders WHERE id=p_order_id FOR SHARE;
+  IF NOT FOUND
+     OR NOT EXISTS (
+       SELECT 1
+       FROM public.merchants AS m
+       WHERE m.id = v_order.merchant_id
+         AND m.user_id = auth.uid()
+     )
+     OR v_order.shipping_funding_source <> 'merchant_wallet' THEN
+    RAISE EXCEPTION 'order_not_owned' USING ERRCODE='42501';
+  END IF;
   SELECT * INTO v_quote FROM public.shipping_quotes WHERE id=p_quote_id AND merchant_id=v_order.merchant_id AND provider='GIGL' AND currency='NGN' AND expires_at > now();
   IF NOT FOUND OR v_order.selected_quote_id IS DISTINCT FROM p_quote_id OR v_quote.pricing_version IS DISTINCT FROM 'gigl_platform_margin_v1'
      OR v_order.shipping_provider_cost IS DISTINCT FROM v_quote.provider_cost
@@ -77,7 +93,17 @@ CREATE OR REPLACE FUNCTION public.begin_merchant_shipping_charge_submission(p_ch
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
-  SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
+  SELECT c.status INTO v
+  FROM public.merchant_shipping_charges AS c
+  WHERE c.id = p_charge_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.merchants AS m
+      WHERE m.id = c.merchant_id
+        AND m.user_id = auth.uid()
+    )
+    AND c.attempt_token_digest = d
+  FOR UPDATE;
   IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
   IF v='reserved' THEN UPDATE public.merchant_shipping_charges SET status='provider_submitting',provider_submitting_at=now(),updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
   RETURN v;
@@ -87,7 +113,17 @@ CREATE OR REPLACE FUNCTION public.complete_merchant_shipping_charge(p_charge_id 
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
- SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
+ SELECT c.status INTO v
+ FROM public.merchant_shipping_charges AS c
+ WHERE c.id = p_charge_id
+   AND EXISTS (
+     SELECT 1
+     FROM public.merchants AS m
+     WHERE m.id = c.merchant_id
+       AND m.user_id = auth.uid()
+   )
+   AND c.attempt_token_digest = d
+ FOR UPDATE;
  IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
  IF v = 'provider_submitting' THEN UPDATE public.merchant_shipping_charges SET status='booked',shipment_id=p_shipment_id,completed_at=now(),updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
  RETURN v;
@@ -97,7 +133,16 @@ CREATE OR REPLACE FUNCTION public.refund_merchant_shipping_charge(p_charge_id uu
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE c public.merchant_shipping_charges%ROWTYPE; b numeric; tx uuid;
 BEGIN
- SELECT * INTO c FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() FOR UPDATE;
+ SELECT msc.* INTO c
+ FROM public.merchant_shipping_charges AS msc
+ WHERE msc.id = p_charge_id
+   AND EXISTS (
+     SELECT 1
+     FROM public.merchants AS m
+     WHERE m.id = msc.merchant_id
+       AND m.user_id = auth.uid()
+   )
+ FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
  IF c.attempt_token_digest <> pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex') THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
  IF c.status='refunded' THEN RETURN c.status; END IF;
@@ -114,7 +159,17 @@ CREATE OR REPLACE FUNCTION public.mark_merchant_shipping_charge_for_reconciliati
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
- SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
+  SELECT c.status INTO v
+  FROM public.merchant_shipping_charges AS c
+  WHERE c.id = p_charge_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.merchants AS m
+      WHERE m.id = c.merchant_id
+        AND m.user_id = auth.uid()
+    )
+    AND c.attempt_token_digest = d
+  FOR UPDATE;
  IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
  IF v IN ('reserved','provider_submitting') THEN UPDATE public.merchant_shipping_charges SET status='needs_reconciliation',failure_code=p_reason_code,provider_reference=p_provider_reference,updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
  RETURN v;
