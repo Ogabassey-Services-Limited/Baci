@@ -272,6 +272,7 @@ export function useCheckoutShipping({
     isLoadingCities,
     isLoadingLocations,
     isLoadingQuotes,
+    isCurrentQuoteContext,
     resolvedShippingQuoteContextKey: resolvedQuoteKey,
     requiresShippingQuote,
     selectedQuote,

@@ -7,7 +7,7 @@ describe('shouldAutoCollapseCheckoutContact', () => {
       shouldAutoCollapseCheckoutContact({
         hasInitialContactIdentity: false,
         isContactComplete: true,
-        touchedFields: { email: true, firstName: true, phone: true },
+        isContactSettled: false,
         wasContactComplete: false,
       })
     ).toBe(false);
@@ -16,12 +16,7 @@ describe('shouldAutoCollapseCheckoutContact', () => {
       shouldAutoCollapseCheckoutContact({
         hasInitialContactIdentity: false,
         isContactComplete: true,
-        touchedFields: {
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-        },
+        isContactSettled: true,
         wasContactComplete: false,
       })
     ).toBe(true);
@@ -32,12 +27,7 @@ describe('shouldAutoCollapseCheckoutContact', () => {
       shouldAutoCollapseCheckoutContact({
         hasInitialContactIdentity: false,
         isContactComplete: true,
-        touchedFields: {
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-        },
+        isContactSettled: true,
         wasContactComplete: true,
       })
     ).toBe(false);

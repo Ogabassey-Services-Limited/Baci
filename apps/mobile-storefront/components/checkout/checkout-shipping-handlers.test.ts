@@ -151,7 +151,42 @@ describe('createCheckoutShippingHandlers', () => {
     });
   });
 
-  it('keeps a state-name city when the loaded city list belongs to another state', () => {
+  it('defers a fresh state-name city until the matching city list loads', () => {
+    const googleSuggestedCityRef = { current: null as string | null };
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+
+    createCheckoutShippingHandlers(
+      createParams({
+        googleSuggestedCityRef,
+        setValue,
+        shippingCities: [],
+        shippingCitiesState: '',
+        shippingStates: ['Lagos'],
+      })
+    ).handleDeliveryAddressSelect(
+      {
+        city: 'Lagos',
+        country: 'Nigeria',
+        formattedAddress: '2 Olaide Tomori St, Ikeja, Lagos, Nigeria',
+        latitude: 6.6018,
+        longitude: 3.3515,
+        route: 'Olaide Tomori St',
+        state: 'Lagos',
+        streetNumber: '2',
+        zip: '101233',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBe('Lagos');
+    expect(setValue).toHaveBeenCalledWith('city', '', {
+      shouldValidate: false,
+    });
+  });
+
+  it('preserves a state-name suggestion when the loaded list belongs to another state', () => {
     const googleSuggestedCityRef = { current: null as string | null };
     const setValue = jest.fn() as jest.MockedFunction<
       UseFormSetValue<ShippingAddressInput>
@@ -180,10 +215,10 @@ describe('createCheckoutShippingHandlers', () => {
       jest.fn()
     );
 
-    expect(setValue).toHaveBeenCalledWith('city', 'Kano', {
-      shouldValidate: true,
+    expect(setValue).toHaveBeenCalledWith('city', '', {
+      shouldValidate: false,
     });
-    expect(googleSuggestedCityRef.current).toBeNull();
+    expect(googleSuggestedCityRef.current).toBe('Kano');
   });
 
   it('clears a stale Google city when the selected place has no state or city', () => {

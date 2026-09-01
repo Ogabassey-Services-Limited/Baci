@@ -30,6 +30,39 @@ describe('CheckoutScreenView address continuation', () => {
     );
   });
 
+  it('waits for blur after a guest corrects a previously invalid field', async () => {
+    renderCheckoutScreen();
+    const firstName = screen.getByPlaceholderText('E.g. John');
+
+    fireEvent.changeText(firstName, 'A');
+    fireEvent(firstName, 'blur');
+    fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+    fireEvent(screen.getByPlaceholderText('E.g. Doe'), 'blur');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('e.g. 08012345678'),
+      '08031234567'
+    );
+    fireEvent(screen.getByPlaceholderText('e.g. 08012345678'), 'blur');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'ada@example.com'
+    );
+    fireEvent(screen.getByPlaceholderText('john@example.com'), 'blur');
+
+    fireEvent(firstName, 'focus');
+    fireEvent.changeText(firstName, 'Ada');
+    expect(
+      screen.queryByPlaceholderText('Start typing your address…')
+    ).toBeNull();
+
+    fireEvent(firstName, 'blur');
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('Start typing your address…')
+      ).toBeTruthy();
+    });
+  });
+
   it('turns Continue brand red when a complete address has a fresh road quote', async () => {
     const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
     fetchMock.mockImplementation(async (input) => {

@@ -85,6 +85,7 @@ export function CheckoutScreenView() {
     currentShippingQuoteContextKey,
     deliveryFee,
     deliveryMethod,
+    isCurrentQuoteContext,
     isLoadingQuotes,
     resolvedShippingQuoteContextKey,
     requiresShippingQuote,
@@ -238,12 +239,10 @@ export function CheckoutScreenView() {
               step !== 'address'
                 ? step !== 'payment' || selectedPayment !== null
                 : isCheckoutAddressContinueReady({
-                    hasFreshShippingQuote:
-                      resolvedShippingQuoteContextKey ===
-                        currentShippingQuoteContextKey &&
-                      Boolean(selectedQuote),
+                    hasSelectedShippingQuote: Boolean(selectedQuote),
                     hasContactIdentity: addressState.hasContactIdentity,
                     isAddressComplete,
+                    isCurrentQuoteContext,
                     isLoadingQuotes,
                     isPickupStation: deliveryMethod === 'pickup_station',
                     requiresShippingQuote,
