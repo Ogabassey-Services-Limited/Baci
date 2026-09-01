@@ -48,6 +48,7 @@ describe('revalidateProductsReliable purge scope', () => {
     expect(mockScheduleStorefrontHostnamePurge).toHaveBeenCalledWith(
       'ogabassey'
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
   });
 
   it('forwards merchantSlug and products in the HTTP fallback body', async () => {

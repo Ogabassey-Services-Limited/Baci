@@ -124,7 +124,7 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
   });
 
-  it('keeps large article-only purges scoped to the generated blog URLs', () => {
+  it('uses a bounded hostname purge for large article-only invalidations', () => {
     const blogPostSlugs = Array.from(
       { length: 100 },
       (_, index) => `guide-${index}`
@@ -136,9 +136,11 @@ describe('scheduleStorefrontProductPurge', () => {
       { blogPostSlugs, blogPostsOnly: true }
     );
 
-    const [purgedUrls] = mockPurgeCloudflareUrls.mock.calls[0] ?? [];
-    expect(purgedUrls).toHaveLength(402);
-    expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
+    expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+    expect(mockPurgeCloudflareHostnamesConfirmed).toHaveBeenCalledWith([
+      'ogabassey.com',
+      'www.ogabassey.com',
+    ]);
   });
 
   it('keeps URL purges at the exact bounded target count', () => {

@@ -134,6 +134,7 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(mockScheduleStorefrontHostnamePurge).toHaveBeenCalledWith(
       'ogabassey'
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 

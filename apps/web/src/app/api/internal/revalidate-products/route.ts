@@ -193,6 +193,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // purge rather than a partial URL list. The hostname comes only from the
   // merchant-id lookup above, never directly from the request body.
   if (purgeWholeStorefront && authoritativeMerchantSlug) {
+    // Expire the merchant-scoped article enrichment before the hostname purge
+    // can trigger a MISS and refill Cloudflare with stale product data.
+    expireProductBlogCache(merchantId);
     scheduleStorefrontHostnamePurge(authoritativeMerchantSlug);
   }
 

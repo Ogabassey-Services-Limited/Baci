@@ -111,6 +111,11 @@ export async function revalidateProductsReliable(
     }
 
     if (purgeWholeStorefront && merchantSlug) {
+      // Hostname-wide purges can immediately refill any cached article rail.
+      // Hard-expire the merchant-scoped enrichment first, just as the
+      // per-product path does, so structural/import purges cannot re-seed the
+      // edge with a stale product snapshot.
+      expireProductBlogCache(merchantId);
       scheduleStorefrontHostnamePurge(merchantSlug);
     }
     return;

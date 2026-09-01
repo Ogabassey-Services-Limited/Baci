@@ -114,5 +114,6 @@ describe('revalidateProductsReliable enrichment path', () => {
     expect(mockScheduleStorefrontHostnamePurge).toHaveBeenCalledWith(
       'ogabassey'
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
   });
 });

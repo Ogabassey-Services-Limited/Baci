@@ -70,13 +70,11 @@ export function scheduleStorefrontProductPurge(
     // Related articles add two URLs each (the article and its generated social
     // image), so a single product can otherwise fan out into hundreds of
     // sequential Cloudflare requests. The Cloudflare helper chunks URL purges
-    // at the provider's per-request limit. Keep article-only invalidation
-    // scoped to those generated URLs rather than escalating to a hostname-wide
-    // purge, even when many linked posts are present.
-    if (
-      !options.blogPostsOnly &&
-      urls.length > PURGE_WHOLE_STOREFRONT_URL_THRESHOLD
-    ) {
+    // at the provider's per-request limit. Escalate either product or
+    // article-only invalidation to the bounded hostname purge once the URL cap
+    // is exceeded; this avoids an unbounded post-response tail while still
+    // evicting every affected document.
+    if (urls.length > PURGE_WHOLE_STOREFRONT_URL_THRESHOLD) {
       scheduleStorefrontHostnamePurge(normalizedIdentifier);
       return;
     }
