@@ -103,6 +103,8 @@ export interface QuoteRequest {
   items: ShipmentItem[];
   shipmentType: 'domestic' | 'international';
   deliveryPreference?: 'door' | 'pickup_station';
+  /** Server-attested provenance for owner-scoped Admin order quotes. */
+  admin_order_provenance?: 'server_gigl_v1';
 }
 
 export interface ShippingQuote {

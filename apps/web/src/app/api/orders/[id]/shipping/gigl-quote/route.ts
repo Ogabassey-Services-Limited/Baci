@@ -131,16 +131,28 @@ export async function POST(request: NextRequest, context: Params) {
       { status: 503 }
     );
   const quote = [...eligible].sort((a, b) => a.price - b.price)[0];
+  const persistedQuote = toShippingQuoteUpsert(quote, {
+    merchantId: access.merchantId,
+    sessionId: id,
+    quoteRequest: {
+      ...built.request,
+      admin_order_provenance: 'server_gigl_v1',
+    },
+  });
+  const { error: persistError } = await auth.supabase
+    .from('shipping_quotes')
+    .upsert(persistedQuote);
+  if (persistError)
+    return NextResponse.json(
+      { error: 'Failed to persist quote' },
+      { status: 500 }
+    );
   const { data: binding, error: bindError } = await auth.supabase.rpc(
     'bind_admin_gigl_quote',
     {
       p_order_id: id,
       p_merchant_id: access.merchantId,
-      p_quote: toShippingQuoteUpsert(quote, {
-        merchantId: access.merchantId,
-        sessionId: id,
-        quoteRequest: built.request,
-      }),
+      p_quote_id: quote.id,
       p_receiver: built.request.receiver,
     }
   );
