@@ -28,3 +28,7 @@ Behavioral focused tests and contract tests: 7 files, 11 passing (plus the exist
 ## Deviations and risks
 
 Provider payload field variants beyond the documented `data.metadata`/`data.dedicated_account` shape should be confirmed against a signed fixture before activation. No live Paystack, Supabase migration, deploy, or remote operations were performed.
+
+## Fix Round 2
+
+Head: `3feb822f6b` (`fix: make merchant DVA funding retry safe`). Assignment persistence now locks the request and treats exact fulfilled replays as handled while conflicting replays are review. Credit validation uses `SELECT ... INTO STRICT ... FOR UPDATE` for the exact active NGN mapping. Failure-transition RPC errors are surfaced as safe review-required failures. New behavioral/contract suite: 91 passing tests (79 legacy webhook tests are included separately in the 8-file run; 12 are Task 4-focused).
