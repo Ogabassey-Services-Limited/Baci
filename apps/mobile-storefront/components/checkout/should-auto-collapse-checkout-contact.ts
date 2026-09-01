@@ -1,24 +1,15 @@
-type ContactTouchedFields = Partial<
-  Record<'email' | 'firstName' | 'lastName' | 'phone', boolean>
->;
-
 export function shouldAutoCollapseCheckoutContact({
   hasInitialContactIdentity,
   isContactComplete,
-  touchedFields,
+  isContactSettled,
   wasContactComplete,
 }: {
   hasInitialContactIdentity: boolean;
   isContactComplete: boolean;
-  touchedFields: ContactTouchedFields;
+  isContactSettled: boolean;
   wasContactComplete: boolean;
 }): boolean {
   if (!isContactComplete || wasContactComplete) return false;
   if (hasInitialContactIdentity) return true;
-  return Boolean(
-    touchedFields.email &&
-      touchedFields.firstName &&
-      touchedFields.lastName &&
-      touchedFields.phone
-  );
+  return isContactSettled;
 }

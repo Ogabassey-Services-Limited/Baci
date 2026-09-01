@@ -21,6 +21,7 @@ describe('useCheckoutShippingCitiesEffect', () => {
       useCheckoutShippingCitiesEffect({
         apiBaseUrl: 'https://api.example.com',
         onCitiesLoaded: jest.fn(),
+        onCitiesUnavailable: jest.fn(),
         setIsLoadingCities: jest.fn(),
         setShippingCities: jest.fn(),
         state: '',
@@ -31,10 +32,12 @@ describe('useCheckoutShippingCitiesEffect', () => {
   });
 
   it('loads cities for the selected state and aborts on unmount', () => {
+    const onCitiesUnavailable = jest.fn();
     const { unmount } = renderHook(() =>
       useCheckoutShippingCitiesEffect({
         apiBaseUrl: 'https://api.example.com',
         onCitiesLoaded: jest.fn(),
+        onCitiesUnavailable,
         setIsLoadingCities: jest.fn(),
         setShippingCities: jest.fn(),
         state: 'Lagos',
@@ -45,6 +48,7 @@ describe('useCheckoutShippingCitiesEffect', () => {
     const [{ signal }] = mockedLoad.mock.calls[0];
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(signal.aborted).toBe(false);
+    expect(mockedLoad.mock.calls[0]?.[0].onCitiesUnavailable).toBeDefined();
 
     act(() => unmount());
     expect(signal.aborted).toBe(true);

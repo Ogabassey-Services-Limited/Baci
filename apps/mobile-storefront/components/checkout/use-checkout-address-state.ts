@@ -41,7 +41,15 @@ export function useCheckoutAddressState({
   const checkoutFirstName = checkoutIdentity.firstName;
   const checkoutLastName = checkoutIdentity.lastName;
   const checkoutPhone = checkoutIdentity.phone;
-  const [settledContactEmail, setSettledContactEmail] = useState(checkoutEmail);
+  const initialContactSignature = [
+    checkoutEmail,
+    checkoutFirstName,
+    checkoutLastName,
+    checkoutPhone,
+  ].join('\0');
+  const [settledContactSignature, setSettledContactSignature] = useState(
+    initialContactSignature
+  );
 
   const form = useForm<ShippingAddressInput>({
     resolver: shippingAddressResolver,
@@ -59,7 +67,6 @@ export function useCheckoutAddressState({
     shouldUnregister: false,
   });
   const { control, getValues, reset, setValue } = form;
-  const settledContactFields = form.formState.touchedFields;
   // useWatch instead of watch(): watch() returns interior-mutable values that
   // force React Compiler to skip memoizing this hook (incompatible-library).
   const watchedState = useWatch({ control, name: 'state' });
@@ -95,11 +102,18 @@ export function useCheckoutAddressState({
   const hasInitialContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
-  const isCurrentEmailSettled =
-    watchedEmail === settledContactEmail ||
-    (hasInitialContactIdentity && watchedEmail === checkoutEmail);
+  const currentContactSignature = [
+    watchedEmail,
+    watchedFirstName,
+    watchedLastName,
+    watchedPhone,
+  ].join('\0');
+  const isContactSettled =
+    currentContactSignature === settledContactSignature ||
+    (hasInitialContactIdentity &&
+      currentContactSignature === initialContactSignature);
   const isContactComplete =
-    isCurrentEmailSettled &&
+    isContactSettled &&
     isCheckoutContactComplete({
       email: watchedEmail,
       firstName: watchedFirstName,
@@ -125,7 +139,7 @@ export function useCheckoutAddressState({
       shouldAutoCollapseCheckoutContact({
         hasInitialContactIdentity,
         isContactComplete,
-        touchedFields: settledContactFields,
+        isContactSettled,
         wasContactComplete: wasContactComplete.current,
       })
     ) {
@@ -135,8 +149,8 @@ export function useCheckoutAddressState({
   }, [
     hasInitialContactIdentity,
     isContactComplete,
+    isContactSettled,
     savedAddresses.setIsContactCollapsed,
-    settledContactFields,
   ]);
 
   useEffect(() => {
@@ -186,7 +200,14 @@ export function useCheckoutAddressState({
     savedAddresses.openNewAddressEditor();
   };
   const settleContactEmail = () => {
-    setSettledContactEmail(getValues('email'));
+    setSettledContactSignature(
+      [
+        getValues('email'),
+        getValues('firstName'),
+        getValues('lastName'),
+        getValues('phone'),
+      ].join('\0')
+    );
   };
 
   return {

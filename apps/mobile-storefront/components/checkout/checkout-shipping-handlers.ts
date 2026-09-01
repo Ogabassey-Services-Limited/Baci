@@ -102,9 +102,16 @@ export function createCheckoutShippingHandlers({
         ? normalizeStateName(place.state, shippingStates)
         : '';
       const selectedCity = place.city?.trim() ?? '';
+      const cityNeedsLoadedListValidation = Boolean(
+        normalizedState &&
+          selectedCity &&
+          normalizedState.toLowerCase() === selectedCity.toLowerCase() &&
+          shippingCitiesState.toLowerCase() !== normalizedState.toLowerCase()
+      );
       const isAmbiguousGoogleCity = Boolean(
         normalizedState &&
           selectedCity &&
+          !cityNeedsLoadedListValidation &&
           normalizedState.toLowerCase() === selectedCity.toLowerCase() &&
           shippingCitiesState.toLowerCase() === normalizedState.toLowerCase() &&
           shippingCities.length > 0 &&
@@ -116,6 +123,7 @@ export function createCheckoutShippingHandlers({
         hasGoogleCoordinates &&
           normalizedState &&
           selectedCity &&
+          !cityNeedsLoadedListValidation &&
           !isAmbiguousGoogleCity
       );
 

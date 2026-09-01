@@ -38,4 +38,18 @@ describe('applyCheckoutGoogleCitySuggestion', () => {
     expect(callbacks.onOpenPicker).toHaveBeenCalledTimes(1);
     expect(callbacks.onSelectCity).not.toHaveBeenCalled();
   });
+
+  it('uses the Google city when carrier city validation is unavailable', () => {
+    const callbacks = createCallbacks();
+
+    applyCheckoutGoogleCitySuggestion({
+      cities: [],
+      suggestedCity: 'Lagos',
+      ...callbacks,
+    });
+
+    expect(callbacks.onClearSuggestion).toHaveBeenCalledTimes(1);
+    expect(callbacks.onSelectCity).toHaveBeenCalledWith('Lagos');
+    expect(callbacks.onOpenPicker).not.toHaveBeenCalled();
+  });
 });

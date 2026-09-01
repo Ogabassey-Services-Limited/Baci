@@ -26,8 +26,9 @@ it('enables Continue when a required road quote is selected and current', () => 
   expect(
     isCheckoutAddressContinueReady({
       hasContactIdentity: true,
-      hasFreshShippingQuote: true,
+      hasSelectedShippingQuote: true,
       isAddressComplete: true,
+      isCurrentQuoteContext: true,
       isLoadingQuotes: false,
       requiresShippingQuote: true,
     })
@@ -38,8 +39,9 @@ it('keeps Continue available for free merchant pickup while provider quotes load
   expect(
     isCheckoutAddressContinueReady({
       hasContactIdentity: true,
-      hasFreshShippingQuote: false,
+      hasSelectedShippingQuote: false,
       isAddressComplete: true,
+      isCurrentQuoteContext: false,
       isLoadingQuotes: true,
       requiresShippingQuote: false,
     })
@@ -49,8 +51,9 @@ it('keeps Continue available for free merchant pickup while provider quotes load
 it('keeps Continue disabled while a required quote is loading or missing', () => {
   const baseState = {
     hasContactIdentity: true,
-    hasFreshShippingQuote: false,
+    hasSelectedShippingQuote: true,
     isAddressComplete: true,
+    isCurrentQuoteContext: false,
     requiresShippingQuote: true,
   };
 
@@ -64,6 +67,20 @@ it('keeps Continue disabled while a required quote is loading or missing', () =>
     isCheckoutAddressContinueReady({
       ...baseState,
       isLoadingQuotes: false,
+    })
+  ).toBe(false);
+});
+
+it('keeps Continue disabled when pickup still has the prior door quote', () => {
+  expect(
+    isCheckoutAddressContinueReady({
+      hasContactIdentity: true,
+      hasSelectedShippingQuote: true,
+      isAddressComplete: true,
+      isCurrentQuoteContext: false,
+      isLoadingQuotes: false,
+      isPickupStation: true,
+      requiresShippingQuote: true,
     })
   ).toBe(false);
 });

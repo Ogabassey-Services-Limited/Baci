@@ -108,6 +108,7 @@ export function CheckoutContactCard({
                 isDark={isDark}
                 label=""
                 name={field.name}
+                onBlur={onContactEmailSettled}
                 placeholder={field.placeholder}
               />
             </View>
@@ -129,7 +130,10 @@ export function CheckoutContactCard({
             <PhoneInput
               containerStyle={styles.compactInputGroup}
               error={errors.phone?.message}
-              onBlur={onBlur}
+              onBlur={() => {
+                onBlur();
+                onContactEmailSettled?.();
+              }}
               onChangeText={onChange}
               value={value}
             />

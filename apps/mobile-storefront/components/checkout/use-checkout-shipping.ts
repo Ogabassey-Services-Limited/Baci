@@ -13,15 +13,12 @@ import {
   isGiglGoFasterQuote,
   requiresQuote,
 } from '@/components/checkout/checkout-step-helpers';
-import type {
-  DeliveryMethod,
-  ShippingQuote,
-} from '@/components/checkout/types';
 import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
 import { applyCheckoutGoogleCitySuggestion } from './apply-checkout-google-city-suggestion';
 import { createCheckoutShippingHandlers } from './checkout-shipping-handlers';
 import { loadShippingStates } from './checkout-shipping-loaders';
 import { getCheckoutLocationPickerVisibility } from './get-checkout-location-picker-visibility';
+import type { DeliveryMethod, ShippingQuote } from './types';
 import type {
   SavedDoorAddress,
   UseCheckoutShippingParams,
@@ -43,7 +40,7 @@ export function useCheckoutShipping({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
   const [shippingStates, setShippingStates] = useState<string[]>([]);
   const [shippingCities, setShippingCities] = useState<string[]>([]);
-  const shippingCitiesStateRef = useRef('');
+  const [shippingCitiesState, setShippingCitiesState] = useState('');
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [resolvedQuoteKey, setResolvedQuoteKey] = useState('');
@@ -170,7 +167,7 @@ export function useCheckoutShipping({
   ) {
     setPrevCityRequest({ apiBaseUrl, watchedState });
     setShippingCities([]);
-    shippingCitiesStateRef.current = '';
+    setShippingCitiesState('');
     setIsLoadingCities(Boolean(watchedState));
     if (!watchedState) resetQuotes();
   }
@@ -193,8 +190,12 @@ export function useCheckoutShipping({
   useCheckoutShippingCitiesEffect({
     apiBaseUrl,
     onCitiesLoaded: (cities) => {
-      shippingCitiesStateRef.current = watchedState;
+      setShippingCitiesState(watchedState);
       applyGoogleSuggestedCity(cities);
+    },
+    onCitiesUnavailable: () => {
+      setShippingCitiesState(watchedState);
+      applyGoogleSuggestedCity([]);
     },
     setIsLoadingCities,
     setShippingCities,
@@ -220,7 +221,6 @@ export function useCheckoutShipping({
     currentShippingQuoteContextKey,
     currentQuotePreference,
     isCurrentQuoteContext,
-    items,
     resolvedQuoteKey,
     resolvedPreference,
     usesDoorQuotes,
@@ -255,7 +255,7 @@ export function useCheckoutShipping({
     shippingQuoteAbortRef,
     shippingStates,
     shippingCities,
-    shippingCitiesState: shippingCitiesStateRef.current,
+    shippingCitiesState,
     stationPickupQuote,
     watchedAddress,
     watchedCity,
@@ -272,6 +272,7 @@ export function useCheckoutShipping({
     isLoadingCities,
     isLoadingLocations,
     isLoadingQuotes,
+    isCurrentQuoteContext,
     resolvedShippingQuoteContextKey: resolvedQuoteKey,
     requiresShippingQuote,
     selectedQuote,

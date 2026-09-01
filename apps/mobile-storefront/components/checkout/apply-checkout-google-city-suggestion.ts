@@ -17,6 +17,12 @@ export function applyCheckoutGoogleCitySuggestion({
   onSelectCity,
   suggestedCity,
 }: ApplyCheckoutGoogleCitySuggestionParams): void {
+  if (cities.length === 0 && suggestedCity !== null) {
+    onClearSuggestion();
+    if (suggestedCity) onSelectCity(suggestedCity);
+    else onOpenPicker();
+    return;
+  }
   const action = resolveGoogleCitySuggestionAction(cities, suggestedCity);
   if (action.type === 'none') return;
 

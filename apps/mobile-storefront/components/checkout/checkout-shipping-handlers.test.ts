@@ -151,41 +151,6 @@ describe('createCheckoutShippingHandlers', () => {
     });
   });
 
-  it('keeps a state-name city when the loaded city list belongs to another state', () => {
-    const googleSuggestedCityRef = { current: null as string | null };
-    const setValue = jest.fn() as jest.MockedFunction<
-      UseFormSetValue<ShippingAddressInput>
-    >;
-
-    createCheckoutShippingHandlers(
-      createParams({
-        googleSuggestedCityRef,
-        setValue,
-        shippingCities: ['Ikeja'],
-        shippingCitiesState: 'Lagos',
-        shippingStates: ['Kano'],
-      })
-    ).handleDeliveryAddressSelect(
-      {
-        city: 'Kano',
-        country: 'Nigeria',
-        formattedAddress: 'Kano, Nigeria',
-        latitude: 12,
-        longitude: 8.5,
-        route: 'Kano',
-        state: 'Kano',
-        streetNumber: '',
-        zip: '',
-      },
-      jest.fn()
-    );
-
-    expect(setValue).toHaveBeenCalledWith('city', 'Kano', {
-      shouldValidate: true,
-    });
-    expect(googleSuggestedCityRef.current).toBeNull();
-  });
-
   it('clears a stale Google city when the selected place has no state or city', () => {
     const googleSuggestedCityRef = { current: 'Katsina' as string | null };
 

@@ -1,14 +1,16 @@
 export function isCheckoutAddressContinueReady({
   hasContactIdentity,
-  hasFreshShippingQuote,
+  hasSelectedShippingQuote,
+  isCurrentQuoteContext,
   isAddressComplete,
   isLoadingQuotes,
   isPickupStation = false,
   requiresShippingQuote,
 }: {
   hasContactIdentity: boolean;
-  hasFreshShippingQuote: boolean;
+  hasSelectedShippingQuote: boolean;
   isAddressComplete: boolean;
+  isCurrentQuoteContext: boolean;
   isLoadingQuotes: boolean;
   isPickupStation?: boolean;
   requiresShippingQuote: boolean;
@@ -16,5 +18,5 @@ export function isCheckoutAddressContinueReady({
   if (!hasContactIdentity) return false;
   if (!isPickupStation && !isAddressComplete) return false;
   if (!requiresShippingQuote) return true;
-  return !isLoadingQuotes && hasFreshShippingQuote;
+  return !isLoadingQuotes && isCurrentQuoteContext && hasSelectedShippingQuote;
 }
