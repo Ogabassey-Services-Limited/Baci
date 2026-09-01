@@ -83,6 +83,12 @@ function hasAdvertisableStock(
     : stockQuantity > 0;
 }
 
+function hasAdvertisableChildStock(stockQuantity: number | null | undefined) {
+  return stockQuantity === undefined || stockQuantity === null
+    ? true
+    : stockQuantity > 0;
+}
+
 export function getProductPriceRange(
   product: ProductPriceSeoProduct
 ): ProductPriceRange | null {
@@ -111,7 +117,7 @@ export function getProductPriceRange(
   }
 
   for (const variant of variants) {
-    if (hasAdvertisableStock(product, variant.stock_quantity)) {
+    if (hasAdvertisableChildStock(variant.stock_quantity)) {
       // A nullable override inherits the parent product price at checkout.
       // Keep that inherited amount in the advertised range without adding the
       // parent as a separate selectable SKU.
@@ -120,7 +126,7 @@ export function getProductPriceRange(
   }
 
   for (const offer of (product.offers ?? []).filter(isActiveOffer)) {
-    if (hasAdvertisableStock(product, offer?.stock_quantity)) {
+    if (hasAdvertisableChildStock(offer?.stock_quantity)) {
       addPriceCandidate(candidates, offer?.price);
     }
   }

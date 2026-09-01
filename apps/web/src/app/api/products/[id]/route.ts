@@ -2,10 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRoleKey } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
@@ -34,15 +31,14 @@ import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
-import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
+import { scheduleProductMutationPurge } from '@/lib/schedule-product-mutation-purge';
 import {
   generateMetaDescription,
   generateProductSchema,
   generateProductSlug,
   generateSlug,
 } from '@/lib/seo-utils';
-import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
@@ -947,29 +943,12 @@ export async function PUT(
           categorySegment: previousCategorySegment,
         });
       }
-      // Bust the per-slug Next product caches for every slug being purged
-      // (old + new on a rename) BEFORE the edge purge — a CF MISS would
-      // otherwise refill from the stale Next-cached snapshot until TTL.
-      revalidateProductSlugs(
-        merchantId,
-        productPurgeEntries.map((entry) => entry.slug)
-      );
-      // Evict the core PDP/listing URLs before waiting on any paginated blog
-      // relationship reads. Article enrichment is deliberately deferred below.
-      scheduleStorefrontProductPurge(
-        merchantContext.merchantSlug,
-        productPurgeEntries
-      );
-      scheduleProductBlogPurgeAfterResponse({
+      scheduleProductMutationPurge({
         supabase,
         merchantId,
         merchantSlug: merchantContext.merchantSlug,
         productIds: [updatedProduct.id],
         entries: productPurgeEntries,
-        categorySlugs: productPurgeEntries.map(
-          (entry) => entry.categorySegment
-        ),
-        skipProductPurge: true,
       });
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after update', {
@@ -1096,9 +1075,6 @@ export async function DELETE(
         // addressable by id, so fall back to the deleted row's id
         // (`/products/<id>`) when the slug is missing.
         const purgeSlug = deletedProduct.slug?.trim() || id;
-        // Bust the deleted slug's Next cache tag before the edge purge so a
-        // post-purge MISS cannot serve a stale "product still exists" page.
-        revalidateProductSlugs(merchantId, [purgeSlug]);
         const purgeEntries: StorefrontProductPurgeEntry[] = [
           {
             slug: purgeSlug,
@@ -1111,19 +1087,13 @@ export async function DELETE(
             }),
           },
         ];
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          purgeEntries
-        );
-        scheduleProductBlogPurgeAfterResponse({
+        scheduleProductMutationPurge({
           supabase,
           merchantId,
           merchantSlug: merchantContext.merchantSlug,
           productIds: [id],
           entries: purgeEntries,
           blogPostSlugs: linkedBlogPostSlugs,
-          categorySlugs: [purgeEntries[0]?.categorySegment],
-          skipProductPurge: true,
         });
       } else {
         // The pre-read errored or came back null, yet the delete above
@@ -1137,18 +1107,13 @@ export async function DELETE(
           'Product purge pre-read missing after delete; scheduling id-based fallback purge',
           { id, preReadError }
         );
-        revalidateProductSlugs(merchantId, [id]);
-        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
-          { slug: id, categorySegment: null },
-        ]);
-        scheduleProductBlogPurgeAfterResponse({
+        scheduleProductMutationPurge({
           supabase,
           merchantId,
           merchantSlug: merchantContext.merchantSlug,
           productIds: [id],
           entries: [{ slug: id, categorySegment: null }],
           blogPostSlugs: linkedBlogPostSlugs,
-          skipProductPurge: true,
         });
       }
     } catch (purgeError) {

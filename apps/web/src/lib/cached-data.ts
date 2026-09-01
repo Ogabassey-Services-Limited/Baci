@@ -2866,6 +2866,10 @@ async function getCachedBlogPostCore(
 
   if (!merchant) return null;
 
+  // The core includes payout_currency, so merchant profile changes must
+  // invalidate this outer cache as well as the enrichment's product tag.
+  cacheTag(`merchant-id-${merchant.id}`);
+
   if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = getPublicSupabaseClient();

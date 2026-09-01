@@ -34,6 +34,12 @@ function formatRelatedProductPrice(
       : min;
   }
 
+  const hasSelectableAlternatives =
+    (product.has_variants === true && (product.variants?.length ?? 0) > 0) ||
+    (product.has_condition_offers === true &&
+      (product.offers?.length ?? 0) > 0);
+  if (hasSelectableAlternatives) return null;
+
   return typeof product.price === 'number' && Number.isFinite(product.price)
     ? formatMerchantCurrency(product.price, currencySource)
     : null;
@@ -53,11 +59,13 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
     product.has_variants === true &&
     product.has_purchasable_variant === false &&
     !hasDirectPurchasableVariant;
-
-  return (
+  const hasOutOfStockManagedParent =
     product.manage_stock !== false &&
     hasInventorySignal &&
-    (hasConfirmedUnavailableVariant || getEffectiveStock(product) === 0) &&
+    getEffectiveStock(product) === 0;
+
+  return (
+    (hasConfirmedUnavailableVariant || hasOutOfStockManagedParent) &&
     !hasDirectPurchasableVariant &&
     !hasDirectPurchasableOffer &&
     product.has_purchasable_condition_offer !== true &&

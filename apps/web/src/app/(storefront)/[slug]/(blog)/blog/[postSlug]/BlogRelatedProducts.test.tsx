@@ -281,4 +281,48 @@ describe('BlogRelatedProducts', () => {
 
     expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
   });
+
+  it('shows unavailable for an unmanaged parent with no purchasable variants', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-empty-unmanaged-variants',
+            name: 'Galaxy S25',
+            manage_stock: false,
+            has_variants: true,
+            has_purchasable_variant: false,
+            slug: 'galaxy-s25',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
+  });
+
+  it('does not advertise an out-of-stock child variant price', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        currencySource={{ country: 'NG', payout_currency: 'NGN' }}
+        products={[
+          {
+            id: 'product-unmanaged-out-of-stock-child',
+            name: 'iPad 10',
+            price: 150000,
+            manage_stock: false,
+            has_variants: true,
+            variants: [{ price_override: 175000, stock_quantity: 0 }],
+            slug: 'ipad-10',
+          },
+        ]}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /ipad 10/i });
+    expect(link).not.toHaveTextContent('₦175,000');
+    expect(link).not.toHaveTextContent('₦150,000');
+  });
 });

@@ -94,6 +94,12 @@ function getCategoryPageProductIdCacheFunctionSource(
 }
 
 describe('cached-data cache directives', () => {
+  it('tags cached blog cores with the merchant identity', () => {
+    const source = getFunctionSource('getCachedBlogPostCore');
+
+    expect(source).toContain('cacheTag(`merchant-id-$' + '{merchant.id}`);');
+  });
+
   it('keeps hot storefront merchant lookups off the remote cache handler', () => {
     for (const functionName of [
       'getCachedMerchant',
