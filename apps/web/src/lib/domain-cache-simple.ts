@@ -17,6 +17,7 @@ import {
 import { createWarmPositiveCache } from './create-warm-positive-cache';
 import { fetchCustomDomain, fetchSlugForDomain } from './domain-cache-database';
 import { SingleFlight } from './single-flight';
+import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
   customDomain: string | null;
@@ -127,7 +128,10 @@ function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
       return refreshed.customDomain;
     }
 
-    const customDomain = await fetchCustomDomain(merchantSlug);
+    const customDomain = await fetchCustomDomain(
+      createAdminClient(),
+      merchantSlug
+    );
 
     if ((edgeForwardGenerations.get(merchantSlug) ?? 0) !== generation) {
       return customDomain;
@@ -229,7 +233,10 @@ export async function getSlugForCustomDomain(
       return refreshed.slug;
     }
 
-    const slug = await fetchSlugForDomain(normalizedDomain);
+    const slug = await fetchSlugForDomain(
+      createAdminClient(),
+      normalizedDomain
+    );
 
     if (
       (edgeReverseGenerations.get(normalizedDomain) ?? 0) !== generation ||

@@ -1,11 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCustomDomain, fetchSlugForDomain } from './domain-cache-database';
-
-const mockCreateAdminClient = vi.fn();
-
-vi.mock('./supabase/admin', () => ({
-  createAdminClient: () => mockCreateAdminClient(),
-}));
 
 function createQuery(result: unknown) {
   const query = {
@@ -37,9 +32,13 @@ describe('domain cache database fallbacks', () => {
       },
       error: null,
     });
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    const client = {
+      from: vi.fn(() => query),
+    } as unknown as SupabaseClient;
 
-    await expect(fetchCustomDomain('shop')).resolves.toBe('shop.example.com');
+    await expect(fetchCustomDomain(client, 'shop')).resolves.toBe(
+      'shop.example.com'
+    );
   });
 
   it('returns the merchant slug for an active custom domain', async () => {
@@ -47,20 +46,28 @@ describe('domain cache database fallbacks', () => {
       data: { merchants: { slug: 'shop' } },
       error: null,
     });
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+    const client = {
+      from: vi.fn(() => query),
+    } as unknown as SupabaseClient;
 
-    await expect(fetchSlugForDomain('shop.example.com')).resolves.toBe('shop');
+    await expect(fetchSlugForDomain(client, 'shop.example.com')).resolves.toBe(
+      'shop'
+    );
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
   });
 
   it('fails open when the database lookup rejects', async () => {
-    mockCreateAdminClient.mockImplementation(() => {
-      throw new Error('database unavailable');
-    });
+    const client = {
+      from: vi.fn(() => {
+        throw new Error('database unavailable');
+      }),
+    } as unknown as SupabaseClient;
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(fetchSlugForDomain('shop.example.com')).resolves.toBeNull();
-    await expect(fetchCustomDomain('shop')).resolves.toBeNull();
+    await expect(
+      fetchSlugForDomain(client, 'shop.example.com')
+    ).resolves.toBeNull();
+    await expect(fetchCustomDomain(client, 'shop')).resolves.toBeNull();
     errorSpy.mockRestore();
   });
 });

@@ -1,10 +1,10 @@
-import { createAdminClient } from './supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export async function fetchSlugForDomain(
+  supabase: SupabaseClient,
   domain: string
 ): Promise<string | null> {
   try {
-    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('domains')
       .select('merchants!inner(slug)')
@@ -34,10 +34,10 @@ export async function fetchSlugForDomain(
 }
 
 export async function fetchCustomDomain(
+  supabase: SupabaseClient,
   merchantSlug: string
 ): Promise<string | null> {
   try {
-    const supabase = createAdminClient();
     const { data: merchant, error } = await supabase
       .from('merchants')
       .select('id, domains!left(domain, is_primary, status, domain_type)')
