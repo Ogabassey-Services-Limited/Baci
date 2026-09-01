@@ -78,4 +78,30 @@ describe('getPublishedBlogPostSlugsForProducts pagination', () => {
     expect(result).toContain('oldest-fallback');
     expect(categoryRangeSpy).toHaveBeenCalledWith(256, 511);
   });
+
+  it('keeps earlier category rows when a later page fails', async () => {
+    const firstPage = Array.from({ length: 256 }, (_, index) => ({
+      slug: index === 0 ? 'fetched-before-error' : `fallback-${index}`,
+      status: 'published',
+      published_at: '2026-08-01',
+      category: 'smartphones',
+    }));
+    const { categoryPages, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: firstPage, error: null }
+    );
+    categoryPages.exact[1] = {
+      data: [],
+      error: new Error('category page unavailable'),
+    };
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      [],
+      ['smartphones']
+    );
+
+    expect(result).toContain('fetched-before-error');
+  });
 });

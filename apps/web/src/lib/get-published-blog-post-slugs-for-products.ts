@@ -249,14 +249,13 @@ export async function getPublishedBlogPostSlugsForProducts(
 
       if (exactError) {
         console.error(
-          'Failed to resolve category-fallback blog posts for product purge (continuing without category article purge):',
+          'Failed to resolve category-fallback blog posts for product purge (continuing with rows already fetched):',
           { merchantId: normalizedMerchantId, error: exactError }
         );
-      } else {
-        for (const post of exactRows) {
-          const slug = getPublishedBlogPostSlug(post);
-          if (slug) slugs.add(slug);
-        }
+      }
+      for (const post of exactRows) {
+        const slug = getPublishedBlogPostSlug(post);
+        if (slug) slugs.add(slug);
       }
 
       if (canonicalCategoryFilters.length > 0) {
@@ -271,17 +270,16 @@ export async function getPublishedBlogPostSlugsForProducts(
 
         if (canonicalError) {
           console.error(
-            'Failed to resolve canonical category-fallback blog posts for product purge (continuing without canonical category article purge):',
+            'Failed to resolve canonical category-fallback blog posts for product purge (continuing with rows already fetched):',
             { merchantId: normalizedMerchantId, error: canonicalError }
           );
-        } else {
-          for (const post of getCanonicalCategoryPostRows(
-            canonicalRows,
-            canonicalCategorySlugs
-          )) {
-            const slug = getPublishedBlogPostSlug(post);
-            if (slug) slugs.add(slug);
-          }
+        }
+        for (const post of getCanonicalCategoryPostRows(
+          canonicalRows,
+          canonicalCategorySlugs
+        )) {
+          const slug = getPublishedBlogPostSlug(post);
+          if (slug) slugs.add(slug);
         }
       }
     } catch (error) {
