@@ -74,6 +74,8 @@ $$;
 
 DROP TRIGGER IF EXISTS stamp_gigl_order_economics ON public.orders;
 CREATE TRIGGER stamp_gigl_order_economics
-  BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source
+  BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source,
+    shipping_provider_cost, shipping_platform_margin,
+    shipping_platform_retained_amount, shipping_pricing_version
   ON public.orders
   FOR EACH ROW EXECUTE FUNCTION private.stamp_gigl_order_economics();

@@ -44,8 +44,8 @@ describe('GIGL order economics migration contract', () => {
     expect(migration).toContain('NEW.shipping_platform_retained_amount := 0');
     expect(migration).toContain('ELSE 0');
     expect(migration).not.toMatch(/NEW\.(shipping_fee|subtotal|total)\s*:=/);
-    expect(migration).toContain(
-      'BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source, shipping_provider_cost, shipping_platform_margin, shipping_platform_retained_amount, shipping_pricing_version'
+    expect(migration).toMatch(
+      /BEFORE INSERT OR UPDATE OF selected_quote_id,\s*shipping_funding_source,\s*shipping_provider_cost,\s*shipping_platform_margin,\s*shipping_platform_retained_amount,\s*shipping_pricing_version/
     );
   });
 
