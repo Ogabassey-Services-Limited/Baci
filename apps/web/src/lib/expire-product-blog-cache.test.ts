@@ -13,20 +13,17 @@ describe('expireProductBlogCache', () => {
     mockRevalidateTag.mockReset();
   });
 
-  it('hard-expires only merchant blog cache tags before edge purge', () => {
+  it('hard-expires the merchant product-enrichment tag before edge purge', () => {
     expireProductBlogCache('merchant-1');
 
-    expect(mockRevalidateTag).toHaveBeenNthCalledWith(
-      1,
+    expect(mockRevalidateTag).toHaveBeenCalledExactlyOnceWith(
       'products-merchant-1',
       { expire: 0 }
     );
-    expect(mockRevalidateTag).toHaveBeenNthCalledWith(
-      2,
+    expect(mockRevalidateTag).not.toHaveBeenCalledWith(
       'merchant-id-merchant-1',
       { expire: 0 }
     );
-    expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
   });
 
   it('does not throw when a cache tag cannot be invalidated', () => {
@@ -35,7 +32,10 @@ describe('expireProductBlogCache', () => {
     });
 
     expect(() => expireProductBlogCache('merchant-1')).not.toThrow();
-    expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    expect(mockRevalidateTag).toHaveBeenCalledExactlyOnceWith(
+      'products-merchant-1',
+      { expire: 0 }
+    );
   });
 
   it('skips blank merchant identifiers', () => {

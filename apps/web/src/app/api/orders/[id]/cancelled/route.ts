@@ -104,7 +104,7 @@ export async function POST(
     try {
       const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('product_id')
+        .select('product_id, variant_id')
         .eq('order_id', id);
       if (orderItemsError) throw orderItemsError;
       const productIds = Array.from(
@@ -115,6 +115,31 @@ export async function POST(
         )
       );
       if (productIds.length > 0) {
+        const variantIds = Array.from(
+          new Set(
+            (orderItems ?? [])
+              .map((item) => item.variant_id)
+              .filter((variantId): variantId is string => Boolean(variantId))
+          )
+        );
+        const serializedVariantProductIds = new Set<string>();
+        if (variantIds.length > 0) {
+          const { data: variants, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, product_id, inventory_tracking_policy')
+            .eq('merchant_id', merchantId)
+            .in('id', variantIds);
+          if (variantsError) throw variantsError;
+          for (const variant of variants ?? []) {
+            if (
+              SERIALIZED_INVENTORY_POLICIES.has(
+                variant.inventory_tracking_policy ?? ''
+              )
+            ) {
+              serializedVariantProductIds.add(variant.product_id);
+            }
+          }
+        }
         const { data: products, error: productsError } = await supabase
           .from('products')
           .select('id, slug, manage_stock, inventory_tracking_policy')
@@ -126,7 +151,8 @@ export async function POST(
             product.manage_stock === true ||
             SERIALIZED_INVENTORY_POLICIES.has(
               product.inventory_tracking_policy ?? ''
-            )
+            ) ||
+            serializedVariantProductIds.has(product.id)
         );
         if (trackedProducts.length > 0) {
           productCacheRevalidation.revalidateProducts(merchantId, undefined, {

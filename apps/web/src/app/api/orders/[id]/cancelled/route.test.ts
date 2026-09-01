@@ -43,6 +43,7 @@ function createSupabase() {
     data: [{ product_id: 'product-1' }],
     error: null,
   });
+  const variantsIn = vi.fn().mockResolvedValue({ data: [], error: null });
   const productsIn = vi.fn().mockResolvedValue({
     data: [{ id: 'product-1', manage_stock: true, slug: 'phone' }],
     error: null,
@@ -59,11 +60,18 @@ function createSupabase() {
           })),
         };
       }
+      if (table === 'product_variants') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ in: variantsIn })),
+          })),
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     }),
     rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
   };
-  return { orderItemsEq, productsIn, supabase };
+  return { orderItemsEq, productsIn, supabase, variantsIn };
 }
 
 describe('POST /api/orders/[id]/cancelled', () => {
@@ -233,6 +241,58 @@ describe('POST /api/orders/[id]/cancelled', () => {
       mocks.scheduleOrderProductBlogPurgeAfterResponse
     ).toHaveBeenCalledWith(
       expect.objectContaining({
+        productIds: ['product-1'],
+        supabase,
+      })
+    );
+  });
+
+  it('purges a serialized child variant when its parent is unmanaged', async () => {
+    const { orderItemsEq, productsIn, supabase, variantsIn } = createSupabase();
+    orderItemsEq.mockResolvedValue({
+      data: [{ product_id: 'product-1', variant_id: 'variant-1' }],
+      error: null,
+    });
+    productsIn.mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          manage_stock: false,
+          inventory_tracking_policy: 'off',
+          slug: 'serialized-child-phone',
+        },
+      ],
+      error: null,
+    });
+    variantsIn.mockResolvedValue({
+      data: [
+        {
+          id: 'variant-1',
+          product_id: 'product-1',
+          inventory_tracking_policy: 'serialized_strict',
+        },
+      ],
+      error: null,
+    });
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+
+    const response = await POST(request({ confirm_cancellation: true }), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'serialized-child-phone',
+    ]);
+    expect(
+      mocks.scheduleOrderProductBlogPurgeAfterResponse
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
         productIds: ['product-1'],
         supabase,
       })

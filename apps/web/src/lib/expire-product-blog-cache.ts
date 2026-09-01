@@ -10,19 +10,16 @@ export function expireProductBlogCache(merchantId: string): void {
   const normalizedMerchantId = normalizeMerchantId(merchantId);
   if (!normalizedMerchantId) return;
 
-  // Blog enrichment is keyed by the merchant's product tag, while the
-  // route-critical blog core carries the merchant identity (and currency)
-  // tag. Avoid the broad product revalidation helper here: that helper also
-  // expires storefront indexes, redirects, feeds, and dashboard caches.
-  for (const tag of [
-    `products-${normalizedMerchantId}`,
-    `merchant-id-${normalizedMerchantId}`,
-  ]) {
-    try {
-      revalidateTag(tag, { expire: 0 });
-    } catch {
-      // Cache invalidation is best effort; callers still enqueue the durable
-      // edge purge and the normal cache TTL provides a recovery path.
-    }
+  // Blog enrichment is keyed by the merchant's product tag. Avoid expiring
+  // the route-critical blog core (which also carries the merchant identity
+  // and currency tag) for routine product mutations. The broad product
+  // revalidation helper also expires storefront indexes, redirects, feeds,
+  // and dashboard caches, so callers keep that work on the durable purge
+  // path instead.
+  try {
+    revalidateTag(`products-${normalizedMerchantId}`, { expire: 0 });
+  } catch {
+    // Cache invalidation is best effort; callers still enqueue the durable
+    // edge purge and the normal cache TTL provides a recovery path.
   }
 }
