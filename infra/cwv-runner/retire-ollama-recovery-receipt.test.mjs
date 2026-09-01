@@ -174,3 +174,29 @@ test('publishes a source-bound fixed-path receipt with all source digests', asyn
     await rm(bin, { recursive: true, force: true });
   }
 });
+
+test('refuses to publish a receipt for projector bytes not used by the scan', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-projector-drift-'));
+  const receiptRoot = join(directory, 'receipts');
+  const snapshot = join(directory, 'snapshot.json');
+  const bin = await testBin();
+  try {
+    await mkdir(receiptRoot, { mode: 0o700 });
+    await writeFile(snapshot, '{"surfaces":[],"dependencies":[],"consumerCounts":[],"consumerEvidence":[]}\n');
+    await assert.rejects(
+      shell(
+        'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$4"; running_projector_expected_sha=$(printf %064d 0); load_temp_root_helper; temp_root_required_bytes() { printf "1\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$3"',
+        [directory, snapshot, sourceSha],
+        { RETIRE_OLLAMA_TEST_BIN: bin, RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot, RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA: sourceSha }
+      ),
+      (error) =>
+        error.code !== 0 && /recovery source digest failed/.test(error.stderr)
+    );
+    await assert.rejects(
+      readFile(join(receiptRoot, sourceSha, 'recovery-scan.json'))
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(bin, { recursive: true, force: true });
+  }
+});

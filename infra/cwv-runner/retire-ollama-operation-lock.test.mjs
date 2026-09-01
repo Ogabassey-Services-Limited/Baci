@@ -11,10 +11,20 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 
 test('acquires one operation lock before both production scan and apply', async () => {
   const source = await readFile(script, 'utf8');
+  const lockFunction = source.slice(
+    source.indexOf('retirement_lock()'),
+    source.indexOf('retirement_prepare()')
+  );
   assert.match(source, /--scan\) root; retirement_prepare; scan/);
   assert.match(source, /--apply\) root; retirement_prepare; apply/);
   assert.match(source, /flock=\/usr\/bin\/flock/);
-  assert.match(source, /exec 9>"\$lock"/);
+  assert.match(lockFunction, /lock_dir=\/run\/lock\/baci-cwv/);
+  assert.match(lockFunction, /mkdir "\$lock_dir"\) \|\| \[ -d "\$lock_dir" \]/);
+  assert.match(lockFunction, /stat -c '%u:%a'.*0:700/);
+  assert.match(lockFunction, /! -L "\$lock_dir\/retire-ollama\.lock"/);
+  assert.match(lockFunction, /exec 9<"\$lock"/);
+  assert.doesNotMatch(source, /lock=\/run\/lock\/baci-cwv-retire-ollama\.lock/);
+  assert.match(lockFunction, /exec 9>"\$lock"/);
   assert.match(
     source,
     /retirement_prepare\(\) \{ init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; retirement_helpers; retirement_lock; \}/

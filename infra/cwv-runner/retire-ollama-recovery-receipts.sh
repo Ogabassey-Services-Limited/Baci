@@ -55,6 +55,7 @@ recovery_source_digests() {
   actual_consumers=$(recovery_bound_sha "$RECOVERY_CONSUMERS_HELPER") || return 1
   actual_consumer_mounts=$(recovery_bound_sha "$RECOVERY_CONSUMER_MOUNTS_HELPER") || return 1
   actual_image_filesystem=$(recovery_bound_sha "$RECOVERY_IMAGE_FILESYSTEM_HELPER") || return 1
+  [ -z "${running_projector_expected_sha:-}" ] || [ "$actual_image_filesystem" = "$running_projector_expected_sha" ] || return 1
   actual_running_container=$(recovery_bound_sha "$RECOVERY_RUNNING_CONTAINER_HELPER") || return 1
   actual_running_container_validation=$(recovery_bound_sha "$RECOVERY_RUNNING_CONTAINER_VALIDATION_HELPER") || return 1
   actual_running_archive=$(recovery_bound_sha "$RECOVERY_RUNNING_ARCHIVE_HELPER") || return 1
