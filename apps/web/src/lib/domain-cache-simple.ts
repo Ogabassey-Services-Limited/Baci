@@ -15,8 +15,8 @@ import {
   getEdgeConfigSlugKey,
 } from '@/lib/edge-config-keys';
 import { createWarmPositiveCache } from './create-warm-positive-cache';
+import { fetchCustomDomain, fetchSlugForDomain } from './domain-cache-database';
 import { SingleFlight } from './single-flight';
-import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
   customDomain: string | null;
@@ -281,91 +281,4 @@ function readSlugFromEdgeConfig(domain: string): Promise<string | undefined> {
       return undefined;
     }
   });
-}
-
-async function fetchSlugForDomain(domain: string): Promise<string | null> {
-  try {
-    const supabase = createAdminClient();
-
-    const { data, error } = await supabase
-      .from('domains')
-      .select('merchants!inner(slug)')
-      .eq('domain', domain)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[Domain Cache] Failed to fetch slug for domain', {
-        domain,
-        error,
-      });
-      return null;
-    }
-
-    if (!data) return null;
-
-    const merchant = data.merchants as unknown as { slug: string };
-    return merchant.slug ?? null;
-  } catch (err) {
-    console.error('[Domain Cache] Error fetching slug for domain', {
-      domain,
-      error: err,
-    });
-    return null;
-  }
-}
-
-async function fetchCustomDomain(merchantSlug: string): Promise<string | null> {
-  try {
-    const supabase = createAdminClient();
-
-    const { data: merchant, error } = await supabase
-      .from('merchants')
-      .select('id, domains!left(domain, is_primary, status, domain_type)')
-      .eq('slug', merchantSlug)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[Domain Cache] Failed to fetch merchant domain data', {
-        merchantSlug,
-        error,
-      });
-      return null;
-    }
-
-    if (!merchant) {
-      return null;
-    }
-
-    const domains = merchant.domains as Array<{
-      domain: string;
-      is_primary: boolean;
-      status: string;
-      domain_type: string;
-    }> | null;
-
-    const activeCustomDomains =
-      domains?.filter(
-        (domain) =>
-          domain.status === 'active' &&
-          (domain.domain_type === 'custom' ||
-            domain.domain_type === 'purchased')
-      ) ?? [];
-
-    const primaryDomain = activeCustomDomains.find(
-      (domain) => domain.is_primary
-    );
-    if (primaryDomain) return primaryDomain.domain;
-
-    // Graceful fallback: if merchant has exactly one active custom/purchased domain,
-    // use it even when is_primary wasn't set yet.
-    if (activeCustomDomains.length === 1) {
-      return activeCustomDomains[0].domain;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
 }

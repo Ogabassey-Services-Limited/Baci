@@ -1,0 +1,66 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchCustomDomain, fetchSlugForDomain } from './domain-cache-database';
+
+const mockCreateAdminClient = vi.fn();
+
+vi.mock('./supabase/admin', () => ({
+  createAdminClient: () => mockCreateAdminClient(),
+}));
+
+function createQuery(result: unknown) {
+  const query = {
+    eq: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    maybeSingle: vi.fn(() => Promise.resolve(result)),
+    select: vi.fn(() => query),
+  };
+  return query;
+}
+
+describe('domain cache database fallbacks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the active primary custom domain for a merchant slug', async () => {
+    const query = createQuery({
+      data: {
+        id: 'merchant-1',
+        domains: [
+          {
+            domain: 'shop.example.com',
+            is_primary: true,
+            status: 'active',
+            domain_type: 'custom',
+          },
+        ],
+      },
+      error: null,
+    });
+    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+
+    await expect(fetchCustomDomain('shop')).resolves.toBe('shop.example.com');
+  });
+
+  it('returns the merchant slug for an active custom domain', async () => {
+    const query = createQuery({
+      data: { merchants: { slug: 'shop' } },
+      error: null,
+    });
+    mockCreateAdminClient.mockReturnValue({ from: vi.fn(() => query) });
+
+    await expect(fetchSlugForDomain('shop.example.com')).resolves.toBe('shop');
+    expect(query.eq).toHaveBeenCalledWith('status', 'active');
+  });
+
+  it('fails open when the database lookup rejects', async () => {
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(fetchSlugForDomain('shop.example.com')).resolves.toBeNull();
+    await expect(fetchCustomDomain('shop')).resolves.toBeNull();
+    errorSpy.mockRestore();
+  });
+});
