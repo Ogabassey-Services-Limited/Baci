@@ -130,11 +130,18 @@ export async function refundMerchantShippingCharge(
   token: string,
   reasonCode: string
 ) {
-  await supabase.rpc('refund_merchant_shipping_charge', {
+  const { error } = await supabase.rpc('refund_merchant_shipping_charge', {
     p_charge_id: chargeId,
     p_attempt_token: token,
     p_reason_code: reasonCode,
   });
+  if (error) {
+    throw new OrderShipmentBookingError(
+      'Unable to refund merchant wallet shipping charge.',
+      500,
+      'MERCHANT_WALLET_REFUND_FAILED'
+    );
+  }
 }
 
 export async function markMerchantShippingChargeForReconciliation(
@@ -144,12 +151,22 @@ export async function markMerchantShippingChargeForReconciliation(
   reasonCode: string,
   providerReference?: string
 ) {
-  await supabase.rpc('mark_merchant_shipping_charge_for_reconciliation', {
-    p_charge_id: chargeId,
-    p_attempt_token: token,
-    p_reason_code: reasonCode,
-    p_provider_reference: providerReference ?? null,
-  });
+  const { error } = await supabase.rpc(
+    'mark_merchant_shipping_charge_for_reconciliation',
+    {
+      p_charge_id: chargeId,
+      p_attempt_token: token,
+      p_reason_code: reasonCode,
+      p_provider_reference: providerReference ?? null,
+    }
+  );
+  if (error) {
+    throw new OrderShipmentBookingError(
+      'Unable to mark merchant wallet shipping charge for reconciliation.',
+      500,
+      'MERCHANT_WALLET_RECONCILIATION_FAILED'
+    );
+  }
 }
 
 export function isAmbiguousShippingBookingError(error: unknown): boolean {

@@ -11,6 +11,14 @@ describe('merchant shipping charge migration contract', () => {
     expect(sql).toContain(
       'CREATE TABLE IF NOT EXISTS public.merchant_shipping_charges'
     );
+    expect(sql).toContain(
+      'ADD COLUMN IF NOT EXISTS provider_cost numeric(12,2)'
+    );
+    expect(sql).toContain(
+      'ADD COLUMN IF NOT EXISTS platform_margin numeric(12,2)'
+    );
+    expect(sql).toContain('shipments_provider_cost_nonnegative');
+    expect(sql).toContain('shipments_platform_margin_nonnegative');
     expect(sql).toContain('UNIQUE(order_id, shipping_quote_id)');
     expect(sql).toContain('ENABLE ROW LEVEL SECURITY');
     expect(sql).toContain('merchant_id = auth.uid()');
@@ -28,5 +36,16 @@ describe('merchant shipping charge migration contract', () => {
       'mark_merchant_shipping_charge_for_reconciliation',
     ])
       expect(sql).toContain(`FUNCTION public.${fn}`);
+  });
+
+  it('checks the refund token before refunded terminal idempotency', () => {
+    const refund = sql.slice(
+      sql.indexOf(
+        'CREATE OR REPLACE FUNCTION public.refund_merchant_shipping_charge'
+      )
+    );
+    expect(refund.indexOf('attempt_token_digest <>')).toBeLessThan(
+      refund.indexOf("status='refunded'")
+    );
   });
 });

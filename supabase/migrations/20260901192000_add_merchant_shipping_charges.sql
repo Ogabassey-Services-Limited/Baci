@@ -22,6 +22,15 @@ CREATE TABLE IF NOT EXISTS public.merchant_shipping_charges (
   refunded_at timestamptz,
   UNIQUE(order_id, shipping_quote_id)
 );
+ALTER TABLE public.shipments
+  ADD COLUMN IF NOT EXISTS provider_cost numeric(12,2),
+  ADD COLUMN IF NOT EXISTS platform_margin numeric(12,2);
+DO $$ BEGIN
+  ALTER TABLE public.shipments ADD CONSTRAINT shipments_provider_cost_nonnegative CHECK (provider_cost IS NULL OR provider_cost >= 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE public.shipments ADD CONSTRAINT shipments_platform_margin_nonnegative CHECK (platform_margin IS NULL OR platform_margin >= 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TABLE public.merchant_shipping_charges ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS merchant_shipping_charges_owner_read ON public.merchant_shipping_charges;
 CREATE POLICY merchant_shipping_charges_owner_read ON public.merchant_shipping_charges
@@ -45,6 +54,11 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('merchant-shipping:'||v_order.merchant_id||':'||p_order_id,0));
   SELECT * INTO v_existing FROM public.merchant_shipping_charges WHERE order_id=p_order_id AND shipping_quote_id=p_quote_id FOR UPDATE;
   IF FOUND THEN
+    IF v_existing.status = 'reserved' THEN
+      UPDATE public.merchant_shipping_charges
+         SET attempt_token_digest = pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex'), updated_at = now()
+       WHERE id = v_existing.id;
+    END IF;
     SELECT available_balance INTO balance_after FROM public.merchant_wallets WHERE merchant_id=v_order.merchant_id;
     RETURN QUERY SELECT v_existing.id,v_existing.charged_amount,balance_after,v_existing.status; RETURN;
   END IF;
@@ -63,7 +77,7 @@ CREATE OR REPLACE FUNCTION public.begin_merchant_shipping_charge_submission(p_ch
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
-  SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d;
+  SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
   IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
   IF v='reserved' THEN UPDATE public.merchant_shipping_charges SET status='provider_submitting',provider_submitting_at=now(),updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
   RETURN v;
@@ -73,9 +87,9 @@ CREATE OR REPLACE FUNCTION public.complete_merchant_shipping_charge(p_charge_id 
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
- SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d;
+ SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
  IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
- IF v IN ('reserved','provider_submitting') THEN UPDATE public.merchant_shipping_charges SET status='booked',shipment_id=p_shipment_id,completed_at=now(),updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
+ IF v = 'provider_submitting' THEN UPDATE public.merchant_shipping_charges SET status='booked',shipment_id=p_shipment_id,completed_at=now(),updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
  RETURN v;
 END; $$;
 
@@ -85,8 +99,8 @@ DECLARE c public.merchant_shipping_charges%ROWTYPE; b numeric; tx uuid;
 BEGIN
  SELECT * INTO c FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
- IF c.status='refunded' THEN RETURN c.status; END IF;
  IF c.attempt_token_digest <> pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex') THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
+ IF c.status='refunded' THEN RETURN c.status; END IF;
  IF c.status IN ('refunded','booked','needs_reconciliation') THEN RETURN c.status; END IF;
  IF c.status NOT IN ('reserved','provider_submitting') THEN RETURN c.status; END IF;
  UPDATE public.merchant_wallets SET available_balance=available_balance+c.charged_amount,updated_at=now() WHERE merchant_id=c.merchant_id RETURNING available_balance INTO b;
@@ -100,7 +114,7 @@ CREATE OR REPLACE FUNCTION public.mark_merchant_shipping_charge_for_reconciliati
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
 DECLARE v text; d text := pg_catalog.encode(extensions.digest(p_attempt_token,'sha256'),'hex');
 BEGIN
- SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d;
+ SELECT status INTO v FROM public.merchant_shipping_charges WHERE id=p_charge_id AND merchant_id=auth.uid() AND attempt_token_digest=d FOR UPDATE;
  IF v IS NULL THEN RAISE EXCEPTION 'charge_not_owned' USING ERRCODE='42501'; END IF;
  IF v IN ('reserved','provider_submitting') THEN UPDATE public.merchant_shipping_charges SET status='needs_reconciliation',failure_code=p_reason_code,provider_reference=p_provider_reference,updated_at=now() WHERE id=p_charge_id RETURNING status INTO v; END IF;
  RETURN v;

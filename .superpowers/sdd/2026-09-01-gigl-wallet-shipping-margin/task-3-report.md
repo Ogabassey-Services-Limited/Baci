@@ -34,3 +34,14 @@ The inherited ledger records the required pre-migration contract run as RED beca
 ## Final HEAD
 
 `6d83f09a1de3978c4e6f8aa25f1c52387e5f42ef` — `feat: reserve merchant wallet for GIGL booking`
+
+## Fix Round 1
+
+- Added append-only shipment economics columns and nonnegative checks, with schema contract assertions.
+- Made duplicate reservation token-safe: reserved charges rotate to the new digest atomically; provider-submitting/reconciliation states fail closed; booked retries reuse the persisted shipment path; refunded charges remain terminal.
+- Enforced wrong-token rejection before refunded terminal idempotency and added regression coverage.
+- Added row locks to transition reads, restricted completion to `provider_submitting`, surfaced refund/reconciliation RPC failures, and documented the merchant context parameter.
+
+## Final head after Fix Round 1
+
+`7f019ac3e21ac2f65c76ec9d20ebca3a381db683`

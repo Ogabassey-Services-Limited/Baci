@@ -215,4 +215,29 @@ describe('wallet-funded shipment orchestration', () => {
     ).resolves.toMatchObject({ shipmentId: 's-existing' });
     expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
   });
+
+  it('fails closed for a possibly-started provider submission', async () => {
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c6',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'provider_submitting',
+      },
+      token: 'g'.repeat(64),
+    });
+    const book = vi.fn();
+    await expect(
+      bookWalletOrCustomerCheckout(
+        {} as never,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book
+      )
+    ).rejects.toMatchObject({ code: 'SHIPMENT_BOOKING_IN_PROGRESS' });
+    expect(book).not.toHaveBeenCalled();
+    expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
+  });
 });

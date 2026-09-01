@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { reserveMerchantShippingCharge } from './merchant-shipping-charge';
+import {
+  markMerchantShippingChargeForReconciliation,
+  refundMerchantShippingCharge,
+  reserveMerchantShippingCharge,
+} from './merchant-shipping-charge';
 
 describe('merchant shipping charge RPC adapter', () => {
   it('generates a 64-character token and normalizes RPC rows', async () => {
@@ -40,5 +44,22 @@ describe('merchant shipping charge RPC adapter', () => {
     await expect(
       reserveMerchantShippingCharge({ rpc } as never, 'o1', 'q1')
     ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_INSUFFICIENT' });
+  });
+
+  it('surfaces refund and reconciliation RPC failures', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: 'db down' } });
+    await expect(
+      refundMerchantShippingCharge({ rpc } as never, 'c1', 't1', 'FAIL')
+    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_REFUND_FAILED' });
+    await expect(
+      markMerchantShippingChargeForReconciliation(
+        { rpc } as never,
+        'c1',
+        't1',
+        'TIMEOUT'
+      )
+    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_RECONCILIATION_FAILED' });
   });
 });

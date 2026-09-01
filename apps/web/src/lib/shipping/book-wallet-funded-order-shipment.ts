@@ -14,12 +14,21 @@ type ReleaseLock = () => Promise<void>;
 
 export async function bookWalletFundedOrderShipment(
   supabase: SupabaseClient,
-  _merchantId: string,
+  merchantId: string,
   orderId: string,
   quoteId: string,
   book: () => Promise<BookOrderShipmentResult>,
   releaseLock?: ReleaseLock
 ): Promise<BookOrderShipmentResult> {
+  // Retain the merchant context in this route-level contract; owner checks are
+  // enforced by every wallet RPC before it can mutate state.
+  if (!merchantId) {
+    throw new OrderShipmentBookingError(
+      'Merchant context is required.',
+      400,
+      'MERCHANT_NOT_FOUND'
+    );
+  }
   const { charge, token } = await reserveMerchantShippingCharge(
     supabase,
     orderId,
@@ -37,6 +46,13 @@ export async function bookWalletFundedOrderShipment(
       'This shipment booking already requires reconciliation.',
       409,
       'MERCHANT_WALLET_BOOKING_NOT_RETRYABLE'
+    );
+  }
+  if (charge.status === 'provider_submitting') {
+    throw new OrderShipmentBookingError(
+      'Shipment booking is already in progress.',
+      409,
+      'SHIPMENT_BOOKING_IN_PROGRESS'
     );
   }
   try {
