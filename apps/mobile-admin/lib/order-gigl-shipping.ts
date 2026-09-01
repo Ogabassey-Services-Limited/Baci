@@ -127,6 +127,15 @@ export async function getMerchantWalletFundingAccount(signal?: AbortSignal) {
   return (await parseResponse(response, fundingAccountResponseSchema)).account;
 }
 
+export async function getOrRequestMerchantWalletFundingAccount(
+  signal?: AbortSignal
+) {
+  const account = await getMerchantWalletFundingAccount(signal);
+  return account
+    ? { account, status: account.status }
+    : requestMerchantWalletFundingAccount(signal);
+}
+
 export async function requestMerchantWalletFundingAccount(
   signal?: AbortSignal
 ) {

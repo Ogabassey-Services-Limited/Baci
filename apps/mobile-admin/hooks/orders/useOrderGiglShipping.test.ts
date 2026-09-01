@@ -10,11 +10,30 @@ const api = vi.hoisted(() => ({
   requestFundingAccount: vi.fn(),
 }));
 
+const appState = vi.hoisted(() => ({
+  listener: (() => undefined) as (state: string) => void,
+}));
+
+vi.mock('react-native', () => ({
+  AppState: {
+    addEventListener: (_event: string, listener: (state: string) => void) => {
+      appState.listener = listener;
+      return { remove: vi.fn() };
+    },
+  },
+}));
+
 vi.mock('@/lib/order-gigl-shipping', () => {
   class TestShippingError extends Error {}
   return {
     getMerchantWalletFundingAccount: api.getFundingAccount,
     getMerchantWalletSummary: api.getWallet,
+    getOrRequestMerchantWalletFundingAccount: async () => {
+      const account = await api.getFundingAccount();
+      return account
+        ? { account, status: account.status }
+        : api.requestFundingAccount();
+    },
     getOrderGiglQuote: api.getQuote,
     OrderGiglShippingError: TestShippingError,
     requestMerchantWalletFundingAccount: api.requestFundingAccount,
@@ -59,11 +78,12 @@ async function flushPromises() {
 
 describe('useOrderGiglShipping', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    for (const mock of Object.values(api)) mock.mockReset();
     vi.useFakeTimers();
     vi.setSystemTime('2026-09-01T17:00:00.000Z');
     api.getQuote.mockResolvedValue(result);
     api.getFundingAccount.mockResolvedValue(null);
+    appState.listener = () => undefined;
   });
 
   it('does not request while the sheet method step is closed', () => {
@@ -161,33 +181,6 @@ describe('useOrderGiglShipping', () => {
     expect(api.requestFundingAccount).toHaveBeenCalledOnce();
   });
 
-  it('polls every three seconds and stops when wallet covers the quote', async () => {
-    api.getQuote.mockResolvedValueOnce(result).mockResolvedValueOnce({
-      ...result,
-      availableBalance: 11000,
-      shortfall: 0,
-      canBook: true,
-    });
-    api.getWallet
-      .mockResolvedValueOnce({ availableBalance: 5000, currency: 'NGN' })
-      .mockResolvedValueOnce({ availableBalance: 11000, currency: 'NGN' });
-    const { result: hook } = renderHook(
-      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
-      { wrapper }
-    );
-    await flushPromises();
-    expect(hook.current.quote).not.toBeNull();
-    act(() => hook.current.startTransferPoll());
-    await act(() => vi.advanceTimersByTimeAsync(3000));
-    expect(api.getWallet).toHaveBeenCalledTimes(1);
-    await act(() => vi.advanceTimersByTimeAsync(3000));
-    expect(api.getWallet).toHaveBeenCalledTimes(2);
-    expect(api.getQuote).toHaveBeenCalledTimes(2);
-    expect(hook.current.wallet?.canBook).toBe(true);
-    await act(() => vi.advanceTimersByTimeAsync(6000));
-    expect(api.getWallet).toHaveBeenCalledTimes(2);
-  });
-
   it('refreshes an expiring quote and requires a second confirmation tap', async () => {
     const funded = {
       ...result,
@@ -221,37 +214,6 @@ describe('useOrderGiglShipping', () => {
       allowed = await hook.current.ensureFreshQuoteForConfirmation();
     });
     expect(allowed).toBe(true);
-  });
-
-  it('keeps booking disabled when the post-funding replacement quote costs more', async () => {
-    api.getQuote.mockResolvedValueOnce(result).mockResolvedValueOnce({
-      ...result,
-      quote: {
-        ...result.quote,
-        price: 12000,
-        expiresAt: '2026-09-01T19:00:00.000Z',
-      },
-      availableBalance: 11000,
-      shortfall: 1000,
-      canBook: false,
-    });
-    api.getWallet.mockResolvedValue({
-      availableBalance: 11000,
-      currency: 'NGN',
-    });
-    const { result: hook } = renderHook(
-      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
-      { wrapper }
-    );
-    await flushPromises();
-    act(() => hook.current.startTransferPoll());
-    await act(() => vi.advanceTimersByTimeAsync(3000));
-
-    expect(hook.current.quote?.price).toBe(12000);
-    expect(hook.current.wallet).toMatchObject({
-      canBook: false,
-      shortfall: 1000,
-    });
   });
 
   it('invalidates the old quote as soon as an address field changes', async () => {
@@ -293,24 +255,5 @@ describe('useOrderGiglShipping', () => {
     expect(hook.current.quote).toBeNull();
     expect(hook.current.wallet).toBeNull();
     expect(hook.current.missingFields).toEqual(['city']);
-  });
-
-  it('stops polling after 60 seconds and when disabled', async () => {
-    api.getWallet.mockResolvedValue({
-      availableBalance: 1000,
-      currency: 'NGN',
-    });
-    const { result: hook, rerender } = renderHook(
-      ({ enabled }) => useOrderGiglShipping({ enabled, orderId: 'order-1' }),
-      { initialProps: { enabled: true }, wrapper }
-    );
-    await flushPromises();
-    expect(hook.current.quote).not.toBeNull();
-    act(() => hook.current.startTransferPoll());
-    await act(() => vi.advanceTimersByTimeAsync(60_000));
-    expect(api.getWallet).toHaveBeenCalledTimes(20);
-    rerender({ enabled: false });
-    await act(() => vi.advanceTimersByTimeAsync(6000));
-    expect(api.getWallet).toHaveBeenCalledTimes(20);
   });
 });

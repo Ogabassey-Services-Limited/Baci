@@ -2,25 +2,28 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
-  getMerchantWalletFundingAccount,
+  OrderGiglFundingPoller,
+  type OrderGiglPollContext,
+} from '@/lib/order-gigl-funding-poller';
+import {
   getMerchantWalletSummary,
   getOrderGiglQuote,
+  getOrRequestMerchantWalletFundingAccount,
   type MerchantWalletFundingAccount,
   type OrderGiglMissingField,
   type OrderGiglQuote,
   type OrderGiglReceiver,
   OrderGiglShippingError,
-  requestMerchantWalletFundingAccount,
 } from '@/lib/order-gigl-shipping';
 import {
-  GIGL_MAX_POLL_COUNT,
-  GIGL_POLL_INTERVAL_MS,
+  invalidateOrderGiglFundingQueries,
   isOrderGiglQuoteFresh,
   type OrderGiglShippingParams,
   type OrderGiglShippingState,
   type OrderGiglWalletState,
   toCompleteOrderGiglReceiver,
   toOrderGiglAddressDraft,
+  toOrderGiglWalletState,
 } from '@/lib/order-gigl-shipping-state';
 
 export type { OrderGiglShippingState } from '@/lib/order-gigl-shipping-state';
@@ -47,27 +50,19 @@ export function useOrderGiglShipping({
   const [state, setState] = useState<OrderGiglShippingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollCountRef = useRef(0);
+  const pollerRef = useRef<OrderGiglFundingPoller | null>(null);
   const confirmationRef = useRef(false);
   const fundingRef = useRef(false);
   const enabledRef = useRef(enabled);
+  const appActiveRef = useRef(true);
 
   enabledRef.current = enabled;
   quoteRef.current = quote;
 
   const stopPolling = () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = null;
-    pollCountRef.current = 0;
-  };
-
-  const invalidateFundingQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['order', orderId] });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    queryClient.invalidateQueries({ queryKey: ['order-counts'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['merchant-wallet'] });
+    pollerRef.current?.stop();
+    pollerRef.current = null;
+    controllerRef.current?.abort();
   };
 
   const invalidateQuote = () => {
@@ -82,11 +77,7 @@ export function useOrderGiglShipping({
   ) => {
     setQuote(result.quote);
     quoteRef.current = result.quote;
-    const nextWallet = {
-      availableBalance: result.availableBalance,
-      canBook: result.canBook,
-      shortfall: result.shortfall,
-    };
+    const nextWallet = toOrderGiglWalletState(result);
     setWallet(nextWallet);
     walletRef.current = nextWallet;
     setMissingFields([]);
@@ -94,7 +85,7 @@ export function useOrderGiglShipping({
     setState('ready');
   };
 
-  const requestQuote = async () => {
+  const requestQuote = async (isValid: () => boolean = () => true) => {
     if (!enabledRef.current || !orderId) return null;
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -107,12 +98,12 @@ export function useOrderGiglShipping({
         toCompleteOrderGiglReceiver(addressRef.current),
         controller.signal
       );
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && isValid()) {
         applyQuoteResult(result);
         return result;
       }
     } catch (requestError: unknown) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isValid()) return;
       if (
         requestError instanceof OrderGiglShippingError ||
         (requestError &&
@@ -146,8 +137,12 @@ export function useOrderGiglShipping({
     invalidateQuote();
   };
 
-  const refreshBalance = async () => {
-    const summary = await getMerchantWalletSummary();
+  const refreshBalance = async (context?: OrderGiglPollContext) => {
+    const isCurrent = () =>
+      !context ||
+      (context.isCurrent() && enabledRef.current && appActiveRef.current);
+    const summary = await getMerchantWalletSummary(context?.signal);
+    if (!isCurrent()) return null;
     const price = quoteRef.current?.price ?? 0;
     const shortfall = Math.max(0, price - summary.availableBalance);
     const next = {
@@ -158,18 +153,15 @@ export function useOrderGiglShipping({
     setWallet(next);
     walletRef.current = next;
     if (next.canBook) {
-      stopPolling();
       setWallet({ ...next, canBook: false });
       walletRef.current = { ...next, canBook: false };
-      const refreshed = await requestQuote();
-      if (refreshed?.canBook) invalidateFundingQueries();
-      return refreshed
-        ? {
-            availableBalance: refreshed.availableBalance,
-            canBook: refreshed.canBook,
-            shortfall: refreshed.shortfall,
-          }
-        : walletRef.current;
+      if (!isCurrent()) return null;
+      const refreshed = await requestQuote(isCurrent);
+      if (!isCurrent()) return null;
+      if (refreshed?.canBook) {
+        invalidateOrderGiglFundingQueries(queryClient, orderId);
+      }
+      return refreshed ? toOrderGiglWalletState(refreshed) : walletRef.current;
     }
     return next;
   };
@@ -180,10 +172,7 @@ export function useOrderGiglShipping({
     setState('funding');
     setError(null);
     try {
-      const existing = await getMerchantWalletFundingAccount();
-      const response = existing
-        ? { account: existing, status: existing.status }
-        : await requestMerchantWalletFundingAccount();
+      const response = await getOrRequestMerchantWalletFundingAccount();
       setFundingAccount(response.account);
       setState(
         response.account?.status === 'active' ? 'ready' : 'funding_pending'
@@ -220,24 +209,31 @@ export function useOrderGiglShipping({
 
   const startTransferPoll = () => {
     stopPolling();
-    if (!enabledRef.current || !quoteRef.current) return;
+    if (!enabledRef.current || !appActiveRef.current || !quoteRef.current)
+      return;
     setState('polling');
-    pollRef.current = setInterval(() => {
-      pollCountRef.current += 1;
-      void refreshBalance().catch((pollError: unknown) => {
-        stopPolling();
-        setError(
-          pollError instanceof Error
-            ? pollError.message
-            : 'Unable to refresh wallet balance.'
-        );
-        setState('error');
-      });
-      if (pollCountRef.current >= GIGL_MAX_POLL_COUNT) {
-        stopPolling();
-        setState('ready');
+    const poller = new OrderGiglFundingPoller(
+      async (context) => {
+        try {
+          const next = await refreshBalance(context);
+          return next?.canBook ? 'stop' : 'continue';
+        } catch (pollError: unknown) {
+          if (!context.isCurrent()) return 'stop';
+          setError(
+            pollError instanceof Error
+              ? pollError.message
+              : 'Unable to refresh wallet balance.'
+          );
+          setState('error');
+          return 'stop';
+        }
+      },
+      () => {
+        if (enabledRef.current && appActiveRef.current) setState('ready');
       }
-    }, GIGL_POLL_INTERVAL_MS);
+    );
+    pollerRef.current = poller;
+    poller.start();
   };
 
   const reset = () => {
@@ -273,7 +269,8 @@ export function useOrderGiglShipping({
   // biome-ignore lint/correctness/useExhaustiveDependencies: stopPolling only mutates stable refs
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') {
+      appActiveRef.current = nextState === 'active';
+      if (!appActiveRef.current) {
         stopPolling();
         setState((previous) => (previous === 'polling' ? 'ready' : previous));
       }

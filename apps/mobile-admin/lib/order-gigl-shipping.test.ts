@@ -11,6 +11,7 @@ import {
   getMerchantWalletFundingAccount,
   getMerchantWalletSummary,
   getOrderGiglQuote,
+  getOrRequestMerchantWalletFundingAccount,
   requestMerchantWalletFundingAccount,
 } from './order-gigl-shipping';
 
@@ -127,6 +128,23 @@ describe('order GIG shipping API', () => {
       body: JSON.stringify({ consent: true }),
       method: 'POST',
     });
+  });
+
+  it('reuses an active account without posting duplicate consent', async () => {
+    const account = {
+      accountName: 'BACI / Store',
+      accountNumber: '1234567890',
+      bankName: 'Wema Bank',
+      currency: 'NGN',
+      status: 'active',
+    };
+    fetchMock.mockResolvedValue(response({ account }));
+    await expect(getOrRequestMerchantWalletFundingAccount()).resolves.toEqual({
+      account,
+      status: 'active',
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' });
   });
 
   it('loads wallet balance for bounded transfer polling', async () => {

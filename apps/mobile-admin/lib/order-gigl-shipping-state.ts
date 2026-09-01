@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import type { OrderGiglQuote, OrderGiglReceiver } from './order-gigl-shipping';
 
 export const GIGL_CONFIRMATION_SAFETY_MS = 30_000;
@@ -18,6 +19,25 @@ export interface OrderGiglWalletState {
   availableBalance: number;
   canBook: boolean;
   shortfall: number;
+}
+
+export function toOrderGiglWalletState(result: OrderGiglWalletState) {
+  return {
+    availableBalance: result.availableBalance,
+    canBook: result.canBook,
+    shortfall: result.shortfall,
+  };
+}
+
+export function invalidateOrderGiglFundingQueries(
+  client: QueryClient,
+  orderId: string
+) {
+  client.invalidateQueries({ queryKey: ['order', orderId] });
+  client.invalidateQueries({ queryKey: ['orders'] });
+  client.invalidateQueries({ queryKey: ['order-counts'] });
+  client.invalidateQueries({ queryKey: ['dashboard-stats'] });
+  client.invalidateQueries({ queryKey: ['merchant-wallet'] });
 }
 
 export interface OrderGiglInitialAddress {

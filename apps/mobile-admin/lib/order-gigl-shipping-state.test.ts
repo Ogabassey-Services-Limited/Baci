@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  invalidateOrderGiglFundingQueries,
   isOrderGiglQuoteFresh,
   toCompleteOrderGiglReceiver,
   toOrderGiglAddressDraft,
@@ -36,5 +37,17 @@ describe('order GIG shipping state', () => {
     });
     expect(draft).toEqual({ address: '1 Allen', phone: '0801' });
     expect(toCompleteOrderGiglReceiver(draft)).toBeUndefined();
+  });
+
+  it('invalidates every order and wallet view after observed funding', () => {
+    const invalidateQueries = vi.fn();
+    invalidateOrderGiglFundingQueries(
+      { invalidateQueries } as never,
+      'order-1'
+    );
+    expect(invalidateQueries).toHaveBeenLastCalledWith({
+      queryKey: ['merchant-wallet'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledTimes(5);
   });
 });
