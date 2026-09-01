@@ -15,6 +15,7 @@ import {
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
+import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-funded-order-shipment';
 import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
@@ -151,7 +152,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, tracking_number, shipment_id'
+        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -353,7 +354,23 @@ export async function PATCH(
         shipmentBookingLockToken = bookingClaim.lockToken;
 
         try {
-          const booking = await bookOrderShipment(supabase, merchantId, id);
+          const booking = await bookWalletOrCustomerCheckout(
+            supabase,
+            merchantId,
+            id,
+            existingOrder.selected_quote_id ?? '',
+            existingOrder.shipping_funding_source,
+            () => bookOrderShipment(supabase, merchantId, id),
+            shipmentBookingLockToken
+              ? () =>
+                  clearOrderShipmentBookingLock(
+                    supabase,
+                    merchantId,
+                    id,
+                    shipmentBookingLockToken as string
+                  )
+              : undefined
+          );
           updates.shipping_provider = booking.provider;
           updates.selected_quote_id = booking.quoteId;
           updates.shipment_id = booking.shipmentId;

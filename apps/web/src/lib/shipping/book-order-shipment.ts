@@ -33,6 +33,7 @@ type OrderRecord = {
   shipping_fee: number | string | null;
   selected_quote_id: string | null;
   shipping_provider: string | null;
+  shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
   shipping_address: {
     address?: string | null;
     city?: string | null;
@@ -55,7 +56,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -110,7 +111,7 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata, provider_cost, platform_margin, pricing_version'
     )
     .eq('id', typedOrder.selected_quote_id)
     .eq('merchant_id', merchantId)
@@ -176,7 +177,9 @@ export async function bookOrderShipment(
     typedOrder.shipping_provider,
     merchantSender
   );
-  assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
+  if (typedOrder.shipping_funding_source !== 'merchant_wallet') {
+    assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
+  }
 
   const resolvedQuoteRequest = parseStoredQuoteRequest(
     resolvedQuote.quote_request
@@ -253,6 +256,8 @@ export async function bookOrderShipment(
       pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
       label_url: result.labelUrl,
       provider_response: result.rawResponse,
+      provider_cost: resolvedQuote.provider_cost ?? null,
+      platform_margin: resolvedQuote.platform_margin ?? null,
     })
     .select('id')
     .single();
