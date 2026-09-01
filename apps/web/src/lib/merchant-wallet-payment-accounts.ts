@@ -182,14 +182,6 @@ export async function persistMerchantWalletAssignmentEvent(
   const currency = typeof account.currency === 'string' ? account.currency : '';
   if (!/^\d{10,20}$/.test(accountNumber) || currency !== 'NGN')
     return { kind: 'review' as const };
-  const { data: requests, error } = await supabase
-    .from('merchant_wallet_funding_account_requests')
-    .select('id, status')
-    .eq('id', requestId)
-    .eq('merchant_id', merchantId)
-    .in('status', ['pending', 'fulfilled']);
-  if (error || !requests || requests.length !== 1)
-    return { kind: 'review' as const };
   const bank =
     account.bank && typeof account.bank === 'object'
       ? (account.bank as Record<string, unknown>)
@@ -198,13 +190,6 @@ export async function persistMerchantWalletAssignmentEvent(
     account.customer && typeof account.customer === 'object'
       ? (account.customer as Record<string, unknown>)
       : {};
-  const { data: existing } = await supabase
-    .from('merchant_wallet_payment_accounts')
-    .select(
-      'account_number, account_name, bank_name, currency, provider_account_id, provider_customer_code'
-    )
-    .eq('request_id', requestId)
-    .maybeSingle();
   const incoming = {
     accountNumber,
     accountName:
@@ -216,26 +201,19 @@ export async function persistMerchantWalletAssignmentEvent(
       ? String(customer.customer_code)
       : null,
   };
-  if (requests[0].status === 'fulfilled') {
-    return existing &&
-      existing.account_number === incoming.accountNumber &&
-      existing.account_name === incoming.accountName &&
-      existing.bank_name === incoming.bankName &&
-      existing.currency === incoming.currency &&
-      existing.provider_account_id === incoming.providerAccountId &&
-      existing.provider_customer_code === incoming.providerCustomerCode
-      ? { kind: 'match' as const }
-      : { kind: 'review' as const };
+  try {
+    await persistVerifiedMerchantWalletAssignment(supabase, {
+      requestId,
+      merchantId,
+      accountNumber,
+      accountName: incoming.accountName,
+      bankName: incoming.bankName,
+      currency,
+      providerAccountId: incoming.providerAccountId,
+      providerCustomerCode: incoming.providerCustomerCode,
+    });
+    return { kind: 'match' as const };
+  } catch {
+    return { kind: 'review' as const };
   }
-  await persistVerifiedMerchantWalletAssignment(supabase, {
-    requestId,
-    merchantId,
-    accountNumber,
-    accountName: incoming.accountName,
-    bankName: incoming.bankName,
-    currency,
-    providerAccountId: incoming.providerAccountId,
-    providerCustomerCode: incoming.providerCustomerCode,
-  });
-  return { kind: 'match' as const };
 }

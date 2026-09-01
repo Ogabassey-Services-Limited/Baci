@@ -32,3 +32,7 @@ Provider payload field variants beyond the documented `data.metadata`/`data.dedi
 ## Fix Round 2
 
 Head: `3feb822f6b` (`fix: make merchant DVA funding retry safe`). Assignment persistence now locks the request and treats exact fulfilled replays as handled while conflicting replays are review. Credit validation uses `SELECT ... INTO STRICT ... FOR UPDATE` for the exact active NGN mapping. Failure-transition RPC errors are surfaced as safe review-required failures. New behavioral/contract suite: 91 passing tests (79 legacy webhook tests are included separately in the 8-file run; 12 are Task 4-focused).
+
+## Fix Round 3
+
+Assignment replay decisions now always call the locked service RPC; TypeScript performs payload shape parsing only. Runtime tests execute wallet balance and assignment-review handlers plus exact/excess/zero confirmation paths. Focused + legacy webhook run: 94 passing tests (15 Task 4-focused, 79 legacy). Final head is the Fix Round 3 commit below.
