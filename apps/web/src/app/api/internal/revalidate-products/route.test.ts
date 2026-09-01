@@ -8,6 +8,7 @@ const mockScheduleStorefrontProductPurge = vi.fn();
 const mockScheduleStorefrontHostnamePurge = vi.fn();
 const mockCreatePublicClient = vi.fn();
 const mockMerchantLookup = vi.fn();
+const mockExpireProductBlogCache = vi.fn();
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
@@ -20,6 +21,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/expire-product-blog-cache', () => ({
+  expireProductBlogCache: (...args: unknown[]) =>
+    mockExpireProductBlogCache(...args),
 }));
 vi.mock('@/lib/storefront-product-purge-hostnames', () => ({
   scheduleStorefrontHostnamePurge: (...args: unknown[]) =>
@@ -150,6 +155,7 @@ describe('POST /api/internal/revalidate-products', () => {
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('rejects a mismatched merchantSlug before scheduling a product purge', async () => {

@@ -28,6 +28,11 @@ vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
 }));
+const mockScheduleProductBlogPurgeAfterResponse = vi.fn();
+vi.mock('@/lib/schedule-product-blog-purge-after-response', () => ({
+  scheduleProductBlogPurgeAfterResponse: (...args: unknown[]) =>
+    mockScheduleProductBlogPurgeAfterResponse(...args),
+}));
 
 let csrfValid = true;
 vi.mock('@/lib/csrf', () => ({
@@ -435,6 +440,53 @@ describe('POST /api/products/bulk-update', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
       [{ slug: 'updated-product', categorySegment: 'electronics' }]
+    );
+    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      merchantId: MERCHANT_ID,
+      merchantSlug: 'ogabassey',
+      productIds: [],
+      entries: [{ slug: 'updated-product', categorySegment: 'electronics' }],
+      categorySlugs: ['electronics'],
+    });
+  });
+
+  it('passes the resolved UUID for a SKU-matched update to article purge enrichment', async () => {
+    const { POST } = await import('./route');
+    const resolvedProductId = '123e4567-e89b-42d3-a456-426614174000';
+    productUpdateSelectRows = [
+      {
+        id: resolvedProductId,
+        slug: 'sku-phone',
+        category: 'Smartphones',
+        status: 'active',
+        categories: null,
+        product_categories: [],
+      },
+    ];
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            details: {
+              sku: 'SKU-PHONE',
+              name: 'SKU phone',
+              price: 150,
+              category: 'Smartphones',
+            },
+            newPrice: 150,
+          },
+        ],
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productIds: [resolvedProductId],
+      })
     );
   });
 

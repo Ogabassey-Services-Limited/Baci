@@ -4,6 +4,7 @@ const mockRevalidateProducts = vi.fn();
 const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
 const mockEnrichProductPurgeEntries = vi.fn();
+const mockExpireProductBlogCache = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
@@ -13,6 +14,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/expire-product-blog-cache', () => ({
+  expireProductBlogCache: (...args: unknown[]) =>
+    mockExpireProductBlogCache(...args),
 }));
 vi.mock('@/lib/authoritative-product-purge-enrichment', () => ({
   enrichProductPurgeEntries: (...args: unknown[]) =>
@@ -59,6 +64,7 @@ describe('revalidateProductsReliable enrichment path', () => {
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
       { blogPostSlugs: ['iphone-15-buying-guide'] }
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
   });
 
   it('keeps caller-provided purge hints when enrichment rejects', async () => {

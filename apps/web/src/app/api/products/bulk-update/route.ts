@@ -11,8 +11,8 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
@@ -129,26 +129,21 @@ export async function POST(request: NextRequest) {
       const productIds = Array.from(
         new Set([...requestedProductIds, ...resolvedProductIds])
       ).filter(isValidUuid);
-      const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+      // Keep paginated article fallback reads out of the mutation response.
+      // The after-response helper hard-expires the related-blog cache before
+      // scheduling any linked article URLs.
+      scheduleStorefrontProductPurge(
+        merchantContext.merchantSlug,
+        purgeEntries
+      );
+      scheduleProductBlogPurgeAfterResponse({
         supabase,
         merchantId,
+        merchantSlug: merchantContext.merchantSlug,
         productIds,
-        purgeEntries
-          .map((entry) => entry.categorySegment)
-          .filter((segment): segment is string => Boolean(segment))
-      );
-      if (blogPostSlugs.length > 0) {
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          purgeEntries,
-          { blogPostSlugs }
-        );
-      } else {
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          purgeEntries
-        );
-      }
+        entries: purgeEntries,
+        categorySlugs: purgeEntries.map((entry) => entry.categorySegment),
+      });
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after bulk update', {
         purgeError,

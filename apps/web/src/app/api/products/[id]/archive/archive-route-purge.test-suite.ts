@@ -16,6 +16,7 @@ type PurgeSuiteOptions = {
     merchantSlugRow: unknown;
     merchantThrows: boolean;
     revalidateProductSlugs: Mock;
+    scheduleProductBlogPurgeAfterResponse: Mock;
     scheduleStorefrontProductPurge: Mock;
     selectArgs: string[];
   };
@@ -36,6 +37,19 @@ export function defineArchiveRoutePurgeSuite({
       'test-store',
       [{ slug: 'phone-ultra', categorySegment: 'smartphones' }]
     );
+  });
+
+  it('queues linked-article enrichment after the archive response', async () => {
+    await PATCH(makeRequest(), makeContext());
+
+    expect(mocks.scheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      merchantId,
+      merchantSlug: 'test-store',
+      productIds: ['123e4567-e89b-42d3-a456-426614174000'],
+      entries: [{ slug: 'phone-ultra', categorySegment: 'smartphones' }],
+      categorySlugs: ['smartphones'],
+    });
   });
 
   it('reads the category_id join and product_categories junction on the archive select', async () => {

@@ -10,7 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
+import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   type ProductPurgeCategoryRow,
@@ -121,26 +121,23 @@ export async function POST(request: NextRequest) {
           merchantId,
           publicPurgeEntries.map((entry) => entry.slug)
         );
-        const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+        // Relationship/category fallback reads can span many pages. Queue the
+        // article enrichment after the response so publishing cannot time out
+        // after the database update has already committed.
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          publicPurgeEntries
+        );
+        scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
-          (updatedProducts ?? []).map((product) => product.id),
-          publicPurgeEntries
-            .map((entry) => entry.categorySegment)
-            .filter((segment): segment is string => Boolean(segment))
-        );
-        if (blogPostSlugs.length > 0) {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            publicPurgeEntries,
-            { blogPostSlugs }
-          );
-        } else {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            publicPurgeEntries
-          );
-        }
+          merchantSlug: merchantContext.merchantSlug,
+          productIds: (updatedProducts ?? []).map((product) => product.id),
+          entries: publicPurgeEntries,
+          categorySlugs: publicPurgeEntries.map(
+            (entry) => entry.categorySegment
+          ),
+        });
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk publish', {
           purgeError,

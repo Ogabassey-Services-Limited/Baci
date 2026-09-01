@@ -6,6 +6,7 @@ import {
   revalidateProducts,
 } from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import { logger } from '@/lib/logger';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import { scheduleStorefrontHostnamePurge } from '@/lib/storefront-product-purge-hostnames';
@@ -168,6 +169,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
       if (authoritativeMerchantSlug && !purgeWholeStorefront) {
+        // Related blog enrichment shares the merchant product tag. Expire it
+        // before the edge purge can cause an article MISS to refill stale data.
+        expireProductBlogCache(merchantId);
         if (blogPostSlugs.length > 0) {
           scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries, {
             blogPostSlugs,

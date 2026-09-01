@@ -5,6 +5,7 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import {
   buildInternalProductPurgeEntries,
   collectResolvedProductSlugs,
@@ -96,6 +97,9 @@ export async function revalidateProductsReliable(
       revalidateProductSlugs(merchantId, resolvedSlugs);
 
       if (shouldPurgeProducts && merchantSlug) {
+        // Expire the merchant-scoped related-blog enrichment before the edge
+        // purge so a MISS cannot repopulate an article with stale product data.
+        expireProductBlogCache(merchantId);
         if (blogPostSlugs.length > 0) {
           scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
             blogPostSlugs,

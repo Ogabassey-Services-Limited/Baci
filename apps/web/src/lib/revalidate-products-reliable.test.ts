@@ -5,6 +5,7 @@ const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
 const mockScheduleStorefrontHostnamePurge = vi.fn();
 const mockEnrichProductPurgeEntries = vi.fn();
+const mockExpireProductBlogCache = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
@@ -14,6 +15,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/expire-product-blog-cache', () => ({
+  expireProductBlogCache: (...args: unknown[]) =>
+    mockExpireProductBlogCache(...args),
 }));
 vi.mock('@/lib/storefront-product-purge-hostnames', () => ({
   scheduleStorefrontHostnamePurge: (...args: unknown[]) =>
@@ -163,6 +168,7 @@ describe('revalidateProductsReliable', () => {
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
     );
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
   });
 
   it('busts the per-slug Next product caches BEFORE scheduling the in-process purge (F3 parity)', async () => {

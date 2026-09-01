@@ -112,7 +112,10 @@ export function getProductPriceRange(
 
   for (const variant of variants) {
     if (hasAdvertisableStock(product, variant.stock_quantity)) {
-      addPriceCandidate(candidates, variant.price_override);
+      // A nullable override inherits the parent product price at checkout.
+      // Keep that inherited amount in the advertised range without adding the
+      // parent as a separate selectable SKU.
+      addPriceCandidate(candidates, variant.price_override ?? product.price);
     }
   }
 

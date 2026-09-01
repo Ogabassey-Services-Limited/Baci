@@ -23,6 +23,11 @@ vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
 }));
+const mockScheduleProductBlogPurgeAfterResponse = vi.fn();
+vi.mock('@/lib/schedule-product-blog-purge-after-response', () => ({
+  scheduleProductBlogPurgeAfterResponse: (...args: unknown[]) =>
+    mockScheduleProductBlogPurgeAfterResponse(...args),
+}));
 
 const mockCheckCsrfProtection = vi.fn();
 vi.mock('@/lib/csrf', () => ({
@@ -242,6 +247,14 @@ describe('POST /api/products/bulk-publish', () => {
       'test-store',
       [{ slug: 'baci-phone', categorySegment: 'phones' }]
     );
+    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      merchantId: MERCHANT_ID,
+      merchantSlug: 'test-store',
+      productIds: ['product-1'],
+      entries: [{ slug: 'baci-phone', categorySegment: 'phones' }],
+      categorySlugs: ['phones'],
+    });
     expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
     );

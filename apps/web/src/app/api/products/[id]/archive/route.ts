@@ -10,7 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
+import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import { resolveProductPurgeCategorySegmentForRow } from '@/lib/storefront-product-purge-urls';
 import { archiveProductRequestSchema } from '@/schemas/archive-product';
@@ -145,21 +145,20 @@ export async function PATCH(
         }),
       },
     ];
-    const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
-      auth.supabase,
-      merchantContext.merchantId,
-      [product.id],
-      [purgeEntries[0]?.categorySegment].filter((segment): segment is string =>
-        Boolean(segment)
-      )
-    );
-    if (blogPostSlugs.length > 0) {
-      scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries, {
-        blogPostSlugs,
-      });
-    } else {
-      scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries);
-    }
+    // Evict the archived PDP immediately; relationship/category fallback reads
+    // for linked articles are queued below so they cannot delay the response.
+    scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries);
+    // Keep relationship/category fallback reads out of the archive response.
+    // The product purge is queued after the response and the helper hard-
+    // expires the merchant's related-blog cache before scheduling article URLs.
+    scheduleProductBlogPurgeAfterResponse({
+      supabase: auth.supabase,
+      merchantId: merchantContext.merchantId,
+      merchantSlug: merchantRow?.slug,
+      productIds: [product.id],
+      entries: purgeEntries,
+      categorySlugs: [purgeEntries[0]?.categorySegment],
+    });
   } catch (purgeError) {
     console.warn('Skipped Cloudflare product purge after archive', {
       purgeError,
