@@ -78,3 +78,30 @@ Fix-round implementation commit: `dbd40db646`.
 
 No emulator/device, live GIG, live Paystack, deployment, or remote migration
 proof was performed in this round.
+
+## Fix round 2
+
+Replaced overlapping interval polling with a serialized, recursive funding
+poller. Each run owns a generation and abort signal, so restart, disable,
+unmount, sheet close, app background, timeout, and terminal errors invalidate
+both scheduled and in-flight work. Wallet and replacement-quote responses are
+checked against that lifecycle after every await before state is applied.
+
+Fix-round RED evidence: deterministic deferred-promise regressions failed
+against the interval implementation because a slow wallet request overlapped
+later ticks and lifecycle-invalid responses could still update wallet/quote
+state.
+
+Fix-round GREEN evidence:
+
+- `pnpm --filter baci-mobile-admin exec vitest run lib/order-gigl-funding-poller.test.ts lib/order-gigl-shipping.test.ts lib/order-gigl-shipping-state.test.ts hooks/orders/useOrderGiglShipping.test.ts hooks/orders/useOrderGiglShipping.lifecycle.test.ts components/orders/ShipmentFlowGiglPanel.test.tsx components/orders/ShipmentFlowSheet.gigl.test.tsx components/orders/ShipmentFlowSheet.test.tsx hooks/createOrderDetailsShipmentActions.test.ts hooks/completeOrderShipment.test.ts hooks/orders/useOrderStatusUpdate.test.ts lib/order-shipment.test.ts hooks/useOrderDetailsController.test.ts components/orders/OrderDetailsScreenModals.test.tsx` — PASS, **14 files / 80 tests**.
+- `pnpm --filter baci-mobile-admin lint` — PASS, 1,819 files checked.
+- `pnpm --filter baci-mobile-admin typecheck` — PASS.
+- `git diff --check` — PASS.
+- Hook: 297 lines; lifecycle test: 282 lines; poller: 99 lines;
+  poller test: 63 lines; controller unchanged at 293 lines.
+
+Fix-round implementation commit: `94ddf97ede`.
+
+No emulator/device, live GIG, live Paystack, deployment, or remote migration
+proof was performed in this round.
