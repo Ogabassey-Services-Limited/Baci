@@ -614,13 +614,13 @@ async function getCachedComparePageModel(
   // same RemoteCacheHandler failures.
   'use cache';
   try {
-    // 'products' (revalidate 300), NOT 'categories' (3600): now that this is a
+    // 'products' (revalidate 1800), NOT 'categories' (3600): now that this is a
     // LOCAL entry, tag revalidation only evicts the instance that handled the
     // mutation — other instances serve the prior snapshot until their window
     // lapses. This model embeds mutable product price/stock (via
     // getCachedProductWithDetails, itself local 'use cache' on the same
     // 'products' window), so match that window to bound cross-instance staleness
-    // of the embedded data to ~5min and cap how long each per-slug entry
+    // of the embedded data to ~30min and cap how long each per-slug entry
     // lingers in a lambda's local cache.
     cacheLife('products');
     cacheTag('category-page-data', 'products', 'categories', 'blog-posts');

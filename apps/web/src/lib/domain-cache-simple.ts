@@ -14,6 +14,7 @@ import {
   getEdgeConfigDomainKey,
   getEdgeConfigSlugKey,
 } from '@/lib/edge-config-keys';
+import { createWarmPositiveCache } from './create-warm-positive-cache';
 import { SingleFlight } from './single-flight';
 import { createAdminClient } from './supabase/admin';
 
@@ -24,8 +25,32 @@ interface CacheEntry {
 
 // In-memory fallback cache (used when Edge Config is not available)
 const domainCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 300_000; // 5 minutes
+const DB_CACHE_TTL = 300_000; // Existing 5-minute fallback behavior.
+const EDGE_POSITIVE_CACHE_TTL = 60_000;
 const MAX_CACHE_SIZE = 1000;
+const CANONICAL_HOSTNAME =
+  /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const CANONICAL_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const edgeForwardCache = createWarmPositiveCache({
+  maxEntries: MAX_CACHE_SIZE,
+  ttlMs: EDGE_POSITIVE_CACHE_TTL,
+});
+const edgeReverseCache = createWarmPositiveCache({
+  maxEntries: MAX_CACHE_SIZE,
+  ttlMs: EDGE_POSITIVE_CACHE_TTL,
+});
+const edgeForwardGenerations = new Map<string, number>();
+const edgeReverseGenerations = new Map<string, number>();
+let reverseInvalidationEpoch = 0;
+const reverseSlugInvalidationEpochs = new Map<string, number>();
+
+function getReverseReadKey(domain: string, invalidationEpoch: number): string {
+  return `${domain}:${invalidationEpoch}`;
+}
+
+// A warm instance may serve a positive Edge Config mapping for at most 60s
+// after an external edit; same-process mutation invalidation clears it sooner.
 
 // Fluid instances can handle concurrent requests. Coalesce identical provider
 // reads only while they are in flight, then forget them so mapping changes are
@@ -61,11 +86,26 @@ export async function getCustomDomainForSlug(
 
 /** Read a domain mapping from Vercel Edge Config. */
 function readFromEdgeConfig(merchantSlug: string): Promise<string | undefined> {
+  const cached = edgeForwardCache.get(merchantSlug);
+  if (cached) return Promise.resolve(cached);
+
+  const generation = edgeForwardGenerations.get(merchantSlug) ?? 0;
   return edgeForwardReads.run(merchantSlug, async () => {
+    const refreshed = edgeForwardCache.get(merchantSlug);
+    if (refreshed) return refreshed;
     try {
       const { get } = await import('@vercel/edge-config');
       const value = await get<string>(getEdgeConfigSlugKey(merchantSlug));
-      return typeof value === 'string' && value.length > 0 ? value : undefined;
+      if (typeof value !== 'string') return undefined;
+      const normalizedValue = normalizeDomain(value);
+      if (!CANONICAL_HOSTNAME.test(normalizedValue)) {
+        return undefined;
+      }
+      if ((edgeForwardGenerations.get(merchantSlug) ?? 0) !== generation) {
+        return normalizedValue;
+      }
+      edgeForwardCache.set(merchantSlug, normalizedValue);
+      return normalizedValue;
     } catch {
       // Edge Config not configured or unavailable - fall through to DB
       return undefined;
@@ -76,27 +116,28 @@ function readFromEdgeConfig(merchantSlug: string): Promise<string | undefined> {
 /** In-memory cache with DB fallback. */
 function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
   const cached = domainCache.get(merchantSlug);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < DB_CACHE_TTL) {
     return Promise.resolve(cached.customDomain);
   }
 
+  const generation = edgeForwardGenerations.get(merchantSlug) ?? 0;
   return forwardDbReads.run(merchantSlug, async () => {
     const refreshed = domainCache.get(merchantSlug);
-    if (refreshed && Date.now() - refreshed.timestamp < CACHE_TTL) {
+    if (refreshed && Date.now() - refreshed.timestamp < DB_CACHE_TTL) {
       return refreshed.customDomain;
     }
 
     const customDomain = await fetchCustomDomain(merchantSlug);
 
+    if ((edgeForwardGenerations.get(merchantSlug) ?? 0) !== generation) {
+      return customDomain;
+    }
+
     if (domainCache.size >= MAX_CACHE_SIZE) {
       const firstKey = domainCache.keys().next().value;
       if (firstKey) domainCache.delete(firstKey);
     }
-
-    domainCache.set(merchantSlug, {
-      customDomain,
-      timestamp: Date.now(),
-    });
+    domainCache.set(merchantSlug, { customDomain, timestamp: Date.now() });
     return customDomain;
   });
 }
@@ -104,7 +145,14 @@ function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
 /** Drop forward cache entries (including cached negative DB results) on rename. */
 export function invalidateForwardDomainCacheForSlug(slug: string): void {
   const normalizedSlug = normalizeSlug(slug);
+  edgeForwardReads.forget(normalizedSlug);
+  forwardDbReads.forget(normalizedSlug);
   domainCache.delete(normalizedSlug);
+  edgeForwardCache.deleteKey(normalizedSlug);
+  edgeForwardGenerations.set(
+    normalizedSlug,
+    (edgeForwardGenerations.get(normalizedSlug) ?? 0) + 1
+  );
 }
 
 /**
@@ -122,11 +170,37 @@ const reverseDomainCache = new Map<string, ReverseCacheEntry>();
 /** Drop reverse domain->slug entries that map to a renamed slug. */
 export function invalidateReverseDomainCacheForSlug(slug: string): void {
   const normalizedSlug = normalizeSlug(slug);
+  reverseInvalidationEpoch += 1;
+  reverseSlugInvalidationEpochs.set(normalizedSlug, reverseInvalidationEpoch);
   for (const [domain, entry] of reverseDomainCache) {
     if (entry.slug === normalizedSlug) {
+      const previousReadKey = getReverseReadKey(
+        domain,
+        reverseInvalidationEpoch - 1
+      );
+      edgeReverseReads.forget(previousReadKey);
+      reverseDbReads.forget(previousReadKey);
       reverseDomainCache.delete(domain);
+      edgeReverseGenerations.set(
+        domain,
+        (edgeReverseGenerations.get(domain) ?? 0) + 1
+      );
     }
   }
+  edgeReverseCache.deleteValue(normalizedSlug);
+}
+
+export function invalidateReverseDomainCacheForDomain(domain: string): void {
+  const normalizedDomain = normalizeDomain(domain);
+  const readKey = getReverseReadKey(normalizedDomain, reverseInvalidationEpoch);
+  edgeReverseReads.forget(readKey);
+  reverseDbReads.forget(readKey);
+  reverseDomainCache.delete(normalizedDomain);
+  edgeReverseCache.deleteKey(normalizedDomain);
+  edgeReverseGenerations.set(
+    normalizedDomain,
+    (edgeReverseGenerations.get(normalizedDomain) ?? 0) + 1
+  );
 }
 
 export async function getSlugForCustomDomain(
@@ -142,39 +216,67 @@ export async function getSlugForCustomDomain(
   // 2. Fall back to the warm DB result, then the database. Edge Config must
   // remain authoritative when a previously missing mapping becomes available.
   const cached = reverseDomainCache.get(normalizedDomain);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < DB_CACHE_TTL) {
     return cached.slug;
   }
 
-  return reverseDbReads.run(normalizedDomain, async () => {
+  const generation = edgeReverseGenerations.get(normalizedDomain) ?? 0;
+  const invalidationEpoch = reverseInvalidationEpoch;
+  const readKey = getReverseReadKey(normalizedDomain, invalidationEpoch);
+  return reverseDbReads.run(readKey, async () => {
     const refreshed = reverseDomainCache.get(normalizedDomain);
-    if (refreshed && Date.now() - refreshed.timestamp < CACHE_TTL) {
+    if (refreshed && Date.now() - refreshed.timestamp < DB_CACHE_TTL) {
       return refreshed.slug;
     }
 
     const slug = await fetchSlugForDomain(normalizedDomain);
 
+    if (
+      (edgeReverseGenerations.get(normalizedDomain) ?? 0) !== generation ||
+      (slug &&
+        (reverseSlugInvalidationEpochs.get(slug) ?? 0) > invalidationEpoch)
+    ) {
+      return slug;
+    }
+
     if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
       const firstKey = reverseDomainCache.keys().next().value;
       if (firstKey) reverseDomainCache.delete(firstKey);
     }
-
-    reverseDomainCache.set(normalizedDomain, {
-      slug,
-      timestamp: Date.now(),
-    });
+    reverseDomainCache.set(normalizedDomain, { slug, timestamp: Date.now() });
     return slug;
   });
 }
 
 function readSlugFromEdgeConfig(domain: string): Promise<string | undefined> {
-  return edgeReverseReads.run(domain, async () => {
+  const cached = edgeReverseCache.get(domain);
+  if (cached) return Promise.resolve(cached);
+
+  const generation = edgeReverseGenerations.get(domain) ?? 0;
+  const invalidationEpoch = reverseInvalidationEpoch;
+  const readKey = getReverseReadKey(domain, invalidationEpoch);
+  return edgeReverseReads.run(readKey, async () => {
+    const refreshed = edgeReverseCache.get(domain);
+    if (refreshed) return refreshed;
     try {
       const { get } = await import('@vercel/edge-config');
       const value = await get<string>(getEdgeConfigDomainKey(domain));
-      return typeof value === 'string' && value.length > 0
-        ? normalizeSlug(value)
-        : undefined;
+      if (typeof value !== 'string' || value.length === 0) return undefined;
+      const normalizedSlug = normalizeSlug(value);
+      if (!CANONICAL_SLUG.test(normalizedSlug)) {
+        return undefined;
+      }
+      if ((edgeReverseGenerations.get(domain) ?? 0) !== generation) {
+        return normalizedSlug;
+      }
+      if (
+        (reverseSlugInvalidationEpochs.get(normalizedSlug) ?? 0) >
+        invalidationEpoch
+      ) {
+        return normalizedSlug;
+      }
+      edgeReverseCache.set(domain, normalizedSlug);
+      return normalizedSlug;
     } catch {
       return undefined;
     }

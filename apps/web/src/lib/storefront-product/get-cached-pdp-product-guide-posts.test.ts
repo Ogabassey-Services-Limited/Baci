@@ -165,4 +165,24 @@ describe('getCachedPdpProductGuidePosts', () => {
       getCachedPdpProductGuidePosts('merchant-1', 'product-1')
     ).resolves.toEqual([]);
   });
+
+  it('rejects with TimeoutError when the query ignores AbortSignal after the 3-second deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const query = createProductGuideQuery({ data: [], error: null });
+      // biome-ignore lint/suspicious/noThenProperty: this regression deliberately models an abort-ignoring PostgREST thenable
+      query.then = (() => new Promise(() => undefined)) as typeof query.then;
+      mocks.getPublicSupabaseClient.mockReturnValue({
+        from: vi.fn(() => query),
+      });
+      const pending = getCachedPdpProductGuidePosts('merchant-1', 'product-1');
+      const assertion = expect(pending).rejects.toMatchObject({
+        name: 'TimeoutError',
+      });
+      await vi.advanceTimersByTimeAsync(3_001);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

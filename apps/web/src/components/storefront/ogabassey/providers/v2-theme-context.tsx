@@ -64,18 +64,13 @@ function resolveClientDefaultTheme(
   initialTheme: V2ThemeMode | undefined
 ): V2ThemeMode {
   const isDecember = new Date().getMonth() === 11;
-  if (!isDecember) {
-    return 'standard';
-  }
-
-  // In December: Use cookie preference or date-based default
   const cookieTheme = getCookie(THEME_COOKIE_NAME);
+  if (!isDecember) return 'standard';
   if (cookieTheme === 'standard' || cookieTheme === 'santa') {
     return cookieTheme;
   }
 
-  // If no cookie, use the server-provided theme or santa for December
-  return initialTheme ?? 'santa';
+  return initialTheme ?? 'standard';
 }
 
 export const useV2Theme = () => {
@@ -106,42 +101,60 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   const defaultTheme = useSyncExternalStore(
     subscribeToThemeDefaults,
     () => resolveClientDefaultTheme(initialTheme),
-    () => initialTheme ?? 'standard'
+    () => (initialTheme === 'santa' ? 'standard' : (initialTheme ?? 'standard'))
   );
 
   const theme = userTheme ?? defaultTheme;
 
-  // Keep the cookie aligned with the date-based default. This only writes to
-  // an external system (document.cookie) — no React state updates.
+  // Keep the cookie and in-memory theme aligned with the date-based default
+  // after hydration. SSR remains deterministic; seasonal changes apply here.
   useEffect(() => {
     const isDecember = new Date().getMonth() === 11;
     const cookieTheme = getCookie(THEME_COOKIE_NAME);
+    const now = new Date();
+    const boundary = new Date(now.getFullYear() + (isDecember ? 1 : 0), 0, 1);
+    const timer = window.setTimeout(() => {
+      setUserTheme('standard');
+      setCookie(THEME_COOKIE_NAME, 'standard');
+    }, Math.max(0, boundary.getTime() - now.getTime()));
 
     // CRITICAL FIX: Clear the santa cookie outside December
     // This ensures Santa mode is NEVER shown in January onwards
     if (!isDecember) {
-      if (cookieTheme === 'santa') {
+      if (cookieTheme === 'santa' || initialTheme === 'santa') {
+        setUserTheme('standard');
         setCookie(THEME_COOKIE_NAME, 'standard');
       }
-      return;
+      return () => window.clearTimeout(timer);
     }
 
     if (cookieTheme === 'standard' || cookieTheme === 'santa') {
-      return;
+      return () => window.clearTimeout(timer);
     }
 
     // If no cookie and no server-provided theme, persist the December default
     if (!initialTheme) {
+      setUserTheme('santa');
       setCookie(THEME_COOKIE_NAME, 'santa');
     }
+    return () => window.clearTimeout(timer);
   }, [initialTheme]);
 
   const setTheme = (newTheme: V2ThemeMode) => {
+    if (newTheme === 'santa' && new Date().getMonth() !== 11) {
+      setUserTheme('standard');
+      setCookie(THEME_COOKIE_NAME, 'standard');
+      return;
+    }
     setUserTheme(newTheme);
     setCookie(THEME_COOKIE_NAME, newTheme);
   };
 
   const toggleTheme = () => {
+    if (new Date().getMonth() !== 11) {
+      setTheme('standard');
+      return;
+    }
     const newTheme = theme === 'standard' ? 'santa' : 'standard';
     setTheme(newTheme);
   };

@@ -1,12 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
 import type { StorefrontClusterGuideRequest } from '@/lib/storefront-content/storefront-cluster-guide-request';
+import { createStorefrontPdpSemanticCooldownResult } from '@/lib/storefront-product/create-storefront-pdp-semantic-cooldown-result';
 import { PDP_SEMANTIC_INVENTORY_LIMIT } from '@/lib/storefront-product/pdp-semantic-inventory-limit';
-import {
-  createStorefrontPdpSemanticCooldownResult,
-  runStorefrontPdpSemanticRpcWithCooldown,
-  storefrontPdpSemanticReadCooldown,
-} from '@/lib/storefront-product/storefront-pdp-semantic-read-cooldown';
+import { runStorefrontPdpSemanticRpcWithCooldown } from '@/lib/storefront-product/run-storefront-pdp-semantic-rpc-with-cooldown';
+import { storefrontPdpSemanticReadCooldown } from '@/lib/storefront-product/storefront-pdp-semantic-read-cooldown-singleton';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import type { Json } from '@/types/supabase';
 import {

@@ -19,6 +19,10 @@ export class SingleFlight<T> {
     return pending;
   }
 
+  forget(key: string): void {
+    this.inFlight.delete(key);
+  }
+
   private deleteIfCurrent(key: string, pending: Promise<T>): void {
     if (this.inFlight.get(key) === pending) this.inFlight.delete(key);
   }

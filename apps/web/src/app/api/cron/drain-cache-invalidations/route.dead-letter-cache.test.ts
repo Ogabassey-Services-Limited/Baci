@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
 }));
 
-import { GET, resetDeadLetterAlertCacheForTests } from './route';
+import { GET } from './route';
 
 function request() {
   return new Request(
@@ -29,7 +29,6 @@ describe('cache invalidation dead-letter alert cache', () => {
     vi.setSystemTime(new Date('2026-09-01T00:00:00.000Z'));
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', 'cron-secret');
-    resetDeadLetterAlertCacheForTests();
     mocks.createServiceClient.mockReturnValue({ rpc });
     rpc.mockImplementation((name: string) => {
       if (name === 'claim_cache_invalidations') {
@@ -46,20 +45,23 @@ describe('cache invalidation dead-letter alert cache', () => {
     vi.useRealTimers();
   });
 
-  it('reuses an unchanged positive alert during the cache window', async () => {
+  it('returns durable dead-letter visibility without emitting an HTTP alert', async () => {
     const first = await GET(request());
     const second = await GET(request());
 
-    expect(first.status).toBe(503);
-    expect(second.status).toBe(503);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    await expect(second.json()).resolves.toMatchObject({
+      deadLettersPresent: true,
+    });
     expect(
       rpc.mock.calls.filter(
         ([name]) => name === 'has_cache_invalidation_dead_letters'
       )
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
 
-  it('rechecks after expiry and observes remediation plus a new alert', async () => {
+  it('reflects remediation and later dead-letter transitions', async () => {
     const alertStates = [true, false, true];
     rpc.mockImplementation((name: string) => {
       if (name === 'claim_cache_invalidations') {
@@ -71,10 +73,9 @@ describe('cache invalidation dead-letter alert cache', () => {
       return Promise.resolve({ data: true, error: null });
     });
 
-    await expect(GET(request())).resolves.toMatchObject({ status: 503 });
-    vi.advanceTimersByTime(300_001);
     await expect(GET(request())).resolves.toMatchObject({ status: 200 });
-    await expect(GET(request())).resolves.toMatchObject({ status: 503 });
+    await expect(GET(request())).resolves.toMatchObject({ status: 200 });
+    await expect(GET(request())).resolves.toMatchObject({ status: 200 });
 
     expect(
       rpc.mock.calls.filter(

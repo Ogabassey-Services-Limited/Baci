@@ -33,5 +33,19 @@ BEGIN
     RAISE EXCEPTION
       'product guide lookup lost its bounded merchant/product index';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_index
+    WHERE indexrelid IN (
+      'public.idx_products_storefront_semantic_category'::regclass,
+      'public.idx_product_categories_category_product'::regclass,
+      'public.idx_categories_merchant_active_parent'::regclass,
+      'public.idx_blog_post_products_merchant_product_created'::regclass
+    )
+      AND (NOT indisvalid OR NOT indisready)
+  ) THEN
+    RAISE EXCEPTION 'semantic inventory indexes must be valid and ready';
+  END IF;
 END;
 $assertions$;

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import type { WebPage } from 'schema-dts';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
-import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
+import { JsonLd } from '@/components/seo/json-ld';
+import { buildStorefrontContentPageSchema } from '@/lib/build-storefront-content-page-schema';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import {
@@ -80,26 +80,15 @@ async function TermsPageContent({ params }: PageProps) {
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
-  const termsSchema: JsonLdData<WebPage> = {
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: `Terms of Service | ${merchant.business_name}`,
-    url: `${baseUrl}/terms`,
+  const termsSchema = buildStorefrontContentPageSchema({
+    baseUrl,
+    businessName: merchant.business_name,
     description: `Terms of Service for ${merchant.business_name}.`,
-    isPartOf: {
-      '@type': 'WebSite',
-      name: merchant.business_name,
-      url: baseUrl,
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: merchant.business_name,
-      url: baseUrl,
-      ...(merchant.logo_url && { logo: merchant.logo_url }),
-    },
-    inLanguage: 'en',
-    dateModified: merchant.updated_at || new Date().toISOString(),
-  };
+    logoUrl: merchant.logo_url,
+    pageName: 'Terms of Service',
+    path: '/terms',
+    updatedAt: merchant.updated_at,
+  });
 
   const jsonLdScript = <JsonLd data={termsSchema} />;
 

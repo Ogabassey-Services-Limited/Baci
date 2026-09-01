@@ -37,7 +37,8 @@ function targetIdentity(claim: CacheInvalidationClaim) {
 
 async function purgeVercelWithTimeout(
   tags: readonly string[],
-  timeoutMs: number
+  timeoutMs: number,
+  mode: 'delete' | 'invalidate' = 'delete'
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
@@ -48,7 +49,7 @@ async function purgeVercelWithTimeout(
   });
   try {
     return await Promise.race([
-      purgeVercelStorefrontPublicationCache(tags),
+      purgeVercelStorefrontPublicationCache(tags, { mode }),
       timeout,
     ]);
   } finally {
@@ -82,16 +83,17 @@ export async function drainStorefrontCacheInvalidation(
   if (claim.target_kind === 'storefront_product') {
     try {
       for (const tag of exactProductTags) {
-        revalidateTag(tag, { expire: 0 });
+        revalidateTag(tag, 'products');
       }
     } catch {
       return { errorCode: 'next_revalidation_failed', ok: false };
     }
     const exactVercelResult = await purgeVercelWithTimeout(
       exactProductTags,
-      vercelTimeoutMs
+      vercelTimeoutMs,
+      'invalidate'
     );
-    if (!exactVercelResult.ok || exactVercelResult.reason !== 'deleted') {
+    if (!exactVercelResult.ok || exactVercelResult.reason !== 'invalidated') {
       return {
         errorCode:
           exactVercelResult.reason === 'timeout'
@@ -100,6 +102,10 @@ export async function drainStorefrontCacheInvalidation(
         ok: false,
       };
     }
+    // finish_cache_invalidation enqueues the generation-fenced broad target
+    // after this exact purge succeeds. That ordered follow-up owns Cloudflare
+    // plus listing/category coverage, so invoking Cloudflare here would only
+    // duplicate provider work.
     return { ok: true };
   }
   const productTags = exactProductTags;

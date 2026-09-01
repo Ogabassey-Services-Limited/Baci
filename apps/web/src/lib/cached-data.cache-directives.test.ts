@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type * as TypeScript from '@typescript/typescript6';
 import { describe, expect, it } from 'vitest';
+import { CACHE_LIFE_PROFILES } from '@/config/cache-life-profiles';
 
 const require = createRequire(import.meta.url);
 // The classic compiler API used below is gone from typescript@7 (native
@@ -376,21 +377,8 @@ describe('cached-data cache directives', () => {
 });
 
 describe('next.config cacheLife profiles', () => {
-  const NEXT_CONFIG_SOURCE = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'next.config.ts'),
-    'utf8'
-  );
-
   it('defines a long-lived `blog` profile so near-static blog pages are not re-rendered every minute', () => {
-    const match = NEXT_CONFIG_SOURCE.match(
-      /blog:\s*\{\s*stale:\s*(\d+),\s*revalidate:\s*(\d+),\s*expire:\s*(\d+),?\s*\}/
-    );
-    expect(
-      match,
-      'blog cacheLife profile must be declared in next.config.ts'
-    ).not.toBeNull();
-
-    const [, stale, revalidate, expire] = match as RegExpMatchArray;
+    const { stale, revalidate, expire } = CACHE_LIFE_PROFILES.blog;
     // Server `revalidate` must be far less frequent than the hot merchant
     // profile (60s) to stop the re-render storm — but bounded (not days):
     // LOCAL Cache Components entries on this profile (e.g. getCachedBlogPost)
@@ -399,11 +387,19 @@ describe('next.config cacheLife profiles', () => {
     // review). Remote entries on the profile (getPublishedClusterPosts) DO
     // get cross-instance tag eviction; for them the window is purely a
     // write-churn bound.
-    expect(Number(revalidate)).toBeGreaterThanOrEqual(1800); // >= 30 min
-    expect(Number(revalidate)).toBeLessThanOrEqual(14400); // <= 4 hr
+    expect(revalidate).toBeGreaterThanOrEqual(1800); // >= 30 min
+    expect(revalidate).toBeLessThanOrEqual(14400); // <= 4 hr
     // Keep client-side staleness short so edited posts surface quickly for
     // visitors who already have the page in their router cache.
-    expect(Number(stale)).toBeLessThanOrEqual(600);
-    expect(Number(expire)).toBeGreaterThanOrEqual(Number(revalidate));
+    expect(stale).toBeLessThanOrEqual(600);
+    expect(expire).toBeGreaterThanOrEqual(revalidate);
+  });
+
+  it('keeps product/PDP and compare cache revalidation at least 30 minutes', () => {
+    const { stale, revalidate, expire } = CACHE_LIFE_PROFILES.products;
+    expect(revalidate).toBeGreaterThanOrEqual(1800);
+    expect(revalidate).toBeLessThanOrEqual(3600);
+    expect(stale).toBeLessThanOrEqual(600);
+    expect(expire).toBeGreaterThan(revalidate);
   });
 });

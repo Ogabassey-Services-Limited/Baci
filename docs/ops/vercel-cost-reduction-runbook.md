@@ -1,9 +1,9 @@
-# Vercel cost-reduction runbook (read-only)
+# Vercel storefront cost-reduction runbook
 
-This runbook records the August Baci cost baseline and separates changes that
-can be reviewed in code from controls that only exist in the Vercel project
-settings. It is intentionally non-mutating: no Vercel API, dashboard, or
-provider setting is changed by the repository.
+This runbook records the August Baci cost baseline, the storefront changes that
+reduce repeated work, and the production gates required before longer cache
+freshness windows are safe. Repository changes do not rotate provider secrets
+or change Vercel dashboard settings.
 
 ## Baseline
 
@@ -29,25 +29,81 @@ cache-hit ratio, ISR write count, and transfer bytes from the same window.
 
 ## Code levers in this change
 
-Concurrent identical custom-domain mapping reads on the same warm instance now
-share one provider promise. During a provider miss or outage, they also share
-the fallback database read before it populates the existing fallback cache.
-Settled provider results are discarded immediately, including misses and
-errors, so the next request observes current Edge Config state. Work avoided in
-an overlap window is exactly `concurrent identical reads - 1`.
+### Longer freshness with ordered invalidation
 
-The measured route counts do not include an instance-level concurrency
-histogram, so this change books **$0 expected saving** until production telemetry
-shows coalesced reads. Vercel's published **$0.000003/read** and the observed
-**$7.56 Global Config** line remain hard ceilings, not forecasts.
+Product, PDP, and compare data now revalidate every **30 minutes** instead of
+five minutes. Blog data and blog sitemaps use **60 minutes**. Both retain a
+24-hour stale-while-revalidate window so a slow database or cache backend does
+not become a storefront hard failure.
 
-The invalidation cron caches only a positive, terminal dead-letter alert for
-five minutes. At the observed roughly two-minute invocation cadence, a single
-warm instance would reduce 669 repeated alert-state RPCs to about 223, or
-**approximately 67% fewer alert RPCs**. Cold or different instances reduce that
-benefit. It does not reduce cron invocations, queue claims, or drain work, and
-Vercel bills Active CPU differently from database wait time. Book **$0 function
-saving** until the usage export proves lower provisioned-memory duration.
+Product writes remain event-driven. The exact product stage marks Next cache
+tags stale and invalidates the matching Vercel tags. Its generation- and
+claim-token-fenced completion then enqueues the broad stage, which covers
+listing/category tags and Cloudflare hostnames. Publication transitions retain
+foreground hard deletion. Blog mutations invalidate the blog index, category,
+post, author, and both sitemap paths in Next and Cloudflare.
+
+Changing a five-minute product revalidation interval to 30 minutes reduces the
+maximum opportunity for time-driven regenerations by `1 - 300/1800 = 83.3%`
+for entries that remain requested. This is not an 83.3% invoice forecast:
+on-demand invalidations, cache residency, request distribution, and writes all
+affect the billed result. Book **$0** until the next Vercel usage export.
+
+### Successful Edge Config mapping cache
+
+Successful forward and reverse domain mappings are cached for **60 seconds per
+warm instance**, with a 1,000-entry bound and same-process targeted eviction.
+Single-flight still coalesces concurrent reads. Misses and provider errors are
+not added to the positive Edge Config cache; the existing five-minute database
+fallback behavior is unchanged.
+
+For `k` requests for the same mapping on one warm instance during the TTL, Edge
+Config reads fall from `k` to `1`, a reduction of `1 - 1/k`. At Vercel's listed
+**$3 per million reads**, the supplied **$7.56 Global Config** charge corresponds
+to roughly **2.52 million reads**. The maximum removable charge is therefore
+$7.56, not a forecast; instance churn and distinct mappings reduce the saving.
+
+### Adaptive invalidation drain
+
+The VPS cron still wakes under `flock` every two minutes, but a durable local
+state file prevents an HTTP call to Vercel before the next allowed window.
+Empty sweeps back off through **4, 8, 16, then 30 minutes**; claimed work resets
+the interval to two minutes. A known terminal dead-letter response records one
+structured warning for that attempt and waits 30 minutes. Unknown 503s and
+other failures retain the short retry cadence and fail visibly.
+
+An always-empty worker previously made up to **30 Vercel Function calls/hour**.
+The first hour after a cold state makes about five calls; steady state makes
+about **two/hour**, a **15x reduction (93.3%)** in worker invocations. This is
+not a 93.3% reduction in the whole Vercel bill, and active work intentionally
+returns to the two-minute cadence.
+
+### Bounded degraded reads
+
+PDP semantic, compare-category, and linked-guide reads share one explicit
+three-second deadline per operation and disable PostgREST retries. A timed-out
+semantic enrichment returns the existing degraded storefront model and enters
+a bounded warm-instance cooldown; it does not convert missing enrichment into
+a PDP hard failure. Cached render inputs no longer depend on request-time
+random values or fallback current timestamps.
+
+## Production rollout gate
+
+Do not ship the 30–60 minute freshness windows while Cloudflare purge
+authentication is unhealthy. Before merge/deploy:
+
+1. Rotate the least-privilege Cloudflare Cache Purge token outside the repo and
+   update the production secret source used by the prebuilt deployment flow.
+   Never paste the token into logs, commits, PR comments, or command output.
+2. Verify token authentication and the configured zone with a bounded provider
+   probe.
+3. Requeue only the known `cloudflare_http_401` dead-letter rows after the
+   credential verifies; do not reset unrelated outbox failures.
+4. Install the adaptive VPS wrapper from the exact reviewed commit and pass the
+   drain-readiness check before the production deploy.
+5. Deploy through the repository's prebuilt production workflow and verify the
+   exact source SHA, live cache headers, successful targeted purge, and cleared
+   outbox state.
 
 ## Provider-only control: production drain sampling
 
@@ -75,19 +131,12 @@ Setting 0% would maximize nominal savings (at most $3.45/month based on this
 baseline) but is not an acceptable default because it removes production
 drain evidence. No sampling change belongs in this PR.
 
-## Code levers deliberately not changed
+## Controls deliberately not changed
 
 The following proposals can increase another billable dimension or create a
 correctness failure, so they require same-window evidence and a separate
 approved change:
 
-- **Longer ISR/cache revalidation:** may reduce ISR writes, but can serve stale
-  catalog or blog data. Do not lengthen current route profiles from request
-  counts alone; first prove mutation-driven invalidation is scheduled and
-  healthy.
-- **Cross-request domain-mapping TTLs:** reduce Edge Config reads but create a
-  cross-instance window where a transferred custom domain can route to its prior
-  tenant. Coalesce only overlapping reads; do not retain settled mappings.
 - **Shorter revalidation or forced dynamic rendering:** increases active CPU,
   invocations, ISR writes, and likely origin transfer. Reject as a cost fix.
 - **Lower function memory:** can lower provisioned-memory charges but often
@@ -116,5 +165,8 @@ material increase in another named line or in error/staleness rates.
 
 - [Fluid Compute usage and pricing](https://vercel.com/docs/functions/usage-and-pricing)
 - [ISR limits, pricing, and optimization](https://vercel.com/docs/incremental-static-regeneration/limits-and-pricing)
+- [Next.js revalidation](https://nextjs.org/docs/app/getting-started/revalidating)
+- [Next.js CDN caching](https://nextjs.org/docs/app/guides/cdn-caching)
+- [Cloudflare cache purge API](https://developers.cloudflare.com/api/resources/cache/methods/purge/)
 - [Log Drain sampling rules](https://vercel.com/docs/drains/reference/logs)
 - [Edge Config read pricing](https://vercel.com/changelog/pro-edge-config-pricing)

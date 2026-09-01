@@ -2,6 +2,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { SingleFlight } from './single-flight';
 
 describe('SingleFlight', () => {
+  it('allows a fresh read after an in-flight key is forgotten', async () => {
+    const reads = new SingleFlight<string>();
+    let resolveFirst: ((value: string) => void) | undefined;
+    const first = reads.run(
+      'merchant',
+      () => new Promise<string>((resolve) => (resolveFirst = resolve))
+    );
+    await Promise.resolve();
+
+    reads.forget('merchant');
+    const second = reads.run('merchant', () => Promise.resolve('fresh'));
+    resolveFirst?.('stale');
+
+    await expect(first).resolves.toBe('stale');
+    await expect(second).resolves.toBe('fresh');
+  });
+
   it('shares concurrent work and forgets it after settlement', async () => {
     let resolve: ((value: string) => void) | undefined;
     const providerRead = new Promise<string>((done) => {

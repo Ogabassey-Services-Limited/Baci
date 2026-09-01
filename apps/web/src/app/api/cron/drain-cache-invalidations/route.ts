@@ -8,15 +8,8 @@ export const maxDuration = 60;
 const BATCH_SIZE = 2;
 const TARGET_BUDGET = 10;
 const CLAIM_CUTOFF_MS = 30_000;
-// Dead letters are terminal until an operator intervenes. Cache only the
-// positive alert briefly so repeated cron invocations avoid an identical RPC
-// while still rechecking often enough to observe operator remediation.
-const DEAD_LETTER_ALERT_CACHE_MS = 5 * 60_000;
-let cachedDeadLetterAlert: { checkedAt: number } | undefined;
-
-export function resetDeadLetterAlertCacheForTests(): void {
-  cachedDeadLetterAlert = undefined;
-}
+// Report current dead-letter presence on every request. The VPS scheduler owns
+// durable transition detection and repeated-alert suppression.
 
 export async function GET(request: Request): Promise<NextResponse> {
   if (!hasValidCronSecret(request.headers, process.env.CRON_SECRET)) {
@@ -82,40 +75,26 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
   }
 
-  const now = Date.now();
-  let hasDeadLetters =
-    cachedDeadLetterAlert !== undefined &&
-    now - cachedDeadLetterAlert.checkedAt < DEAD_LETTER_ALERT_CACHE_MS;
-  if (!hasDeadLetters) {
-    const deadLetterResult = await supabase.rpc(
-      'has_cache_invalidation_dead_letters'
+  const deadLetterResult = await supabase.rpc(
+    'has_cache_invalidation_dead_letters'
+  );
+  const deadLetters =
+    cacheInvalidationDrainCronResponseSchemas.deadLetters.safeParse(
+      deadLetterResult.data
     );
-    const deadLetters =
-      cacheInvalidationDrainCronResponseSchemas.deadLetters.safeParse(
-        deadLetterResult.data
-      );
-    if (deadLetterResult.error || !deadLetters.success) {
-      return NextResponse.json(
-        { error: 'Failed to read invalidation alert state' },
-        { status: 500 }
-      );
-    }
-    hasDeadLetters = deadLetters.data;
-    if (hasDeadLetters) {
-      cachedDeadLetterAlert = { checkedAt: now };
-    } else {
-      cachedDeadLetterAlert = undefined;
-    }
-  }
-  if (hasDeadLetters) {
+  if (deadLetterResult.error || !deadLetters.success) {
     return NextResponse.json(
-      {
-        error: 'Cache invalidations require intervention',
-        code: 'cache_invalidation_dead_letter',
-      },
-      { status: 503 }
+      { error: 'Failed to read invalidation alert state' },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({ claimed, completed, failed });
+  const hasDeadLetters = deadLetters.data;
+  return NextResponse.json({
+    claimed,
+    completed,
+    failed,
+    ...(hasDeadLetters
+      ? { deadLettersPresent: true }
+      : { deadLettersPresent: false }),
+  });
 }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontPdpSemanticEnrichment } from './storefront-pdp-semantic-enrichment';
-import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown';
+import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-singleton';
 
 const clusterRequest = {
   p_category_slug: 'smartphones',

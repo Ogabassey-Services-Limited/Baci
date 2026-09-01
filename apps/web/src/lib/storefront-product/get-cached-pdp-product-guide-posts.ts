@@ -1,4 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import { createStorefrontReadDeadline } from '@/lib/create-storefront-read-deadline';
+import { prepareStorefrontSingleAttemptQuery } from '@/lib/prepare-storefront-single-attempt-query';
 import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
 
@@ -34,10 +36,13 @@ function normalizeLinkedPost(
   const post = Array.isArray(row.blog_posts)
     ? row.blog_posts[0]
     : row.blog_posts;
+  if (!post) return null;
 
+  const slug = typeof post.slug === 'string' ? post.slug.trim() : '';
+  const title = typeof post.title === 'string' ? post.title.trim() : '';
   if (
-    !post?.slug ||
-    !post.title ||
+    !slug ||
+    !title ||
     !isNullableString(post.excerpt) ||
     !isNullableString(post.category) ||
     !isNullableStringArray(post.tags) ||
@@ -56,9 +61,9 @@ function normalizeLinkedPost(
     keywords: post.keywords,
     published_at: post.published_at,
     reading_time_minutes: post.reading_time_minutes,
-    slug: post.slug,
+    slug,
     tags: post.tags,
-    title: post.title,
+    title,
   };
 }
 
@@ -100,15 +105,23 @@ export async function getCachedPdpProductGuidePosts(
     .eq('blog_posts.status', 'published')
     .not('blog_posts.published_at', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(PDP_PRODUCT_GUIDE_LIMIT)
-    .abortSignal(AbortSignal.timeout(PDP_PRODUCT_GUIDE_TIMEOUT_MS));
-  const boundedQuery =
-    typeof query.retry === 'function' ? query.retry(false) : query;
-  const { data, error } = await boundedQuery;
+    .limit(PDP_PRODUCT_GUIDE_LIMIT);
+  const deadline = createStorefrontReadDeadline(PDP_PRODUCT_GUIDE_TIMEOUT_MS);
+  try {
+    const queryPromise = Promise.resolve(
+      prepareStorefrontSingleAttemptQuery(query, deadline.signal)
+    );
+    const { data, error } = await Promise.race([
+      queryPromise,
+      deadline.promise,
+    ]);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return ((data ?? []) as LinkedBlogPostRow[])
-    .map(normalizeLinkedPost)
-    .filter((post): post is PublishedClusterPost => post !== null);
+    return ((data ?? []) as LinkedBlogPostRow[])
+      .map(normalizeLinkedPost)
+      .filter((post): post is PublishedClusterPost => post !== null);
+  } finally {
+    deadline.cleanup();
+  }
 }

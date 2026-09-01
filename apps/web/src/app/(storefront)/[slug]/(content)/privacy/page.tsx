@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { JsonLd } from '@/components/seo/json-ld';
+import { buildStorefrontContentPageSchema } from '@/lib/build-storefront-content-page-schema';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import {
@@ -79,26 +80,15 @@ async function PrivacyPageContent({ params }: PageProps) {
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
-  const privacySchema = {
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: `Privacy Policy | ${merchant.business_name}`,
-    url: `${baseUrl}/privacy`,
+  const privacySchema = buildStorefrontContentPageSchema({
+    baseUrl,
+    businessName: merchant.business_name,
     description: `Privacy Policy for ${merchant.business_name}.`,
-    isPartOf: {
-      '@type': 'WebSite',
-      name: merchant.business_name,
-      url: baseUrl,
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: merchant.business_name,
-      url: baseUrl,
-      ...(merchant.logo_url && { logo: merchant.logo_url }),
-    },
-    inLanguage: 'en',
-    dateModified: merchant.updated_at || new Date().toISOString(),
-  };
+    logoUrl: merchant.logo_url,
+    pageName: 'Privacy Policy',
+    path: '/privacy',
+    updatedAt: merchant.updated_at,
+  });
 
   const jsonLdScript = <JsonLd data={privacySchema} />;
 
