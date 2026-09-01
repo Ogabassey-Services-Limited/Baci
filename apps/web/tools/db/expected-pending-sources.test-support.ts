@@ -382,6 +382,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260831160100_release_jumia_authorization_refresh_lease.sql',
     sha256: '5bfe665193f30e2529c3fef9f7ec147df5c89b6ac112c24f9178d732968bc3a5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901090000_restrict_jumia_authorization_ciphertext.sql',
+    sha256: '567d6fa6ea7261a29e8a53d92e5b43f36a556c711ecb599b6cb0aee6e49c7071',
+  },
 ]
   .sort((left, right) =>
     left.repositoryPath.localeCompare(right.repositoryPath)

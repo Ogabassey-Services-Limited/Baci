@@ -49,6 +49,38 @@ BEGIN
     RAISE EXCEPTION 'authenticated callers have direct Jumia authorization writes';
   END IF;
 
+  IF has_column_privilege(
+    'authenticated',
+    v_table,
+    'credential_ciphertext',
+    'SELECT'
+  ) OR has_column_privilege(
+    'authenticated',
+    v_table,
+    'client_key_hash',
+    'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'authenticated callers can read Jumia credential columns directly';
+  END IF;
+
+  IF to_regprocedure(
+    'public.find_jumia_authorization_metadata(uuid,text)'
+  ) IS NULL THEN
+    RAISE EXCEPTION 'Jumia authorization metadata function is missing';
+  END IF;
+
+  IF NOT has_function_privilege(
+    'authenticated',
+    to_regprocedure('public.find_jumia_authorization_metadata(uuid,text)'),
+    'EXECUTE'
+  ) OR has_function_privilege(
+    'anon',
+    to_regprocedure('public.find_jumia_authorization_metadata(uuid,text)'),
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'Jumia authorization metadata function privileges are unsafe';
+  END IF;
+
   IF to_regprocedure(
     'public.rotate_jumia_authorization_credentials(uuid,text,timestamptz,bigint,uuid)'
   ) IS NULL THEN

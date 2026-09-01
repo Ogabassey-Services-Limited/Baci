@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
 

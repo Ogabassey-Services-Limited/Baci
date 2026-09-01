@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
   claimJumiaSelfAuthorizationDiscovery,
@@ -19,6 +20,10 @@ const { mockCreateAdminClient } = vi.hoisted(() => ({
 
 vi.mock('@/lib/jumia/self-authorization', () => ({
   validateJumiaSelfAuthorization: vi.fn(),
+}));
+
+vi.mock('@/lib/jumia/find-jumia-authorization-metadata', () => ({
+  findJumiaAuthorizationMetadata: vi.fn(),
 }));
 
 vi.mock('./claim-jumia-resumed-authorization', () => ({
@@ -101,6 +106,7 @@ function buildSupabase(
 describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([]);
     vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue(null);
     vi.mocked(
       preserveJumiaSelfAuthorizationDiscoveryAfterRotation
@@ -207,6 +213,14 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
       '00000000-0000-4000-8000-000000000099'
     );
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'auth-1',
+        token_expires_at: '2026-03-27T10:00:00.000Z',
+        refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     const supabase = buildSupabase(
       [
         {
@@ -333,6 +347,14 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
       'discovery-rotated'
     );
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'auth-1',
+        token_expires_at: '2026-03-27T10:00:00.000Z',
+        refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     const supabase = buildSupabase(
       [
         {

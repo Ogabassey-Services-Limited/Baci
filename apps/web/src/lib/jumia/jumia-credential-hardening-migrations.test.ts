@@ -8,6 +8,32 @@ const migrationsRoot = path.resolve(
 );
 
 describe('Jumia credential hardening migrations', () => {
+  it('keeps credential columns out of direct authenticated reads', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260901090000_restrict_jumia_authorization_ciphertext.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /REVOKE SELECT ON TABLE public\.jumia_authorizations FROM authenticated/i
+    );
+    expect(sql).toMatch(
+      /GRANT SELECT \([\s\S]*?rotation_version[\s\S]*?\)\s*ON TABLE public\.jumia_authorizations TO authenticated/i
+    );
+    expect(sql).not.toMatch(
+      /GRANT SELECT \([\s\S]*?(credential_ciphertext|client_key_hash)[\s\S]*?\)\s*ON TABLE public\.jumia_authorizations TO authenticated/i
+    );
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.find_jumia_authorization_metadata\([\s\S]*?uuid,[\s\S]*?text\)/i
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.find_jumia_authorization_metadata\(uuid, text\)[\s\S]*?TO authenticated, service_role/i
+    );
+  });
+
   it('restores integrations.manage for direct lease and rotation RPCs', () => {
     const sql = readFileSync(
       path.join(

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 import { acquireJumiaAuthorizationRefreshLease } from '@/lib/jumia/jumia-authorization-refresh-lease';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
 import {
@@ -8,6 +9,9 @@ import {
 
 vi.mock('@/lib/jumia/jumia-authorization-refresh-lease', () => ({
   acquireJumiaAuthorizationRefreshLease: vi.fn(),
+}));
+vi.mock('@/lib/jumia/find-jumia-authorization-metadata', () => ({
+  findJumiaAuthorizationMetadata: vi.fn(),
 }));
 vi.mock('@/lib/jumia/load-jumia-authorization-grant', () => ({
   loadJumiaAuthorizationGrant: vi.fn(),
@@ -48,29 +52,17 @@ function buildQuery(
 function buildSupabase(args: {
   authorization?: unknown;
   integration?: unknown;
-  authorizationError?: unknown;
   integrationError?: unknown;
 }) {
-  const authorizationQuery = buildQuery(
-    args.authorization ?? null,
-    2,
-    args.authorizationError
-  );
   const integrationQuery = buildQuery(
     args.integration ?? null,
     3,
     args.integrationError
   );
   return {
-    from: vi.fn((table: string) =>
-      table === 'jumia_authorizations'
-        ? {
-            select: vi.fn(() => authorizationQuery),
-          }
-        : {
-            select: vi.fn(() => integrationQuery),
-          }
-    ),
+    from: vi.fn(() => ({
+      select: vi.fn(() => integrationQuery),
+    })),
     rpc: vi.fn(),
   } as never;
 }
@@ -78,6 +70,7 @@ function buildSupabase(args: {
 describe('claimJumiaResumedAuthorization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([]);
     vi.mocked(acquireJumiaAuthorizationRefreshLease).mockResolvedValue({
       leaseToken: 'lease-1',
     });
@@ -115,6 +108,14 @@ describe('claimJumiaResumedAuthorization', () => {
   });
 
   it('claims the shared refresh lease before loading credentials', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'auth-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     const events: string[] = [];
     vi.mocked(acquireJumiaAuthorizationRefreshLease).mockImplementationOnce(
       async () => {
@@ -138,12 +139,6 @@ describe('claimJumiaResumedAuthorization', () => {
       encryptionKey: 'key',
       merchantId: 'merchant-1',
       supabase: buildSupabase({
-        authorization: {
-          id: 'auth-1',
-          token_expires_at: '2026-08-31T12:00:00.000Z',
-          refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
-          rotation_version: 1,
-        },
         integration: {
           id: 'integration-1',
           connection_method: 'self_authorization',
@@ -162,6 +157,14 @@ describe('claimJumiaResumedAuthorization', () => {
   });
 
   it('retries with reloaded state when another refresh wins the lease', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'auth-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     vi.mocked(acquireJumiaAuthorizationRefreshLease)
       .mockResolvedValueOnce({
         reloaded: {
@@ -180,12 +183,6 @@ describe('claimJumiaResumedAuthorization', () => {
       encryptionKey: 'key',
       merchantId: 'merchant-1',
       supabase: buildSupabase({
-        authorization: {
-          id: 'auth-1',
-          token_expires_at: '2026-08-31T12:00:00.000Z',
-          refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
-          rotation_version: 1,
-        },
         integration: {
           id: 'integration-1',
           connection_method: 'self_authorization',

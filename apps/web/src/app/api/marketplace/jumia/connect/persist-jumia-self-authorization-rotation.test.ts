@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 import { persistJumiaSelfAuthorizationRotation } from './persist-jumia-self-authorization-rotation';
+
+vi.mock('@/lib/jumia/find-jumia-authorization-metadata', () => ({
+  findJumiaAuthorizationMetadata: vi.fn(),
+}));
 
 function query(data: unknown, error: unknown = null) {
   const builder = {
@@ -37,9 +42,20 @@ const baseArgs = {
 };
 
 describe('persistJumiaSelfAuthorizationRotation', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([]);
+  });
 
   it('persists rotated credentials for integrations sharing one authorization grant', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'authorization-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 4,
+      },
+    ]);
     const supabase = buildSupabase({
       authorizations: [{ id: 'authorization-1', rotation_version: 4 }],
       integrations: [
@@ -86,6 +102,20 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
   });
 
   it('skips persistence when the authorization lookup is ambiguous', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'authorization-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+      {
+        id: 'authorization-2',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     const supabase = buildSupabase({
       authorizations: [
         { id: 'authorization-1', rotation_version: 1 },
@@ -102,6 +132,14 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
   });
 
   it('throws when the existing integration scope cannot be loaded', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'authorization-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
     const supabase = buildSupabase({
       authorizations: [{ id: 'authorization-1', rotation_version: 1 }],
       integrationError: new Error('temporary failure'),

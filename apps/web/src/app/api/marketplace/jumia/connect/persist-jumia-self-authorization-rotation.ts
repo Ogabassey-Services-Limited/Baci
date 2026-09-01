@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 
 export async function persistJumiaSelfAuthorizationRotation(args: {
   supabase: SupabaseClient;
@@ -8,42 +9,18 @@ export async function persistJumiaSelfAuthorizationRotation(args: {
   accessTokenExpiresAt: string;
   refreshTokenExpiresAt: string;
 }): Promise<number | undefined> {
-  const { data: authorizations, error: authorizationError } =
-    await args.supabase
-      .from('jumia_authorizations')
-      .select('id, rotation_version')
-      .eq('merchant_id', args.merchantId)
-      .eq('client_key_hash', args.clientKeyHash);
-  if (authorizationError) {
-    throw new Error('Failed to load existing Jumia authorization scope');
-  }
+  const authorizations = await findJumiaAuthorizationMetadata({
+    clientKeyHash: args.clientKeyHash,
+    merchantId: args.merchantId,
+    supabase: args.supabase,
+  });
 
   const matchingAuthorizationIds = new Set(
-    (authorizations ?? [])
-      .map((authorization) => {
-        if (
-          typeof authorization !== 'object' ||
-          authorization === null ||
-          !('id' in authorization)
-        ) {
-          return undefined;
-        }
-        return authorization.id;
-      })
-      .filter(
-        (id): id is string => typeof id === 'string' && id.trim().length > 0
-      )
+    authorizations.map((authorization) => authorization.id)
   );
   if (matchingAuthorizationIds.size !== 1) return undefined;
-  const authorization = (authorizations ?? []).find(
-    (row): row is { id: string; rotation_version: number } =>
-      typeof row === 'object' &&
-      row !== null &&
-      'id' in row &&
-      typeof row.id === 'string' &&
-      matchingAuthorizationIds.has(row.id) &&
-      'rotation_version' in row &&
-      typeof row.rotation_version === 'number'
+  const authorization = authorizations.find((row) =>
+    matchingAuthorizationIds.has(row.id)
   );
   if (!authorization) return undefined;
   const authorizationId = authorization.id;

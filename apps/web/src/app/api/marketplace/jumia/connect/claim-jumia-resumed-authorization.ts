@@ -1,18 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { jumiaAuthorizationCrypto } from '@/lib/jumia/authorization-crypto';
+import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 import {
   acquireJumiaAuthorizationRefreshLease,
   type JumiaAuthorizationRefreshState,
 } from '@/lib/jumia/jumia-authorization-refresh-lease';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
 import type { JumiaSelfAuthorizationCredentials } from '@/schemas/jumia/self-authorization';
-
-type AuthorizationRow = {
-  id: string;
-  token_expires_at: string;
-  refresh_token_expires_at: string;
-  rotation_version: number;
-};
 
 type IntegrationRow = { id: string };
 
@@ -29,24 +23,13 @@ export async function claimJumiaResumedAuthorization(args: {
   merchantId: string;
   supabase: SupabaseClient;
 }): Promise<ResumedJumiaAuthorizationLease | null> {
-  const { data: authorizationRows, error: authorizationError } =
-    await args.supabase
-      .from('jumia_authorizations')
-      .select(
-        'id, token_expires_at, refresh_token_expires_at, rotation_version'
-      )
-      .eq('merchant_id', args.merchantId)
-      .eq('client_key_hash', args.clientKeyHash);
-
-  if (authorizationError) {
-    throw new Error('Failed to load existing Jumia authorization');
-  }
-
-  const authorization =
-    (authorizationRows as AuthorizationRow[] | null)?.[0] ?? null;
-  if (!authorization) return null;
-
-  const authorizationRow = authorization as AuthorizationRow;
+  const authorizationRows = await findJumiaAuthorizationMetadata({
+    clientKeyHash: args.clientKeyHash,
+    merchantId: args.merchantId,
+    supabase: args.supabase,
+  });
+  const authorization = authorizationRows[0] ?? null;
+  if (!authorization?.refresh_token_expires_at) return null;
   const { data: integrationRows, error: integrationError } = await args.supabase
     .from('marketplace_integrations')
     .select('id, connection_method, jumia_authorization_id')
@@ -68,7 +51,7 @@ export async function claimJumiaResumedAuthorization(args: {
   ).find(
     (row) =>
       row.connection_method === 'self_authorization' &&
-      row.jumia_authorization_id === authorizationRow.id
+      row.jumia_authorization_id === authorization.id
   );
 
   if (!integration) return null;
@@ -77,10 +60,10 @@ export async function claimJumiaResumedAuthorization(args: {
   let state: JumiaAuthorizationRefreshState = {
     integrationId: integrationRow.id,
     merchantId: args.merchantId,
-    authorizationId: authorizationRow.id,
-    authorizationRotationVersion: authorizationRow.rotation_version,
-    tokenExpiresAt: new Date(authorizationRow.token_expires_at),
-    refreshTokenExpiresAt: new Date(authorizationRow.refresh_token_expires_at),
+    authorizationId: authorization.id,
+    authorizationRotationVersion: authorization.rotation_version,
+    tokenExpiresAt: new Date(authorization.token_expires_at),
+    refreshTokenExpiresAt: new Date(authorization.refresh_token_expires_at),
   };
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
