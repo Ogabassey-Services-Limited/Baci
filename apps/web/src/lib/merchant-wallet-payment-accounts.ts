@@ -65,7 +65,7 @@ export async function requestMerchantWalletAccount(
       consented_at: new Date().toISOString(),
       status: 'pending',
     })
-    .select('id')
+    .select('id, status')
     .single();
   if (error) {
     const pending = await supabase
@@ -89,10 +89,14 @@ export async function requestMerchantWalletAccount(
     },
   });
   if (!customer.success) {
-    await supabase.rpc('fail_merchant_wallet_funding_request', {
-      p_request_id: request.id,
-      p_merchant_id: merchant.id,
-    });
+    const { error: transitionError } = await supabase.rpc(
+      'fail_merchant_wallet_funding_request',
+      {
+        p_request_id: request.id,
+        p_merchant_id: merchant.id,
+      }
+    );
+    if (transitionError) throw new Error('FUNDING_REQUEST_REVIEW_REQUIRED');
     throw new Error('Paystack customer provisioning failed');
   }
   if (customer.success) {
@@ -103,10 +107,14 @@ export async function requestMerchantWalletAccount(
       phone: merchant.phone,
     });
     if (!dva.success) {
-      await supabase.rpc('fail_merchant_wallet_funding_request', {
-        p_request_id: request.id,
-        p_merchant_id: merchant.id,
-      });
+      const { error: transitionError } = await supabase.rpc(
+        'fail_merchant_wallet_funding_request',
+        {
+          p_request_id: request.id,
+          p_merchant_id: merchant.id,
+        }
+      );
+      if (transitionError) throw new Error('FUNDING_REQUEST_REVIEW_REQUIRED');
       throw new Error('Paystack DVA provisioning failed');
     }
   }
@@ -174,13 +182,13 @@ export async function persistMerchantWalletAssignmentEvent(
   const currency = typeof account.currency === 'string' ? account.currency : '';
   if (!/^\d{10,20}$/.test(accountNumber) || currency !== 'NGN')
     return { kind: 'review' as const };
-  const { data: pending, error } = await supabase
+  const { data: requests, error } = await supabase
     .from('merchant_wallet_funding_account_requests')
-    .select('id')
+    .select('id, status')
     .eq('id', requestId)
     .eq('merchant_id', merchantId)
-    .eq('status', 'pending');
-  if (error || !pending || pending.length !== 1)
+    .in('status', ['pending', 'fulfilled']);
+  if (error || !requests || requests.length !== 1)
     return { kind: 'review' as const };
   const bank =
     account.bank && typeof account.bank === 'object'
@@ -190,9 +198,14 @@ export async function persistMerchantWalletAssignmentEvent(
     account.customer && typeof account.customer === 'object'
       ? (account.customer as Record<string, unknown>)
       : {};
-  await persistVerifiedMerchantWalletAssignment(supabase, {
-    requestId,
-    merchantId,
+  const { data: existing } = await supabase
+    .from('merchant_wallet_payment_accounts')
+    .select(
+      'account_number, account_name, bank_name, currency, provider_account_id, provider_customer_code'
+    )
+    .eq('request_id', requestId)
+    .maybeSingle();
+  const incoming = {
     accountNumber,
     accountName:
       typeof account.account_name === 'string' ? account.account_name : null,
@@ -202,6 +215,27 @@ export async function persistMerchantWalletAssignmentEvent(
     providerCustomerCode: customer.customer_code
       ? String(customer.customer_code)
       : null,
+  };
+  if (requests[0].status === 'fulfilled') {
+    return existing &&
+      existing.account_number === incoming.accountNumber &&
+      existing.account_name === incoming.accountName &&
+      existing.bank_name === incoming.bankName &&
+      existing.currency === incoming.currency &&
+      existing.provider_account_id === incoming.providerAccountId &&
+      existing.provider_customer_code === incoming.providerCustomerCode
+      ? { kind: 'match' as const }
+      : { kind: 'review' as const };
+  }
+  await persistVerifiedMerchantWalletAssignment(supabase, {
+    requestId,
+    merchantId,
+    accountNumber,
+    accountName: incoming.accountName,
+    bankName: incoming.bankName,
+    currency,
+    providerAccountId: incoming.providerAccountId,
+    providerCustomerCode: incoming.providerCustomerCode,
   });
   return { kind: 'match' as const };
 }

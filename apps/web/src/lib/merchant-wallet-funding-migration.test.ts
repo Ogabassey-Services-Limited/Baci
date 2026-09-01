@@ -26,5 +26,11 @@ describe('merchant wallet funding migration contract', () => {
     expect(sql).toMatch(
       /total_earned = public\.merchant_wallets\.total_earned/s
     );
+    expect(sql).toMatch(/auth\.role\(\).*service_role/s);
+    expect(sql).toMatch(/SELECT id INTO STRICT v_account_id[\s\S]*FOR UPDATE/);
+    expect(sql).toMatch(/merchant_wallet_account_mismatch/);
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.credit_merchant_wallet_funding/
+    );
   });
 });

@@ -22,9 +22,16 @@ CREATE POLICY merchant_wallet_account_owner ON public.merchant_wallet_payment_ac
 REVOKE ALL ON TABLE public.merchant_wallet_payment_accounts FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.merchant_wallet_payment_accounts FROM anon, authenticated;
 CREATE OR REPLACE FUNCTION public.persist_merchant_wallet_payment_account(p_request_id uuid, p_merchant_id uuid, p_account_number text, p_account_name text, p_bank_name text, p_currency text, p_provider_account_id text DEFAULT NULL, p_provider_customer_code text DEFAULT NULL)
-RETURNS public.merchant_wallet_payment_accounts LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_row public.merchant_wallet_payment_accounts; BEGIN
+RETURNS public.merchant_wallet_payment_accounts LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_row public.merchant_wallet_payment_accounts; v_request public.merchant_wallet_funding_account_requests; BEGIN
   IF coalesce((SELECT auth.role()), '') <> 'service_role' THEN RAISE EXCEPTION 'service_role_required' USING ERRCODE='42501'; END IF;
   IF p_currency <> 'NGN' OR p_account_number !~ '^[0-9]{10,20}$' THEN RAISE EXCEPTION 'invalid_account' USING ERRCODE='22023'; END IF;
+  SELECT * INTO v_request FROM public.merchant_wallet_funding_account_requests WHERE id=p_request_id AND merchant_id=p_merchant_id FOR UPDATE;
+  IF v_request.id IS NULL THEN RAISE EXCEPTION 'funding_request_not_found' USING ERRCODE='P0001'; END IF;
+  IF v_request.status = 'fulfilled' THEN
+    SELECT * INTO v_row FROM public.merchant_wallet_payment_accounts WHERE request_id=p_request_id;
+    IF v_row.account_number=p_account_number AND v_row.account_name IS NOT DISTINCT FROM p_account_name AND v_row.bank_name IS NOT DISTINCT FROM p_bank_name AND v_row.currency=p_currency AND v_row.provider_account_id IS NOT DISTINCT FROM p_provider_account_id AND v_row.provider_customer_code IS NOT DISTINCT FROM p_provider_customer_code THEN RETURN v_row; END IF;
+    RAISE EXCEPTION 'conflicting_assignment_replay' USING ERRCODE='P0001';
+  END IF;
   INSERT INTO public.merchant_wallet_payment_accounts(merchant_id,request_id,account_number,account_name,bank_name,currency,status,provider_account_id,provider_customer_code)
   VALUES(p_merchant_id,p_request_id,p_account_number,p_account_name,p_bank_name,'NGN','active',p_provider_account_id,p_provider_customer_code)
   ON CONFLICT (merchant_id, provider) WHERE status IN ('active','pending') DO UPDATE SET account_number=EXCLUDED.account_number,account_name=EXCLUDED.account_name,bank_name=EXCLUDED.bank_name,status='active',updated_at=now()
@@ -42,10 +49,13 @@ END; $$;
 REVOKE ALL ON FUNCTION public.fail_merchant_wallet_funding_request(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.fail_merchant_wallet_funding_request(uuid,uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.credit_merchant_wallet_funding(p_merchant_id uuid,p_amount numeric,p_currency text,p_reference text,p_account_number text)
-RETURNS TABLE(new_balance numeric, first_credit boolean) LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_balance numeric; v_source_id uuid; BEGIN
+RETURNS TABLE(new_balance numeric, first_credit boolean) LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_balance numeric; v_source_id uuid; v_account_id uuid; BEGIN
   IF coalesce((SELECT auth.role()), '') <> 'service_role' THEN RAISE EXCEPTION 'service_role_required' USING ERRCODE='42501'; END IF;
   IF p_currency <> 'NGN' OR p_amount <= 0 THEN RAISE EXCEPTION 'invalid_funding_amount' USING ERRCODE='22023'; END IF;
-  IF (SELECT count(*) FROM public.merchant_wallet_payment_accounts WHERE merchant_id=p_merchant_id AND account_number=p_account_number AND currency='NGN' AND status='active') <> 1 THEN RAISE EXCEPTION 'merchant_wallet_account_mismatch' USING ERRCODE='P0001'; END IF;
+  BEGIN
+    SELECT id INTO STRICT v_account_id FROM public.merchant_wallet_payment_accounts WHERE merchant_id=p_merchant_id AND account_number=p_account_number AND currency='NGN' AND status='active' FOR UPDATE;
+  EXCEPTION WHEN NO_DATA_FOUND OR TOO_MANY_ROWS THEN RAISE EXCEPTION 'merchant_wallet_account_mismatch' USING ERRCODE='P0001';
+  END;
   PERFORM pg_advisory_xact_lock(hashtextextended('merchant-wallet-funding:'||p_reference,0));
   v_source_id := (substr(md5(p_merchant_id::text||':'||p_reference),1,8)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),9,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),13,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),17,4)||'-'||substr(md5(p_merchant_id::text||':'||p_reference),21,12))::uuid;
   IF EXISTS (SELECT 1 FROM public.wallet_transactions WHERE source_type='merchant_wallet_topup' AND source_id=v_source_id) THEN
