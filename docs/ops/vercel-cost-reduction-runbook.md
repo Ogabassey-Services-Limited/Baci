@@ -29,30 +29,25 @@ cache-hit ratio, ISR write count, and transfer bytes from the same window.
 
 ## Code levers in this change
 
-Successful custom-domain mappings now remain in a bounded per-instance cache
-for 60 seconds. Misses and provider errors are not cached, so database fallback
-and recovery behavior remain unchanged. Across the three measured Ogabassey
-route classes, 36,033 requests/day represent an upper bound of about **1.08
-million mapping reads/month** if every request performs one billable read.
-At Vercel's published **$0.000003/read**, that traffic's absolute ceiling is
-about **$3.24/month**. Actual savings are lower and equal to:
+Concurrent identical custom-domain mapping reads on the same warm instance now
+share one provider promise. During a provider miss or outage, they also share
+the fallback database read before it populates the existing fallback cache.
+Settled provider results are discarded immediately, including misses and
+errors, so the next request observes current Edge Config state. Work avoided in
+an overlap window is exactly `concurrent identical reads - 1`.
 
-`uncached successful reads - active warm-instance/key/minute windows`
-
-For example, retaining five to ten warm instances for the dominant mapping
-would avoid roughly 60–80% of those reads (**$1.95–$2.60/month**). This is a
-scenario, not a booked saving; cold starts, regions, other Global Config usage,
-and requests without successful mappings reduce it. The whole change can never
-save more than the observed **$7.56 Global Config** line.
+The measured route counts do not include an instance-level concurrency
+histogram, so this change books **$0 expected saving** until production telemetry
+shows coalesced reads. Vercel's published **$0.000003/read** and the observed
+**$7.56 Global Config** line remain hard ceilings, not forecasts.
 
 The invalidation cron caches only a positive, terminal dead-letter alert for
 five minutes. At the observed roughly two-minute invocation cadence, a single
 warm instance would reduce 669 repeated alert-state RPCs to about 223, or
-**approximately 67% fewer alert RPCs**. It does not reduce cron invocations or
-skip queue claims. Because Fluid Compute pauses Active CPU billing during
-database I/O but continues Provisioned Memory billing, the expected Vercel
-effect is a small reduction in request wall time and memory work, not an 80%
-reduction in the function bill.
+**approximately 67% fewer alert RPCs**. Cold or different instances reduce that
+benefit. It does not reduce cron invocations, queue claims, or drain work, and
+Vercel bills Active CPU differently from database wait time. Book **$0 function
+saving** until the usage export proves lower provisioned-memory duration.
 
 ## Provider-only control: production drain sampling
 
@@ -90,6 +85,9 @@ approved change:
   catalog or blog data. Do not lengthen current route profiles from request
   counts alone; first prove mutation-driven invalidation is scheduled and
   healthy.
+- **Cross-request domain-mapping TTLs:** reduce Edge Config reads but create a
+  cross-instance window where a transferred custom domain can route to its prior
+  tenant. Coalesce only overlapping reads; do not retain settled mappings.
 - **Shorter revalidation or forced dynamic rendering:** increases active CPU,
   invocations, ISR writes, and likely origin transfer. Reject as a cost fix.
 - **Lower function memory:** can lower provisioned-memory charges but often
