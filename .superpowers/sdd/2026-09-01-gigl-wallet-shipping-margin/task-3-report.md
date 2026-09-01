@@ -44,4 +44,4 @@ The inherited ledger records the required pre-migration contract run as RED beca
 
 ## Final head after Fix Round 1
 
-`7f019ac3e21ac2f65c76ec9d20ebca3a381db683`
+`f3c0342c30335a379b332559b1e18157a75d7592` (fix commit; report metadata is included in this worktree)
