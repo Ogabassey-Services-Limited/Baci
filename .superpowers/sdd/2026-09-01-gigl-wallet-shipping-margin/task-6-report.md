@@ -105,3 +105,20 @@ Fix-round implementation commit: `94ddf97ede`.
 
 No emulator/device, live GIG, live Paystack, deployment, or remote migration
 proof was performed in this round.
+
+## Final test modularity cleanup
+
+Moved the already-funded provider wallet-cache regression into its own
+colocated test file. The original shipment suite is now 272 lines and the new
+GIGL wallet suite is 70 lines; Self Fulfill coverage remains in the original
+suite without changing its behavior.
+
+- Consolidated Task 6 gate: **15 files / 80 tests** passed.
+- `pnpm --filter baci-mobile-admin lint` — PASS, 1,820 files checked.
+- `pnpm --filter baci-mobile-admin typecheck` — PASS.
+- `git diff --check` — PASS.
+
+Cleanup commit: `beef853f44`.
+
+No emulator/device, live GIG, live Paystack, deployment, or remote migration
+proof was performed during this cleanup.
