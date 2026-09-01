@@ -567,8 +567,17 @@ git commit -m "feat: fund merchant wallet by bank transfer"
 - `POST /api/orders/:id/shipping/gigl-quote` is bearer/cookie authenticated,
   owner-only, and order-scoped. It returns one cheapest non-station-pickup GIGL
   quote plus `{ availableBalance, shortfall, canBook }`, never internal pricing.
-- A successful quote upserts `shipping_quotes`, updates the order's selected
-  quote/provider/address plus explicit `shipping_funding_source:
+- A protected Admin-order mode on the existing trusted shipping-quote
+  persistence edge loads authoritative order/item/sender data, obtains and
+  persists the GIGL quote with server-authored order provenance, and returns its
+  ID. The new order route must not construct or import an admin/service client.
+- The authenticated binding RPC accepts only order ID, persisted quote ID, and
+  validated receiver fields. It must never accept quote JSON, price, provider
+  cost, margin, currency, pricing version, or expiry from the caller. Under row
+  locks it revalidates server-authored Admin-order provenance, merchant, GIGL
+  provider, pricing version, NGN currency, expiry, address-delivery mode, and
+  concurrent order state before updating the order's selected quote/provider/
+  address plus explicit `shipping_funding_source:
   'merchant_wallet'`, and never changes original `shipping_fee`, subtotal, tax,
   discount, or total.
 
@@ -617,6 +626,9 @@ Required cases:
 price/internal provider cost and margin persisted but redacted from response
 wallet balance/shortfall computed from bundled price
 order stamped merchant_wallet without changing original totals
+caller cannot forge price/provider cost/margin/currency/expiry/quote provenance
+binding rejects a merchant-created or wrong-order quote ID atomically
+concurrent order transition or quote expiry rolls back the entire bind
 ```
 
 - [ ] **Step 5: Run route tests and verify RED**
@@ -630,12 +642,17 @@ Expected: FAIL because the endpoint does not exist.
 - [ ] **Step 6: Implement the authenticated order-scoped route**
 
 Authenticate before parsing, call `getUserAccess`, require `isOwner` and
-`hasPermission(access, 'orders', 'fulfill')`, then load the order using exact
-columns including `order_items` and product weight data. Resolve sender, get only
-GIGL quotes through `shippingService.getProviderQuotes('GIGL', request)`, filter
-out station pickup, rank by bundled price, persist with Task 1's helper, and bind
-the order. Read the merchant wallet through its owner-checked summary RPC and
-return nonnegative shortfall `Math.max(0, quote.price - availableBalance)`.
+`hasPermission(access, 'orders', 'fulfill')`, then use a protected Admin-order
+mode on the existing trusted quote edge. That mode independently loads the order
+using exact columns including `order_items` and product weight data, resolves the
+sender, gets only GIGL quotes through
+`shippingService.getProviderQuotes('GIGL', request)`, filters out station pickup,
+ranks by bundled price, and persists through Task 1's helper with server-authored
+order provenance. The order route then calls the authenticated binding RPC with
+only the returned quote ID and validated receiver fields. The RPC must select and
+validate the persisted row itself and bind atomically. Read the merchant wallet
+through its owner-checked summary RPC and return nonnegative shortfall
+`Math.max(0, quote.price - availableBalance)`.
 
 - [ ] **Step 7: Run focused GREEN Admin-backend tests**
 

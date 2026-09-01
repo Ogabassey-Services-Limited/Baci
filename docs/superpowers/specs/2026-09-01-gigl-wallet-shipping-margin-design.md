@@ -72,9 +72,15 @@ charged amount, and currency. The snapshots are immutable for a booked shipment.
 Changing the selected quote before booking replaces the unbooked snapshot.
 
 Storefront order creation stamps `customer_checkout` from the selected quote in
-the database boundary. The Admin quote route explicitly stamps
-`merchant_wallet`; simply attaching a quote to an old order must never silently
-be interpreted as shopper-paid shipping.
+the database boundary. For Admin orders, the existing trusted shipping-quote
+persistence edge first creates an order-scoped, server-attested GIGL quote from
+authoritative order, item, receiver, and merchant-origin data. The authenticated
+binding RPC accepts only that persisted quote ID, revalidates its server-authored
+Admin-order context, merchant, provider, pricing version, currency, expiry, and
+delivery mode under row locks, and then stamps `merchant_wallet`. It never
+accepts caller-supplied quote JSON or economics. Simply attaching an arbitrary
+quote to an old order must never silently be interpreted as shopper-paid or
+wallet-funded shipping.
 
 ## Merchant Wallet and Ledger
 
@@ -158,10 +164,14 @@ References:
 
 1. The merchant moves a processing manual order toward **Shipped** and opens the
    existing shipment sheet.
-2. The Admin app requests a new order-scoped GIGL quote. The server derives the
-   receiver, items, weight, and merchant origin from the order and merchant; the
-   client cannot replace tenant or order financial data.
-3. The server returns the cheapest eligible address-delivery GIGL option, its
+2. The Admin app requests a new order-scoped GIGL quote. A protected mode on the
+   existing trusted quote edge derives the receiver, items, weight, and merchant
+   origin from the order and merchant, calls GIGL, and persists server-authored
+   Admin-order provenance. The client cannot replace tenant, order financial
+   data, or quote economics.
+3. The server binds only the persisted attested quote ID after independently
+   checking merchant, order context, GIGL pricing version, NGN currency, expiry,
+   and address-delivery mode. It returns the cheapest eligible option, its
    expiry, wallet balance, and shortfall, and stamps the order as
    `merchant_wallet` funded. Station-pickup quotes are not silently substituted
    for delivery to the customer's address.
