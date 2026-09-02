@@ -8,7 +8,6 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { ShippingService } from '@/lib/shipping';
 import { buildOrderGiglQuoteRequest } from '@/lib/shipping/build-order-gigl-quote-request';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
-import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -16,6 +15,7 @@ import {
   orderGiglQuoteSchema,
 } from '@/schemas/order-gigl-shipping';
 import { toPublicQuoteResponse } from './public-quote-response';
+import { resolveAdminGiglEligibility } from './resolve-admin-gigl-eligibility';
 import { toShippingQuoteUpsert } from './shipping-quote-persistence';
 
 type AdminInput = {
@@ -41,26 +41,6 @@ export function calculateAdminWalletFunding(price: number, balance: number) {
   const availableBalance = Math.max(0, Number.isFinite(balance) ? balance : 0);
   const shortfall = Math.max(0, price - availableBalance);
   return { availableBalance, shortfall, canBook: shortfall === 0 };
-}
-
-export function isEligibleAdminGiglMerchant(merchant: {
-  country?: string | null;
-  payout_currency?: string | null;
-}) {
-  const country = merchant.country?.trim().toUpperCase();
-  return (
-    country === 'NG' && resolveMerchantCurrencyConfig(merchant).code === 'NGN'
-  );
-}
-
-export function isAdminGiglEnabled(shippingProviders: unknown): boolean {
-  return (
-    Array.isArray(shippingProviders) &&
-    shippingProviders.some(
-      (provider) =>
-        typeof provider === 'string' && provider.trim().toLowerCase() === 'gigl'
-    )
-  );
 }
 
 const orderSelect =
@@ -153,42 +133,12 @@ export async function postAdminOrderGiglQuote(
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
-  const { data: merchant, error: merchantError } = await auth.supabase
-    .from('merchants')
-    .select('country, payout_currency')
-    .eq('id', access.merchantId)
-    .maybeSingle();
-  if (merchantError)
-    return NextResponse.json(
-      { error: 'Failed to resolve merchant eligibility' },
-      { status: 500 }
-    );
-  if (!merchant || !isEligibleAdminGiglMerchant(merchant)) {
-    return NextResponse.json(
-      {
-        error: 'GIGL quotes are available only for Nigerian NGN merchants',
-        code: 'GIGL_MERCHANT_INELIGIBLE',
-      },
-      { status: 422 }
-    );
-  }
-  const { data: featureSettings, error: featureError } = await auth.supabase
-    .from('merchant_feature_settings')
-    .select('shipping_providers')
-    .eq('merchant_id', access.merchantId)
-    .maybeSingle();
-  if (
-    featureError ||
-    !featureSettings ||
-    !isAdminGiglEnabled(featureSettings.shipping_providers)
-  ) {
-    return NextResponse.json(
-      {
-        error: 'GIGL shipping is not enabled for this merchant',
-        code: 'GIGL_PROVIDER_DISABLED',
-      },
-      { status: 422 }
-    );
+  const eligibility = await resolveAdminGiglEligibility(
+    auth.supabase,
+    access.merchantId
+  );
+  if (!eligibility.ok) {
+    return NextResponse.json(eligibility.body, { status: eligibility.status });
   }
 
   // The privileged client is created only after authentication, CSRF, owner,

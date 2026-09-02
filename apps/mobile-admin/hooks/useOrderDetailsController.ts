@@ -19,6 +19,7 @@ import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShi
 import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
 import { useOrderAuditEvents } from '@/hooks/orders/useOrderAuditEvents';
 import { useOrderGiglShipping } from '@/hooks/orders/useOrderGiglShipping';
+import { useGiglAdminShippingEligibility } from '@/hooks/useGiglAdminShippingEligibility';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
 import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
@@ -61,6 +62,7 @@ export function useOrderDetailsController() {
   const queryClient = useQueryClient();
   const { data: order, error, isLoading } = useOrder(orderId ?? '');
   const { merchant, storeUrl } = useMerchant();
+  const giglEligibility = useGiglAdminShippingEligibility(merchant);
   const auditEventsQuery = useOrderAuditEvents({
     merchantId: order?.merchant_id ?? merchant?.id,
     orderId: order?.id ?? orderId,
@@ -81,16 +83,20 @@ export function useOrderDetailsController() {
     ? canUseSelectedShippingProvider(order)
     : false;
   const uiState = useOrderDetailsUiState();
-  const giglShipping = useOrderGiglShipping({
+  const giglShippingState = useOrderGiglShipping({
     enabled:
+      giglEligibility.isEligible &&
       uiState.showShipmentFlow &&
       uiState.shipmentFlowStep === 'method' &&
       !providerBookingAvailable,
     initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
     orderId: orderId ?? '',
   });
+  const giglShipping = giglEligibility.isEligible
+    ? giglShippingState
+    : undefined;
   const effectiveProviderLabel =
-    providerLabel || (giglShipping.quote ? 'GIG Logistics' : null);
+    providerLabel || (giglShipping?.quote ? 'GIG Logistics' : null);
 
   const requiresShipmentDetails = orderRequiresFulfillment(
     order?.items,
@@ -172,7 +178,7 @@ export function useOrderDetailsController() {
     order,
     pendingShipmentMode: uiState.pendingShipmentMode,
     providerBookingAvailable:
-      providerBookingAvailable || Boolean(giglShipping.wallet?.canBook),
+      providerBookingAvailable || Boolean(giglShipping?.wallet?.canBook),
     providerLabel: effectiveProviderLabel,
     queryClient,
     requiresShipmentDetails,

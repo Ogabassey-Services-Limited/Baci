@@ -85,8 +85,23 @@ export function orderQuery(data: unknown = { id: orderId }) {
   };
 }
 
+function authenticatedQuery(data: unknown, error: unknown = null) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+  };
+}
+
 export function setup(
-  overrides: { order?: unknown; orderError?: unknown } = {}
+  overrides: {
+    order?: unknown;
+    orderError?: unknown;
+    merchant?: unknown;
+    merchantError?: unknown;
+    featureSettings?: unknown;
+    featureError?: unknown;
+  } = {}
 ) {
   const order = orderQuery(
     Object.hasOwn(overrides, 'order') ? overrides.order : { id: orderId }
@@ -103,7 +118,26 @@ export function setup(
     }),
     rpc: mocks.persistRpc,
   };
-  const supabase = { rpc: mocks.bindRpc };
+  const merchant = authenticatedQuery(
+    Object.hasOwn(overrides, 'merchant')
+      ? overrides.merchant
+      : { country: 'NG', payout_currency: 'NGN' },
+    overrides.merchantError
+  );
+  const featureSettings = authenticatedQuery(
+    Object.hasOwn(overrides, 'featureSettings')
+      ? overrides.featureSettings
+      : { shipping_providers: ['gigl'] },
+    overrides.featureError
+  );
+  const supabase = {
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') return merchant;
+      if (table === 'merchant_feature_settings') return featureSettings;
+      throw new Error(`unexpected authenticated table ${table}`);
+    }),
+    rpc: mocks.bindRpc,
+  };
   mocks.authenticateApiRequest.mockResolvedValue({
     user: { id: 'user-1' },
     supabase,
@@ -127,7 +161,7 @@ export function setup(
     data: { available_balance: 20_000 },
     error: null,
   });
-  return { admin, supabase, order };
+  return { admin, supabase, order, merchant, featureSettings };
 }
 
 export async function subject(

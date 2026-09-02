@@ -21,6 +21,18 @@ const merchantState = vi.hoisted(() => ({
   current: null as unknown,
 }));
 
+const giglEligibilityState = vi.hoisted(() => ({
+  current: { isEligible: true },
+}));
+
+const giglShippingState = vi.hoisted(() => ({
+  calls: [] as unknown[],
+}));
+
+const shipmentUiState = vi.hoisted(() => ({
+  current: { shipmentFlowStep: 'details', showShipmentFlow: false },
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
 }));
@@ -35,6 +47,10 @@ vi.mock('@/hooks/useMerchant', () => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({}),
+}));
+
+vi.mock('@/hooks/useGiglAdminShippingEligibility', () => ({
+  useGiglAdminShippingEligibility: () => giglEligibilityState.current,
 }));
 
 vi.mock('@/hooks/useOrders', () => ({
@@ -54,10 +70,10 @@ vi.mock('@/hooks/orders/useOrderAuditEvents', () => ({
 }));
 
 vi.mock('@/hooks/orders/useOrderGiglShipping', () => ({
-  useOrderGiglShipping: () => ({
-    quote: null,
-    wallet: null,
-  }),
+  useOrderGiglShipping: (params: unknown) => {
+    giglShippingState.calls.push(params);
+    return { quote: null, wallet: null };
+  },
 }));
 
 vi.mock('@/lib/order-shipment', () => ({
@@ -158,12 +174,12 @@ vi.mock('@/hooks/useOrderDetailsUiState', () => ({
     setShowShipmentFlow: vi.fn(),
     setShowStatusModal: vi.fn(),
     setSuccessModal: vi.fn(),
-    shipmentFlowStep: 'details',
+    shipmentFlowStep: shipmentUiState.current.shipmentFlowStep,
     showCreditModal: false,
     showPaymentOptionModal: false,
     showReceiptPreview: false,
     showRecordPaymentModal: false,
-    showShipmentFlow: false,
+    showShipmentFlow: shipmentUiState.current.showShipmentFlow,
     showStatusModal: false,
     successModal: {
       actionLabel: '',
@@ -184,6 +200,12 @@ describe('useOrderDetailsController', () => {
     auditEventsState.current = { data: [], isError: false, isLoading: false };
     orderState.current = undefined;
     merchantState.current = null;
+    giglEligibilityState.current = { isEligible: true };
+    giglShippingState.calls = [];
+    shipmentUiState.current = {
+      shipmentFlowStep: 'details',
+      showShipmentFlow: false,
+    };
     routeParamsState.current = { id: '123e4567-e89b-42d3-a456-426614174000' };
   });
 
@@ -326,5 +348,41 @@ describe('useOrderDetailsController', () => {
 
     expect(result.current.isAuditEventsError).toBe(true);
     expect(result.current.auditEvents).toEqual([]);
+  });
+
+  it('does not start or expose GIGL for a merchant outside NG/NGN eligibility', () => {
+    merchantState.current = {
+      id: 'merchant-1',
+      country: 'GH',
+      payout_currency: 'NGN',
+    };
+    giglEligibilityState.current = { isEligible: false };
+    shipmentUiState.current = {
+      shipmentFlowStep: 'method',
+      showShipmentFlow: true,
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: false });
+    expect(result.current.giglShipping).toBeUndefined();
+  });
+
+  it('starts and exposes GIGL for an eligible NG/NGN merchant with GIGL enabled', () => {
+    merchantState.current = {
+      id: 'merchant-1',
+      country: 'NG',
+      payout_currency: 'NGN',
+    };
+    giglEligibilityState.current = { isEligible: true };
+    shipmentUiState.current = {
+      shipmentFlowStep: 'method',
+      showShipmentFlow: true,
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: true });
+    expect(result.current.giglShipping).toEqual({ quote: null, wallet: null });
   });
 });
