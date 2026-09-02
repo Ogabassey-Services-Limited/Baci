@@ -5,6 +5,8 @@ const from = vi.fn();
 const getAccount = vi.fn();
 const requestAccount = vi.fn();
 const checkCsrfProtection = vi.fn();
+const authenticateApiRequest = vi.fn();
+vi.mock('@/lib/api-auth', () => ({ authenticateApiRequest }));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({ auth: { getUser }, from })),
 }));
@@ -14,7 +16,7 @@ vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
   requestMerchantWalletAccount: requestAccount,
 }));
 const { GET, POST } = await import('./route');
-const getHandler = GET as () => Promise<Response>;
+const getHandler = GET as unknown as (request: Request) => Promise<Response>;
 const postHandler = POST as unknown as (request: Request) => Promise<Response>;
 function ownerQuery(data: unknown, error: Error | null = null) {
   return {
@@ -30,11 +32,16 @@ function req(body: unknown): Request {
     headers: { 'content-type': 'application/json' },
   });
 }
+const getRequest = new Request(
+  'http://localhost/api/merchant-wallet/funding-account'
+);
 describe('funding account handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getUser.mockResolvedValue({
-      data: { user: { id: 'u1', email: 'u@example.com' } },
+    authenticateApiRequest.mockResolvedValue({
+      user: { id: 'u1', email: 'u@example.com' },
+      error: null,
+      supabase: { from },
     });
     from.mockReturnValue(
       ownerQuery({
@@ -46,7 +53,11 @@ describe('funding account handlers', () => {
     checkCsrfProtection.mockResolvedValue({ valid: true });
   });
   it('authenticates before parsing malformed JSON', async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
+    authenticateApiRequest.mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
     const r = await postHandler(
       new Request('http://x', { method: 'POST', body: '{' })
     );
@@ -58,6 +69,7 @@ describe('funding account handlers', () => {
       new Request('http://x', { method: 'POST', body: '{' })
     );
     expect(r.status).toBe(400);
+    expect(from).not.toHaveBeenCalled();
     expect(requestAccount).not.toHaveBeenCalled();
   });
   it('rejects invalid CSRF before merchant access, body parsing, or provider provisioning', async () => {
@@ -78,17 +90,17 @@ describe('funding account handlers', () => {
 
   it('keeps valid bearer mobile funding requests supported', async () => {
     requestAccount.mockResolvedValue({ account: null, status: 'pending' });
-    const r = await postHandler(
-      new Request('http://x', {
-        method: 'POST',
-        body: JSON.stringify({ consent: true }),
-        headers: {
-          authorization: 'Bearer mobile-access-token',
-          'content-type': 'application/json',
-        },
-      })
-    );
+    const bearerRequest = new Request('http://x', {
+      method: 'POST',
+      body: JSON.stringify({ consent: true }),
+      headers: {
+        authorization: 'Bearer mobile-access-token',
+        'content-type': 'application/json',
+      },
+    });
+    const r = await postHandler(bearerRequest);
     expect(r.status).toBe(202);
+    expect(authenticateApiRequest).toHaveBeenCalledWith(bearerRequest);
     expect(checkCsrfProtection).toHaveBeenCalledWith(expect.any(Request));
     expect(requestAccount).toHaveBeenCalledTimes(1);
   });
@@ -100,6 +112,7 @@ describe('funding account handlers', () => {
   ])('rejects invalid consent', async (consent) => {
     const r = await postHandler(req(consent === undefined ? {} : { consent }));
     expect(r.status).toBe(400);
+    expect(from).not.toHaveBeenCalled();
   });
   it('returns 403 for a non-owner', async () => {
     from.mockReturnValue(ownerQuery(null));
@@ -109,7 +122,7 @@ describe('funding account handlers', () => {
   });
   it('returns owner lookup error safely', async () => {
     from.mockReturnValue(ownerQuery(null, new Error('secret')));
-    const r = await getHandler();
+    const r = await getHandler(getRequest);
     expect(r.status).toBe(500);
     expect(await r.json()).toEqual({ error: 'Unable to load merchant' });
   });
@@ -121,7 +134,7 @@ describe('funding account handlers', () => {
       currency: 'NGN',
       status: 'active',
     });
-    const r = await getHandler();
+    const r = await getHandler(getRequest);
     expect(await r.json()).toEqual({
       account: expect.objectContaining({
         accountNumber: '1234567890',
@@ -151,11 +164,9 @@ describe('funding account handlers', () => {
       error: 'Unable to start funding account assignment',
     });
   });
-  it('uses only the regular server client', async () => {
+  it('uses the mobile-aware authenticator for funding requests', async () => {
     requestAccount.mockResolvedValue({ account: null, status: 'pending' });
     await postHandler(req({ consent: true }));
-    expect(
-      (await import('@/lib/supabase/server')).createClient
-    ).toHaveBeenCalled();
+    expect(authenticateApiRequest).toHaveBeenCalledWith(expect.any(Request));
   });
 });

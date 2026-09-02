@@ -20,6 +20,9 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mocks.createAdminClient,
 }));
+vi.mock('@/lib/shipping/persist-admin-gigl-quote', () => ({
+  persistAdminGiglQuote: mocks.persistAdminGiglQuote,
+}));
 vi.mock('@/lib/shipping/build-order-gigl-quote-request', () => ({
   buildOrderGiglQuoteRequest: mocks.buildOrderGiglQuoteRequest,
 }));
@@ -92,9 +95,10 @@ describe('Admin GIGL edge auth and order validation', () => {
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid receiver body after authorization', async () => {
+  it('rejects an invalid receiver body before merchant access lookup', async () => {
     const response = await subject({ receiver: { city: 'Ikeja' } });
     expect(response.status).toBe(400);
+    expect(mocks.getUserAccess).not.toHaveBeenCalled();
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
@@ -108,18 +112,19 @@ describe('Admin GIGL edge auth and order validation', () => {
   });
 
   it('loads the order scoped to the authorized merchant', async () => {
-    const { admin } = setup();
+    const { supabase } = setup();
     const response = await subject({ receiver });
     expect(response.status).toBe(200);
-    expect(admin.from).toHaveBeenCalledWith('orders');
-    expect(admin.from('orders').eq).toHaveBeenCalledWith(
+    expect(supabase.from).toHaveBeenCalledWith('orders');
+    expect(supabase.from('orders').eq).toHaveBeenCalledWith(
       'merchant_id',
       merchantId
     );
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('disambiguates the order-item product relationship in the order query', async () => {
-    const { admin, order } = setup();
+    const { supabase, order } = setup();
     order.select.mockImplementation((selection: string) => {
       if (!selection.includes('product:products!order_items_product_id_fkey')) {
         order.maybeSingle.mockResolvedValueOnce({
@@ -131,7 +136,7 @@ describe('Admin GIGL edge auth and order validation', () => {
     });
     const response = await subject({ receiver });
     expect(response.status).toBe(200);
-    expect(admin.from('orders').select).toHaveBeenCalledWith(
+    expect(supabase.from('orders').select).toHaveBeenCalledWith(
       expect.stringContaining(
         'product:products!order_items_product_id_fkey(weight_value, weight_unit)'
       )
@@ -163,6 +168,20 @@ describe('Admin GIGL edge auth and order validation', () => {
     const response = await subject({ receiver });
     expect(response.status).toBe(409);
     expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
+  it('rejects a pending order before invoking the provider or persistence RPC', async () => {
+    setup({
+      order: { id: orderId, shipping_status: 'pending' },
+    });
+    const response = await subject({ receiver });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'Order must be processing before shipping',
+    });
+    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    expect(mocks.persistAdminGiglQuote).not.toHaveBeenCalled();
   });
 
   it('returns sender resolution failures without calling the provider', async () => {
@@ -214,6 +233,7 @@ describe('Admin GIGL edge auth and order validation', () => {
   });
 
   it('uses the authoritative order request and sender, with only a receiver override', async () => {
+    const { supabase } = setup();
     const response = await subject({ receiver });
     expect(response.status).toBe(200);
     expect(mocks.buildOrderGiglQuoteRequest).toHaveBeenCalledWith(
@@ -221,6 +241,10 @@ describe('Admin GIGL edge auth and order validation', () => {
       sender,
       expect.any(Function),
       receiver
+    );
+    expect(mocks.resolveBookingMerchantSender).toHaveBeenCalledWith(
+      supabase,
+      merchantId
     );
   });
 });

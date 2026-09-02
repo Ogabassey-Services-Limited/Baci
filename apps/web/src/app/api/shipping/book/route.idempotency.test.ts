@@ -82,7 +82,10 @@ function buildSupabaseMock(options: { respectRetainedLock?: boolean } = {}) {
   };
 
   const supabase = {
-    rpc: vi.fn().mockImplementation(() => {
+    rpc: vi.fn().mockImplementation((name: string) => {
+      if (name === 'get_shipping_quote_booking_metadata') {
+        return Promise.resolve({ data: null, error: null });
+      }
       claimCount += 1;
       const blockedByRetainedLock = Boolean(
         options.respectRetainedLock && claimCount > 1 && lockHeld

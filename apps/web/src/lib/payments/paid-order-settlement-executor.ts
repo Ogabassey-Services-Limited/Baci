@@ -40,6 +40,7 @@ const settlementArgsSchema = z.object({
     order_id: z.string().trim().min(1),
     platform_fee: moneyInputSchema.nullish(),
   }),
+  orderShippingProvider: z.string().trim().nullish().optional(),
   orderShippingFundingSource: z
     .enum(['customer_checkout', 'merchant_wallet'])
     .nullable()
@@ -70,6 +71,7 @@ export function buildSettlementExecutor(args: {
   settlementGateway: 'juicyway' | 'korapay' | 'paystack';
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
+  orderShippingProvider?: string | null;
   orderShippingFundingSource?: 'customer_checkout' | 'merchant_wallet' | null;
   orderShippingRetainedAmount?: number | string | null;
 }): StepExecutor {
@@ -145,13 +147,25 @@ export function buildSettlementExecutor(args: {
         'Invalid retained shipping snapshot: funding source is required for a positive retained amount'
       );
     }
-    const retainedShippingAmount =
+    const requestedRetainedShippingAmount =
       validatedArgs.orderShippingFundingSource === 'customer_checkout'
         ? toNumber(
             validatedArgs.orderShippingRetainedAmount ?? 0,
             'retained shipping amount'
           )
         : 0;
+    // A discounted order can contain a shipping line that consumes the whole
+    // verified gross. Never let the caller snapshot push gateway + platform
+    // fees above that gross; the settlement RPC applies the same cap against
+    // its authoritative selected quote.
+    const maxRetainedShippingAmount = Math.max(
+      0,
+      normalizedGrossAmount - normalizedGatewayFee - platformFee
+    );
+    const retainedShippingAmount =
+      validatedArgs.orderShippingProvider === 'GIGL'
+        ? Math.min(requestedRetainedShippingAmount, maxRetainedShippingAmount)
+        : requestedRetainedShippingAmount;
     if (
       !Number.isFinite(retainedShippingAmount) ||
       retainedShippingAmount < 0
@@ -177,21 +191,27 @@ export function buildSettlementExecutor(args: {
         : {}),
     };
 
-    const { error } = await validatedArgs.supabase.rpc(
-      'record_merchant_settlement',
-      {
-        p_description: `Order payment via ${validatedArgs.settlementGateway}`,
-        p_gateway: validatedArgs.settlementGateway,
-        p_gateway_fee: normalizedGatewayFee,
-        p_gateway_reference: validatedArgs.externalGatewayReference,
-        p_gross_amount: normalizedGrossAmount,
-        p_merchant_id: validatedArgs.transaction.merchant_id,
-        p_metadata: metadata,
-        p_platform_fee: hasEconomicsSnapshot ? totalPlatformFee : platformFee,
-        p_source_id: validatedArgs.transaction.order_id,
-        p_source_type: 'order',
-      }
-    );
+    const useGiglSettlementRpc =
+      hasEconomicsSnapshot && validatedArgs.orderShippingProvider === 'GIGL';
+    const settlementRpc = useGiglSettlementRpc
+      ? 'record_merchant_settlement_gigl_v1'
+      : 'record_merchant_settlement';
+    const { error } = await validatedArgs.supabase.rpc(settlementRpc, {
+      p_description: `Order payment via ${validatedArgs.settlementGateway}`,
+      p_gateway: validatedArgs.settlementGateway,
+      p_gateway_fee: normalizedGatewayFee,
+      p_gateway_reference: validatedArgs.externalGatewayReference,
+      p_gross_amount: normalizedGrossAmount,
+      p_merchant_id: validatedArgs.transaction.merchant_id,
+      p_metadata: metadata,
+      // The GIGL wrapper recomputes retained shipping from the selected
+      // quote inside the settlement boundary; never pass the application
+      // snapshot as an authoritative debit amount. Legacy providers keep
+      // their existing caller-supplied retention behavior.
+      p_platform_fee: useGiglSettlementRpc ? platformFee : totalPlatformFee,
+      p_source_id: validatedArgs.transaction.order_id,
+      p_source_type: 'order',
+    });
     if (error) throwSettlementRpcError(error);
     return {
       gateway_fee: normalizedGatewayFee,

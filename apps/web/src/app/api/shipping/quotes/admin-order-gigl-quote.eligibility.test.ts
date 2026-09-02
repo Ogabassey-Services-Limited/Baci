@@ -17,6 +17,9 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mocks.createAdminClient,
 }));
+vi.mock('@/lib/shipping/persist-admin-gigl-quote', () => ({
+  persistAdminGiglQuote: mocks.persistAdminGiglQuote,
+}));
 vi.mock('@/lib/shipping/build-order-gigl-quote-request', () => ({
   buildOrderGiglQuoteRequest: mocks.buildOrderGiglQuoteRequest,
 }));

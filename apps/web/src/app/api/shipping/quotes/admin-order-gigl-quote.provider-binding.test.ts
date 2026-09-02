@@ -22,6 +22,9 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mocks.createAdminClient,
 }));
+vi.mock('@/lib/shipping/persist-admin-gigl-quote', () => ({
+  persistAdminGiglQuote: mocks.persistAdminGiglQuote,
+}));
 vi.mock('@/lib/shipping/build-order-gigl-quote-request', () => ({
   buildOrderGiglQuoteRequest: mocks.buildOrderGiglQuoteRequest,
 }));
@@ -73,10 +76,9 @@ describe('Admin GIGL provider, persistence, binding, and wallet behavior', () =>
     ]);
     const response = await subject({ receiver });
     expect(response.status).toBe(200);
-    expect(mocks.persistRpc).toHaveBeenCalledWith(
-      'persist_admin_gigl_quote',
+    expect(mocks.persistAdminGiglQuote).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_quote: expect.objectContaining({
+        quote: expect.objectContaining({
           id: cheaper.id,
           price: 9_900,
           provider_cost: cheaper.providerCost,
@@ -87,7 +89,7 @@ describe('Admin GIGL provider, persistence, binding, and wallet behavior', () =>
             admin_order_provenance: 'server_gigl_v1',
           }),
         }),
-        p_attestation: expect.objectContaining({
+        attestation: expect.objectContaining({
           quote_id: cheaper.id,
           order_id: orderId,
           merchant_id: merchantId,
@@ -101,7 +103,7 @@ describe('Admin GIGL provider, persistence, binding, and wallet behavior', () =>
   });
 
   it('maps trusted writer or attestation failure to a redacted 500', async () => {
-    mocks.persistRpc.mockResolvedValue({
+    mocks.persistAdminGiglQuote.mockResolvedValue({
       data: null,
       error: { message: 'invalid_admin_quote' },
     });

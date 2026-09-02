@@ -314,7 +314,27 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260902092321_secure_gigl_shipping_settlement_retained_amount.sql',
+    sha256: '32e533cf10f042026a29bf33427e29eb94523e7b3d0a81c7e46416a02467be0a',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260902100000_repair_reconciliation_review_issue_types.sql',
     sha256: '1653c0ba5a4b28ccabffc2dcea63923c96bdda9f6aa98066868c2a8b413cb985',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902100100_harden_gigl_wallet_migration_review.sql',
+    sha256: '93e8f647054ccfc45c880a4868a23558e728e53110bf3a64482060a91263fa46',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902103000_sanitize_shipping_quote_booking_metadata.sql',
+    sha256: '095688be9b45d5233061b36088d6eae3ff5fe853dde85cc75cea3dffa94701f9',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902103100_cap_gigl_shipping_settlement_retention.sql',
+    sha256: '9fe11cf6880bc97a79430e7be9bdf10ffe5b0f7c47b557d455f97a55a34a62c3',
   },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

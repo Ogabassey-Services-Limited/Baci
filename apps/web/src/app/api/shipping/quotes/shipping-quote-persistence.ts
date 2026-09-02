@@ -1,5 +1,23 @@
 import type { QuoteRequest, ShippingQuote } from '@/lib/shipping/types';
 
+function toTopshipBookingMetadata(
+  value: unknown
+): Record<string, unknown> | null {
+  if (value === null || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  const metadata: Record<string, unknown> = {};
+  if (typeof source.pricingTier === 'string') {
+    metadata.pricingTier = source.pricingTier;
+  }
+  if (typeof source.serviceType === 'string') {
+    metadata.serviceType = source.serviceType;
+  }
+  if (typeof source.cost === 'number' && Number.isFinite(source.cost)) {
+    metadata.cost = source.cost;
+  }
+  return Object.keys(metadata).length > 0 ? metadata : null;
+}
+
 export interface ShippingQuoteUpsertContext {
   merchantId?: string | null;
   sessionId: string;
@@ -32,7 +50,13 @@ export function toShippingQuoteUpsert(
     station_name: quote.stationName,
     station_address: quote.stationAddress,
     provider_rate_id: quote.providerRateId,
-    provider_metadata: quote.rawResponse,
+    // GIGL booking derives the selected tariff from provider_rate_id and must
+    // never persist the provider's raw response. Topship only needs these
+    // three fields to recreate its saved shipment charge.
+    provider_metadata:
+      quote.provider === 'TOPSHIP'
+        ? toTopshipBookingMetadata(quote.rawResponse)
+        : null,
     expires_at: quote.expiresAt.toISOString(),
     quote_request: context.quoteRequest,
   };

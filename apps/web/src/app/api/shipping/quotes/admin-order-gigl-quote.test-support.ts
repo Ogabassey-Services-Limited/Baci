@@ -11,6 +11,7 @@ export const mocks = {
   resolveBookingMerchantSender: vi.fn(),
   getProviderQuotes: vi.fn(),
   persistRpc: vi.fn(),
+  persistAdminGiglQuote: vi.fn(),
   bindRpc: vi.fn(),
 };
 
@@ -77,7 +78,9 @@ export function request(
   });
 }
 
-export function orderQuery(data: unknown = { id: orderId }) {
+export function orderQuery(
+  data: unknown = { id: orderId, shipping_status: 'processing' }
+) {
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
@@ -104,7 +107,9 @@ export function setup(
   } = {}
 ) {
   const order = orderQuery(
-    Object.hasOwn(overrides, 'order') ? overrides.order : { id: orderId }
+    Object.hasOwn(overrides, 'order')
+      ? overrides.order
+      : { id: orderId, shipping_status: 'processing' }
   );
   if (overrides.orderError)
     order.maybeSingle.mockResolvedValue({
@@ -132,6 +137,7 @@ export function setup(
   );
   const supabase = {
     from: vi.fn((table: string) => {
+      if (table === 'orders') return order;
       if (table === 'merchants') return merchant;
       if (table === 'merchant_feature_settings') return featureSettings;
       throw new Error(`unexpected authenticated table ${table}`);
@@ -157,6 +163,7 @@ export function setup(
   });
   mocks.getProviderQuotes.mockResolvedValue([quote]);
   mocks.persistRpc.mockResolvedValue({ data: quoteId, error: null });
+  mocks.persistAdminGiglQuote.mockResolvedValue({ data: quoteId, error: null });
   mocks.bindRpc.mockResolvedValue({
     data: { available_balance: 20_000 },
     error: null,

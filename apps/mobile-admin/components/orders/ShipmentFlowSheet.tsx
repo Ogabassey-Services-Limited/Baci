@@ -226,6 +226,9 @@ export function ShipmentFlowSheet({
                         missingFields={giglShipping.missingFields}
                         onAddressFieldChange={giglShipping.updateAddressField}
                         onFundWallet={() => void giglShipping.startFunding()}
+                        onRefreshFundingAccount={() =>
+                          void giglShipping.refreshFundingAccount()
+                        }
                         onModeChange={() => onModeChange('provider')}
                         onRetryQuote={() => void giglShipping.requestQuote()}
                         onTransferred={giglShipping.startTransferPoll}

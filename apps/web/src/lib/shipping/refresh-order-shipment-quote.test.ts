@@ -8,6 +8,16 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
+vi.mock('server-only', () => ({}));
+
+const adminMocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: adminMocks.createAdminClient,
+}));
+
 const { refreshOrderShipmentQuote } = await import(
   './refresh-order-shipment-quote'
 );
@@ -63,6 +73,11 @@ function createQuote(overrides?: {
 function createSupabase(
   upsertError: { code: string; message: string } | null = null
 ) {
+  adminMocks.createAdminClient.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      upsert: vi.fn().mockResolvedValue({ error: upsertError }),
+    }),
+  });
   return {
     from: vi.fn().mockReturnValue({
       upsert: vi.fn().mockResolvedValue({ error: upsertError }),
@@ -122,7 +137,7 @@ describe('refreshOrderShipmentQuote', () => {
       expect.objectContaining({ sender: correctedSender })
     );
     expect(result.id).toBe('quote-refreshed');
-    expect(supabase.from).toHaveBeenCalledWith('shipping_quotes');
+    expect(adminMocks.createAdminClient).toHaveBeenCalledOnce();
   });
 
   it('fails before the provider when refresh is disabled for a stale wallet quote', async () => {

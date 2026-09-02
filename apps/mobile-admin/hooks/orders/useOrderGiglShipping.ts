@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
   OrderGiglFundingPoller,
@@ -8,8 +8,6 @@ import {
 import {
   getMerchantWalletSummary,
   getOrderGiglQuote,
-  getOrRequestMerchantWalletFundingAccount,
-  type MerchantWalletFundingAccount,
   type OrderGiglMissingField,
   type OrderGiglQuote,
   type OrderGiglReceiver,
@@ -25,6 +23,7 @@ import {
   toOrderGiglAddressDraft,
   toOrderGiglWalletState,
 } from '@/lib/order-gigl-shipping-state';
+import { useOrderGiglFunding } from './useOrderGiglFunding';
 
 export type { OrderGiglShippingState } from '@/lib/order-gigl-shipping-state';
 
@@ -38,8 +37,6 @@ export function useOrderGiglShipping({
   const quoteRef = useRef<OrderGiglQuote | null>(null);
   const [wallet, setWallet] = useState<OrderGiglWalletState | null>(null);
   const walletRef = useRef<OrderGiglWalletState | null>(null);
-  const [fundingAccount, setFundingAccount] =
-    useState<MerchantWalletFundingAccount | null>(null);
   const [addressDraft, setAddressDraft] = useState<Partial<OrderGiglReceiver>>(
     toOrderGiglAddressDraft(initialAddress)
   );
@@ -52,9 +49,16 @@ export function useOrderGiglShipping({
   const controllerRef = useRef<AbortController | null>(null);
   const pollerRef = useRef<OrderGiglFundingPoller | null>(null);
   const confirmationRef = useRef(false);
-  const fundingRef = useRef(false);
   const enabledRef = useRef(enabled);
   const appActiveRef = useRef(true);
+  const orderIdRef = useRef(orderId);
+  const requestQuoteRef = useRef<(() => Promise<unknown>) | null>(null);
+  const {
+    fundingAccount,
+    refreshFundingAccount,
+    reset: resetFunding,
+    startFunding,
+  } = useOrderGiglFunding({ enabled, orderId, setError, setState });
 
   enabledRef.current = enabled;
   quoteRef.current = quote;
@@ -127,6 +131,7 @@ export function useOrderGiglShipping({
     }
     return null;
   };
+  requestQuoteRef.current = requestQuote;
 
   const updateAddressField = (field: OrderGiglMissingField, value: string) => {
     setAddressDraft((previous) => {
@@ -164,29 +169,6 @@ export function useOrderGiglShipping({
       return refreshed ? toOrderGiglWalletState(refreshed) : walletRef.current;
     }
     return next;
-  };
-
-  const startFunding = async () => {
-    if (!enabledRef.current || fundingRef.current) return;
-    fundingRef.current = true;
-    setState('funding');
-    setError(null);
-    try {
-      const response = await getOrRequestMerchantWalletFundingAccount();
-      setFundingAccount(response.account);
-      setState(
-        response.account?.status === 'active' ? 'ready' : 'funding_pending'
-      );
-    } catch (fundingError: unknown) {
-      setError(
-        fundingError instanceof Error
-          ? fundingError.message
-          : 'Unable to prepare wallet funding.'
-      );
-      setState('error');
-    } finally {
-      fundingRef.current = false;
-    }
   };
 
   const ensureFreshQuoteForConfirmation = async () => {
@@ -237,6 +219,7 @@ export function useOrderGiglShipping({
   };
 
   const reset = () => {
+    resetFunding();
     controllerRef.current?.abort();
     stopPolling();
     setError(null);
@@ -244,8 +227,20 @@ export function useOrderGiglShipping({
     setState('idle');
   };
 
+  const clearOrderScopedState = () => {
+    reset();
+    invalidateQuote();
+    confirmationRef.current = false;
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is render-local and orderId is the state boundary
+  useLayoutEffect(() => {
+    if (orderIdRef.current === orderId) return;
+    orderIdRef.current = orderId;
+    clearOrderScopedState();
+  }, [orderId]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: scalar dependencies prevent a render loop while keeping the draft current
-  useEffect(() => {
+  useLayoutEffect(() => {
     const next = toOrderGiglAddressDraft(initialAddress);
     setAddressDraft(next);
     addressRef.current = next;
@@ -258,8 +253,11 @@ export function useOrderGiglShipping({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: request functions are render-local and including them would repeat the network request
   useEffect(() => {
-    if (enabled) void requestQuote();
-    else reset();
+    if (enabled) {
+      invalidateQuote();
+      resetFunding();
+      void requestQuote();
+    } else reset();
     return () => {
       controllerRef.current?.abort();
       stopPolling();
@@ -272,7 +270,11 @@ export function useOrderGiglShipping({
       appActiveRef.current = nextState === 'active';
       if (!appActiveRef.current) {
         stopPolling();
-        setState((previous) => (previous === 'polling' ? 'ready' : previous));
+        setState((previous) =>
+          previous === 'loading' || previous === 'polling' ? 'ready' : previous
+        );
+      } else if (enabledRef.current && !quoteRef.current) {
+        void requestQuoteRef.current?.();
       }
     });
     return () => subscription.remove();
@@ -286,6 +288,7 @@ export function useOrderGiglShipping({
     missingFields,
     quote,
     refreshBalance,
+    refreshFundingAccount,
     requestQuote,
     reset,
     startFunding,

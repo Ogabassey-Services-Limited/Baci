@@ -46,6 +46,7 @@ export type RichPaidOrder = {
   } | null;
   shipping_fee: number;
   shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
+  shipping_provider?: string | null;
   shipping_platform_retained_amount?: number | string | null;
   subtotal: number;
   tax_amount: number;

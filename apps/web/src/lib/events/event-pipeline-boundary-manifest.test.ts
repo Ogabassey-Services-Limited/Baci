@@ -147,6 +147,8 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/lib/events/record-platform-order-created-event.ts',
       'apps/web/src/lib/expo-push.ts',
       'apps/web/src/lib/insurance/notify-activate-protection.ts',
+      'apps/web/src/lib/shipping/persist-admin-gigl-quote.ts',
+      'apps/web/src/lib/shipping/persist-refreshed-shipping-quote.ts',
     ]);
     expect(manifest.authority.serviceImporters).toEqual([
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',

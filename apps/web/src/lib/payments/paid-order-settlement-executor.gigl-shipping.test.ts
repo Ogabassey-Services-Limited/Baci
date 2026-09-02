@@ -41,6 +41,7 @@ describe('GIGL shipping settlement retention', () => {
       settlementGateway: 'paystack',
       supabase,
       transaction: { ...transaction, platform_fee: 1_000 },
+      orderShippingProvider: 'GIGL',
       orderShippingFundingSource: 'customer_checkout',
       orderShippingRetainedAmount: 11_000,
     })(context);
@@ -50,9 +51,9 @@ describe('GIGL shipping settlement retention', () => {
       platform_fee: 1_000,
     });
     expect(rpc).toHaveBeenCalledWith(
-      'record_merchant_settlement',
+      'record_merchant_settlement_gigl_v1',
       expect.objectContaining({
-        p_platform_fee: 12_000,
+        p_platform_fee: 1_000,
         p_metadata: expect.objectContaining({
           commerce_platform_fee: 1_000,
           retained_shipping_amount: 11_000,
@@ -70,11 +71,12 @@ describe('GIGL shipping settlement retention', () => {
       settlementGateway: 'paystack',
       supabase,
       transaction: { ...transaction, platform_fee: 1_000 },
+      orderShippingProvider: 'GIGL',
       orderShippingFundingSource: source,
       orderShippingRetainedAmount: 11_000,
     })(context);
     expect(rpc).toHaveBeenCalledWith(
-      'record_merchant_settlement',
+      'record_merchant_settlement_gigl_v1',
       expect.objectContaining({
         p_platform_fee: 1_000,
         p_metadata: expect.objectContaining({
@@ -145,5 +147,29 @@ describe('GIGL shipping settlement retention', () => {
       })(context)
     ).rejects.toThrow('Settlement fees exceed gross amount');
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('caps retained shipping when a discounted basket leaves less than the quote price', async () => {
+    const { rpc, supabase } = setup();
+    const result = await buildSettlementExecutor({
+      externalGatewayReference: 'REF',
+      settlementGateway: 'paystack',
+      supabase,
+      transaction: { ...transaction, amount: 11_000, platform_fee: 1_000 },
+      orderShippingProvider: 'GIGL',
+      orderShippingFundingSource: 'customer_checkout',
+      orderShippingRetainedAmount: 11_000,
+    })(context);
+
+    expect(result?.retained_shipping_amount).toBe(10_000);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_merchant_settlement_gigl_v1',
+      expect.objectContaining({
+        p_platform_fee: 1_000,
+        p_metadata: expect.objectContaining({
+          retained_shipping_amount: 10_000,
+        }),
+      })
+    );
   });
 });

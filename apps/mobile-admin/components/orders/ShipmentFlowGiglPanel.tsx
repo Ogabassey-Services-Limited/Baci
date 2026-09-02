@@ -25,6 +25,7 @@ interface Props {
   missingFields: OrderGiglMissingField[];
   onAddressFieldChange: (field: OrderGiglMissingField, value: string) => void;
   onFundWallet: () => void;
+  onRefreshFundingAccount: () => void;
   onModeChange: () => void;
   onRetryQuote: () => void;
   onTransferred: () => void;
@@ -78,6 +79,7 @@ export function ShipmentFlowGiglPanel({
   missingFields,
   onAddressFieldChange,
   onFundWallet,
+  onRefreshFundingAccount,
   onModeChange,
   onRetryQuote,
   onTransferred,
@@ -144,17 +146,27 @@ export function ShipmentFlowGiglPanel({
         <ActionButton label="Retry quote" onPress={onRetryQuote} />
       ) : null}
 
-      {quote && wallet && !wallet.canBook && !fundingAccount ? (
+      {quote &&
+      wallet &&
+      !wallet.canBook &&
+      !fundingAccount &&
+      state !== 'funding_pending' ? (
         <ActionButton
-          disabled={state === 'funding' || state === 'funding_pending'}
+          disabled={state === 'funding'}
           label="Fund wallet"
           onPress={onFundWallet}
         />
       ) : null}
       {state === 'funding_pending' && !fundingAccount ? (
-        <Text style={{ color: colors.textSecondary }}>
-          Your bank transfer account is being prepared. Try again shortly.
-        </Text>
+        <View>
+          <Text style={{ color: colors.textSecondary }}>
+            Your bank transfer account is being prepared. Check again shortly.
+          </Text>
+          <ActionButton
+            label="Check funding status"
+            onPress={onRefreshFundingAccount}
+          />
+        </View>
       ) : null}
 
       {fundingAccount?.status === 'active' ? (

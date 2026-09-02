@@ -11,14 +11,19 @@ import { shouldReleaseBookingLock } from './order-shipment-booking-lock-errors';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 type ReleaseLock = () => Promise<void>;
+type PrepareQuote = () => Promise<string>;
+type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
+type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
 
 export async function bookWalletFundedOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
   orderId: string,
   quoteId: string,
-  book: () => Promise<BookOrderShipmentResult>,
-  releaseLock?: ReleaseLock
+  book: BookShipment,
+  releaseLock?: ReleaseLock,
+  prepareQuote?: PrepareQuote,
+  readExistingShipment?: ReadExistingShipment
 ): Promise<BookOrderShipmentResult> {
   // Retain the merchant context in this route-level contract; owner checks are
   // enforced by every wallet RPC before it can mutate state.
@@ -29,15 +34,54 @@ export async function bookWalletFundedOrderShipment(
       'MERCHANT_NOT_FOUND'
     );
   }
+  if (readExistingShipment) {
+    try {
+      const existingShipment = await readExistingShipment();
+      if (existingShipment) return existingShipment;
+    } catch (error) {
+      if (releaseLock && shouldReleaseBookingLock(error)) {
+        try {
+          await releaseLock();
+        } catch (releaseError) {
+          console.error(
+            'Failed to release shipment booking lock after existing-shipment lookup error:',
+            releaseError
+          );
+        }
+      }
+      throw error;
+    }
+  }
+  let preparedQuoteId = quoteId;
+  if (prepareQuote) {
+    try {
+      preparedQuoteId = await prepareQuote();
+    } catch (error) {
+      // Quote preparation runs after the order booking lock is claimed but
+      // before any wallet reservation. Release that lock while preserving the
+      // original refresh/provider error for the caller.
+      if (releaseLock) {
+        try {
+          await releaseLock();
+        } catch (releaseError) {
+          console.error(
+            'Failed to release shipment booking lock after quote preparation error:',
+            releaseError
+          );
+        }
+      }
+      throw error;
+    }
+  }
   const { charge, token } = await reserveMerchantShippingCharge(
     supabase,
     orderId,
-    quoteId
+    preparedQuoteId
   );
   // A prior confirmation may have completed successfully. Re-enter the normal
   // booking reader so the existing persisted shipment is returned without a
   // second provider submission or wallet transition.
-  if (charge.status === 'booked') return book();
+  if (charge.status === 'booked') return book(preparedQuoteId);
   if (
     charge.status === 'refunded' ||
     charge.status === 'needs_reconciliation'
@@ -63,7 +107,7 @@ export async function bookWalletFundedOrderShipment(
       token
     );
     providerSubmissionStarted = true;
-    const shipment = await book();
+    const shipment = await book(preparedQuoteId);
     await completeMerchantShippingCharge(
       supabase,
       charge.chargeId,
@@ -107,10 +151,12 @@ export function bookWalletOrCustomerCheckout(
   orderId: string,
   quoteId: string,
   fundingSource: 'customer_checkout' | 'merchant_wallet' | null | undefined,
-  book: () => Promise<BookOrderShipmentResult>,
-  releaseLock?: ReleaseLock
+  book: BookShipment,
+  releaseLock?: ReleaseLock,
+  prepareQuote?: PrepareQuote,
+  readExistingShipment?: ReadExistingShipment
 ) {
-  if (fundingSource !== 'merchant_wallet') return book();
+  if (fundingSource !== 'merchant_wallet') return book(quoteId);
   if (!merchantId || !orderId || !quoteId) {
     throw new OrderShipmentBookingError(
       'Wallet-funded booking requires the order booking path.',
@@ -124,6 +170,8 @@ export function bookWalletOrCustomerCheckout(
     orderId,
     quoteId,
     book,
-    releaseLock
+    releaseLock,
+    prepareQuote,
+    readExistingShipment
   );
 }

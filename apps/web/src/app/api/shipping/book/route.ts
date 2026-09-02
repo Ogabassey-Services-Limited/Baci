@@ -12,6 +12,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { getShippingQuoteBookingMetadata } from '@/lib/shipping/shipping-quote-booking-metadata';
 import type { ShipmentBookingResult } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
+        'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
       .eq('merchant_id', merchantId)
@@ -135,8 +136,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const bookingMetadata = await getShippingQuoteBookingMetadata(
+      supabase,
+      merchantId,
+      data.orderId,
+      quote.id
+    );
+    let bookingQuote = {
+      ...quote,
+      provider_metadata: bookingMetadata,
+    };
+
     const quotePayload = resolveBookingQuoteRequestPayload(
-      quote,
+      bookingQuote,
       {
         ...data.receiver,
         country: data.receiver.country || 'Nigeria',
@@ -197,7 +209,6 @@ export async function POST(request: NextRequest) {
       bookingLockToken = bookingAttempt.lockToken;
     }
 
-    let bookingQuote = quote;
     let result: ShipmentBookingResult;
     let resolvedSenderInfo: typeof quotePayload.sender;
     let resolvedReceiver = quotePayload.receiver;
@@ -217,7 +228,7 @@ export async function POST(request: NextRequest) {
         merchantId,
         merchantBusinessName: merchantContext.businessName,
         orderId: data.orderId,
-        quote,
+        quote: bookingQuote,
         quotePayload,
         usesStoredInternationalSender,
         expectedShippingFee: order.shipping_fee,

@@ -14,6 +14,7 @@ const mockProcessMerchantInvoicePartialPayment = vi.hoisted(() => vi.fn());
 const mockProcessWalletFundedOrderPayment = vi.hoisted(() => vi.fn());
 const mockRunPaidOrderSideEffects = vi.hoisted(() => vi.fn());
 const mockPersistMerchantWalletAssignmentEvent = vi.hoisted(() => vi.fn());
+const mockFailMerchantWalletAssignmentEvent = vi.hoisted(() => vi.fn());
 
 // Mock environment variables
 vi.mock('@/env', () => ({
@@ -52,6 +53,9 @@ vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
 vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
   persistMerchantWalletAssignmentEvent:
     mockPersistMerchantWalletAssignmentEvent,
+}));
+vi.mock('@/lib/merchant-wallet-assignment-events', () => ({
+  failMerchantWalletAssignmentEvent: mockFailMerchantWalletAssignmentEvent,
 }));
 
 vi.mock('@/lib/customer-savings-paystack-webhook', () => ({
@@ -500,6 +504,9 @@ describe('POST /api/payments/webhook', () => {
     });
     mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockHandlePaystackSavingsWebhookTransaction.mockResolvedValue(null);
+    mockFailMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'match',
+    });
     mockGetPaystackDvaReceiverAccountNumber.mockReturnValue(null);
     mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValue({
       ok: true,
@@ -6381,6 +6388,27 @@ describe('POST /api/payments/webhook', () => {
     });
   });
 
+  it('rejects an unsigned dedicated-account assignment before persistence', async () => {
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, { 'x-paystack-signature': 'invalid-signature' })
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Invalid signature' });
+    expect(mockPersistMerchantWalletAssignmentEvent).not.toHaveBeenCalled();
+  });
+
   it('handles a signed dedicated-account assignment before charge logic', async () => {
     mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
       kind: 'match',
@@ -6410,6 +6438,85 @@ describe('POST /api/payments/webhook', () => {
       handled: 'merchant_wallet_assignment',
     });
     expect(mockPersistMerchantWalletAssignmentEvent).toHaveBeenCalled();
+  });
+
+  it('handles a signed dedicated-account assignment failure by marking the request retryable', async () => {
+    mockFailMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'match',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.failed',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      handled: 'merchant_wallet_assignment_failure',
+    });
+    expect(mockFailMerchantWalletAssignmentEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      body
+    );
+    expect(mockPersistMerchantWalletAssignmentEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unsigned dedicated-account assignment failure before transition', async () => {
+    const body = {
+      event: 'dedicatedaccount.assign.failed',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, { 'x-paystack-signature': 'invalid-signature' })
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Invalid signature' });
+    expect(mockFailMerchantWalletAssignmentEvent).not.toHaveBeenCalled();
+  });
+
+  it('returns review for a signed uncorrelated assignment failure', async () => {
+    mockFailMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'review',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.failed',
+      data: { metadata: { source: 'merchant_wallet_funding' } },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'Paystack assignment failure accepted for review',
+      code: 'MERCHANT_WALLET_ASSIGNMENT_FAILURE_REVIEW',
+    });
   });
 
   it('returns review for a signed assignment conflict without entering charge flow', async () => {

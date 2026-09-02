@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { bookWalletOrCustomerCheckout } from './book-wallet-funded-order-shipment';
 import * as charge from './merchant-shipping-charge';
@@ -10,6 +11,8 @@ vi.mock('./merchant-shipping-charge', () => ({
   refundMerchantShippingCharge: vi.fn(),
   markMerchantShippingChargeForReconciliation: vi.fn(),
 }));
+
+const supabaseFixture = {} as SupabaseClient;
 
 describe('wallet-funded shipment orchestration', () => {
   beforeEach(() => vi.resetAllMocks());
@@ -24,7 +27,7 @@ describe('wallet-funded shipment orchestration', () => {
     const book = vi.fn();
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -38,7 +41,7 @@ describe('wallet-funded shipment orchestration', () => {
   it('never calls wallet RPCs for customer checkout', async () => {
     const book = vi.fn().mockResolvedValue({ shipmentId: 's1' });
     await bookWalletOrCustomerCheckout(
-      {} as never,
+      supabaseFixture,
       'm1',
       'o1',
       'q1',
@@ -61,7 +64,7 @@ describe('wallet-funded shipment orchestration', () => {
     });
     const book = vi.fn().mockResolvedValue({ shipmentId: 's1' });
     await bookWalletOrCustomerCheckout(
-      {} as never,
+      supabaseFixture,
       'm1',
       'o1',
       'q1',
@@ -78,6 +81,168 @@ describe('wallet-funded shipment orchestration', () => {
       'a'.repeat(64),
       's1'
     );
+  });
+
+  it('refreshes the quote before reserving wallet funds', async () => {
+    const events: string[] = [];
+    vi.mocked(charge.reserveMerchantShippingCharge).mockImplementation(
+      async (_supabase, _orderId, quoteId) => {
+        events.push(`reserve:${quoteId}`);
+        return {
+          charge: {
+            chargeId: 'c-refresh',
+            chargedAmount: 100,
+            balanceAfter: 0,
+            status: 'reserved',
+          },
+          token: 'q'.repeat(64),
+        };
+      }
+    );
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockImplementation(
+      async () => {
+        events.push('begin');
+        return null;
+      }
+    );
+    const prepareQuote = vi.fn(async () => {
+      events.push('refresh');
+      return 'q-fresh';
+    });
+    const book = vi.fn(async (quoteId?: string) => {
+      events.push(`book:${quoteId}`);
+      return {
+        shipmentId: 's-refresh',
+        provider: 'GIGL' as const,
+        providerShipmentId: 'p-refresh',
+        trackingNumber: 't-refresh',
+        carrierName: 'GIGL',
+        quoteId: 'q-fresh',
+        estimatedDays: null,
+        shipmentStatus: 'booked' as const,
+      };
+    });
+
+    await bookWalletOrCustomerCheckout(
+      supabaseFixture,
+      'm1',
+      'o1',
+      'q-stale',
+      'merchant_wallet',
+      book,
+      undefined,
+      prepareQuote
+    );
+
+    expect(prepareQuote).toHaveBeenCalledOnce();
+    expect(events).toEqual([
+      'refresh',
+      'reserve:q-fresh',
+      'begin',
+      'book:q-fresh',
+    ]);
+  });
+
+  it('releases the lock when quote preparation fails before reservation', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(
+        new OrderShipmentBookingError(
+          'Quote metadata unavailable',
+          500,
+          'QUOTE_METADATA_LOOKUP_FAILED'
+        )
+      );
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q-stale',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        prepareQuote
+      )
+    ).rejects.toMatchObject({ code: 'QUOTE_METADATA_LOOKUP_FAILED' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+  });
+
+  it('returns an existing booked shipment before preparing a quote', async () => {
+    const existing = {
+      shipmentId: 's-existing',
+      provider: 'GIGL' as const,
+      providerShipmentId: 'p-existing',
+      trackingNumber: 't-existing',
+      carrierName: 'GIGL',
+      quoteId: 'q-existing',
+      estimatedDays: null,
+      shipmentStatus: 'booked' as const,
+    };
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(new Error('stale quote should not be prepared'));
+    const readExistingShipment = vi.fn().mockResolvedValue(existing);
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        undefined,
+        prepareQuote,
+        readExistingShipment
+      )
+    ).resolves.toEqual(existing);
+
+    expect(readExistingShipment).toHaveBeenCalledOnce();
+    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+  });
+
+  it('releases the lock and skips reservation when existing-shipment lookup fails', async () => {
+    const release = vi.fn().mockRejectedValue(new Error('lock release failed'));
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const readExistingShipment = vi
+      .fn()
+      .mockRejectedValue(
+        new OrderShipmentBookingError(
+          'Unable to verify existing shipment.',
+          500,
+          'EXISTING_SHIPMENT_LOOKUP_FAILED'
+        )
+      );
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        undefined,
+        readExistingShipment
+      )
+    ).rejects.toMatchObject({ code: 'EXISTING_SHIPMENT_LOOKUP_FAILED' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to release shipment booking lock after existing-shipment lookup error:',
+      expect.any(Error)
+    );
+    errorSpy.mockRestore();
   });
 
   it('refunds and releases the lock when submission cannot begin before provider booking', async () => {
@@ -102,7 +267,7 @@ describe('wallet-funded shipment orchestration', () => {
 
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -142,7 +307,7 @@ describe('wallet-funded shipment orchestration', () => {
       );
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -167,7 +332,7 @@ describe('wallet-funded shipment orchestration', () => {
       );
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -198,7 +363,7 @@ describe('wallet-funded shipment orchestration', () => {
       );
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -225,7 +390,7 @@ describe('wallet-funded shipment orchestration', () => {
       );
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -260,7 +425,7 @@ describe('wallet-funded shipment orchestration', () => {
 
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -292,7 +457,7 @@ describe('wallet-funded shipment orchestration', () => {
     const existing = vi.fn().mockResolvedValue({ shipmentId: 's-existing' });
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',
@@ -316,7 +481,7 @@ describe('wallet-funded shipment orchestration', () => {
     const book = vi.fn();
     await expect(
       bookWalletOrCustomerCheckout(
-        {} as never,
+        supabaseFixture,
         'm1',
         'o1',
         'q1',

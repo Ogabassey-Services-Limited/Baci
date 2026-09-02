@@ -1,17 +1,14 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
+export async function GET(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (!auth.user || !auth.supabase)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { data: merchant, error } = await supabase
+  const { data: merchant, error } = await auth.supabase
     .from('merchants')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', auth.user.id)
     .maybeSingle();
   if (error)
     return NextResponse.json(
@@ -20,7 +17,7 @@ export async function GET() {
     );
   if (!merchant)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  const { data: wallet, error: walletError } = await supabase.rpc(
+  const { data: wallet, error: walletError } = await auth.supabase.rpc(
     'get_wallet_summary',
     { p_merchant_id: merchant.id }
   );

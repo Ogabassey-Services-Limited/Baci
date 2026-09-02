@@ -1,22 +1,26 @@
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantWalletAccount,
   requestMerchantWalletAccount,
 } from '@/lib/merchant-wallet-payment-accounts';
-import { createClient } from '@/lib/supabase/server';
 import { merchantWalletFundingConsentSchema } from '@/schemas/merchant-wallet-funding';
 
-async function ownerContext(request?: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
+type AuthContext = { supabase: SupabaseClient; user: User };
+type ContextResponse = { response: NextResponse };
+
+async function authContext(
+  request: NextRequest,
+  csrf = false
+): Promise<AuthContext | ContextResponse> {
+  const auth = await authenticateApiRequest(request);
+  if (!auth.user || !auth.supabase)
     return {
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     } as const;
-  if (request) {
+  if (csrf) {
     const csrf = await checkCsrfProtection(request);
     if (!csrf.valid) {
       return {
@@ -29,27 +33,17 @@ async function ownerContext(request?: NextRequest) {
       } as const;
     }
   }
-  const { data: merchant, error } = await supabase
-    .from('merchants')
-    .select('id, business_name, email')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (error)
-    return {
-      response: NextResponse.json(
-        { error: 'Unable to load merchant' },
-        { status: 500 }
-      ),
-    } as const;
-  if (!merchant)
-    return {
-      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
-    } as const;
-  return { supabase, user, merchant } as const;
+  return { supabase: auth.supabase, user: auth.user } as const;
 }
 
-export async function GET() {
-  const context = await ownerContext();
+async function ownerContext(request: NextRequest) {
+  const context = await authContext(request);
+  if ('response' in context) return context;
+  return ownerContextAfterAuth(context);
+}
+
+export async function GET(request: NextRequest) {
+  const context = await ownerContext(request);
   if ('response' in context) return context.response;
   try {
     return NextResponse.json({
@@ -67,8 +61,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const context = await ownerContext(request);
-  if ('response' in context) return context.response;
+  const auth = await authContext(request, true);
+  if ('response' in auth) return auth.response;
   let body: unknown;
   try {
     body = await request.json();
@@ -78,6 +72,8 @@ export async function POST(request: NextRequest) {
   const parsed = merchantWalletFundingConsentSchema.safeParse(body);
   if (!parsed.success)
     return NextResponse.json({ error: 'Consent is required' }, { status: 400 });
+  const context = await ownerContextAfterAuth(auth);
+  if ('response' in context) return context.response;
   try {
     const result = await requestMerchantWalletAccount(context.supabase, {
       id: context.merchant.id,
@@ -94,4 +90,24 @@ export async function POST(request: NextRequest) {
       { status: 502 }
     );
   }
+}
+
+async function ownerContextAfterAuth(auth: AuthContext) {
+  const { data: merchant, error } = await auth.supabase
+    .from('merchants')
+    .select('id, business_name, email')
+    .eq('user_id', auth.user.id)
+    .maybeSingle();
+  if (error)
+    return {
+      response: NextResponse.json(
+        { error: 'Unable to load merchant' },
+        { status: 500 }
+      ),
+    } as const;
+  if (!merchant)
+    return {
+      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    } as const;
+  return { ...auth, merchant } as const;
 }

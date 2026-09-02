@@ -16,6 +16,7 @@ import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inve
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-funded-order-shipment';
+import { findReusableOrderShipment } from '@/lib/shipping/find-reusable-order-shipment';
 import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
@@ -25,6 +26,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { refreshWalletOrderShipmentQuote } from '@/lib/shipping/refresh-wallet-order-shipment-quote';
 import { orderUpdateSchema } from '@/schemas/orders';
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
@@ -360,7 +362,7 @@ export async function PATCH(
             id,
             existingOrder.selected_quote_id ?? '',
             existingOrder.shipping_funding_source,
-            () => bookOrderShipment(supabase, merchantId, id),
+            (quoteId) => bookOrderShipment(supabase, merchantId, id, quoteId),
             shipmentBookingLockToken
               ? () =>
                   clearOrderShipmentBookingLock(
@@ -369,7 +371,28 @@ export async function PATCH(
                     id,
                     shipmentBookingLockToken as string
                   )
-              : undefined
+              : undefined,
+            () =>
+              refreshWalletOrderShipmentQuote(
+                supabase,
+                merchantId,
+                id,
+                existingOrder.selected_quote_id ?? ''
+              ),
+            async () => {
+              const existing = await findReusableOrderShipment(
+                supabase,
+                merchantId,
+                id
+              );
+              return existing
+                ? {
+                    ...existing,
+                    quoteId:
+                      existing.quoteId || existingOrder.selected_quote_id || '',
+                  }
+                : null;
+            }
           );
           updates.shipping_provider = booking.provider;
           updates.selected_quote_id = booking.quoteId;

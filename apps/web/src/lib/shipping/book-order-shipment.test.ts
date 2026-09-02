@@ -112,7 +112,14 @@ function createMockSupabase(overrides?: {
   shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
 
   const chain: MockChain = {
-    rpc: vi.fn(),
+    rpc: vi.fn().mockImplementation((fn: string) =>
+      fn === 'get_shipping_quote_booking_metadata'
+        ? Promise.resolve({
+            data: validQuote.provider_metadata,
+            error: null,
+          })
+        : Promise.resolve({ data: [], error: null })
+    ),
     from: vi.fn((table: string) => {
       if (table === 'orders') {
         return {

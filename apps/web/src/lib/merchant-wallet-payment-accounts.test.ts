@@ -18,32 +18,80 @@ import {
 type Row = Record<string, unknown>;
 function client(
   rows: Row[] = [],
-  options: { insertError?: Error; rpcError?: Error } = {}
+  options: {
+    assignmentExisting?: Row | null;
+    assignmentExistingError?: Error | null;
+    assignmentRequestError?: Error | null;
+    assignmentRequestRows?: Row[];
+    assignmentRequestSingle?: Row | null;
+    insertError?: Error;
+    rpcError?: Error;
+  } = {}
 ) {
   const rpc = vi
     .fn()
     .mockResolvedValue({ data: null, error: options.rpcError ?? null });
-  const chain: Record<string, unknown> = {};
+  const accountChain: Record<string, unknown> = {};
+  const requestChain: Record<string, unknown> = {};
   let maybeCalls = 0;
-  chain.select = () => chain;
-  chain.eq = () => chain;
-  chain.in = () => chain;
-  chain.maybeSingle = async () => ({
+  let requestUpdateCalls = 0;
+  const requestStatusFilters: unknown[] = [];
+  let requestRowsForQuery = options.assignmentRequestRows ?? [];
+  for (const chain of [accountChain, requestChain]) {
+    chain.select = () => chain;
+    chain.eq = () => chain;
+  }
+  accountChain.in = () => accountChain;
+  requestChain.in = (_column: unknown, values: unknown) => {
+    requestStatusFilters.push(values);
+    const allowedStatuses = Array.isArray(values) ? values : [];
+    requestRowsForQuery = (options.assignmentRequestRows ?? []).filter((row) =>
+      allowedStatuses.includes(row.status)
+    );
+    return requestChain;
+  };
+  accountChain.maybeSingle = async () => ({
     data:
       options.insertError && ++maybeCalls > 1
         ? { id: 'pending' }
-        : (rows[0] ?? null),
-    error: null,
+        : (options.assignmentExisting ?? rows[0] ?? null),
+    error: options.assignmentExistingError ?? null,
   });
-  chain.insert = () => chain;
-  chain.single = async () => ({
+  requestChain.maybeSingle = async () => ({
+    data: requestUpdateCalls
+      ? { id: 'r', status: 'failed' }
+      : (options.assignmentRequestSingle ??
+        options.assignmentRequestRows?.[0] ??
+        (options.insertError ? { id: 'pending' } : null)),
+    error: options.assignmentRequestError ?? null,
+  });
+  // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
+  requestChain.then = (resolve: (value: unknown) => unknown) =>
+    resolve({
+      data: requestRowsForQuery,
+      error: options.assignmentRequestError ?? null,
+    });
+  requestChain.update = () => {
+    requestUpdateCalls += 1;
+    return requestChain;
+  };
+  requestChain.insert = () => requestChain;
+  requestChain.single = async () => ({
     data: { id: 'req1', status: 'pending' },
     error: options.insertError ?? null,
   });
-  chain.rpc = rpc;
-  return { from: () => chain, rpc, chain } as unknown as Parameters<
-    typeof getMerchantWalletAccount
-  >[0];
+  return {
+    from: (table: string) =>
+      table === 'merchant_wallet_funding_account_requests'
+        ? requestChain
+        : accountChain,
+    rpc,
+    chain: accountChain,
+    getRequestUpdateCalls: () => requestUpdateCalls,
+    getRequestStatusFilters: () => requestStatusFilters,
+  } as unknown as Parameters<typeof getMerchantWalletAccount>[0] & {
+    getRequestStatusFilters: () => unknown[];
+  };
 }
 describe('merchant wallet payment-account provisioning', () => {
   beforeEach(() => {
@@ -121,6 +169,24 @@ describe('merchant wallet payment-account provisioning', () => {
       requestMerchantWalletAccount(client(), { id: 'm', email: 'e' })
     ).rejects.toThrow('Paystack customer provisioning failed');
   });
+  it('marks the request failed when customer provisioning throws', async () => {
+    customer.mockRejectedValue(new Error('provider timeout'));
+    const supabase = client();
+    await expect(
+      requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
+    ).rejects.toThrow('Paystack customer provisioning failed');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'fail_merchant_wallet_funding_request',
+      { p_request_id: 'req1', p_merchant_id: 'm' }
+    );
+  });
+  it('requires review when the failure transition itself fails', async () => {
+    customer.mockRejectedValue(new Error('provider timeout'));
+    const supabase = client([], { rpcError: new Error('rpc down') });
+    await expect(
+      requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
+    ).rejects.toThrow('FUNDING_REQUEST_REVIEW_REQUIRED');
+  });
   it('surfaces review when failed transition RPC fails', async () => {
     customer.mockResolvedValue({ success: false });
     await expect(
@@ -132,9 +198,25 @@ describe('merchant wallet payment-account provisioning', () => {
   });
   it('fails safely when DVA provisioning fails', async () => {
     dva.mockResolvedValue({ success: false });
+    const supabase = client();
     await expect(
-      requestMerchantWalletAccount(client(), { id: 'm', email: 'e' })
+      requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
     ).rejects.toThrow('Paystack DVA provisioning failed');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'fail_merchant_wallet_funding_request',
+      { p_request_id: 'req1', p_merchant_id: 'm' }
+    );
+  });
+  it('marks the request failed when DVA provisioning throws', async () => {
+    dva.mockRejectedValue(new Error('provider timeout'));
+    const supabase = client();
+    await expect(
+      requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
+    ).rejects.toThrow('Paystack DVA provisioning failed');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'fail_merchant_wallet_funding_request',
+      { p_request_id: 'req1', p_merchant_id: 'm' }
+    );
   });
   it.each([
     {},
@@ -187,8 +269,35 @@ describe('merchant wallet payment-account provisioning', () => {
       ).kind
     ).toBe('review');
   });
+  it.each([
+    { active: false },
+    { assigned: false },
+  ])('reviews provider assignments with flags %j', async (flags) => {
+    const supabase = client([], {
+      assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'pending' }],
+    });
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        currency: 'NGN',
+        ...flags,
+      },
+    };
+
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('review');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
   it('invokes persist RPC for a valid assignment event', async () => {
-    const supabase = client();
+    const supabase = client([], {
+      assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'pending' }],
+    });
     const payload = {
       data: {
         metadata: {
@@ -205,12 +314,50 @@ describe('merchant wallet payment-account provisioning', () => {
     expect(
       (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
     ).toBe('match');
+    expect(supabase.getRequestStatusFilters()).toEqual([
+      ['pending', 'fulfilled'],
+    ]);
   });
-  it('treats an exact fulfilled replay as success through the locked RPC', async () => {
-    const supabase = client();
-    (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: [{ id: 'account-1' }],
-      error: null,
+  it('prefers customer funding metadata when a direct source belongs to another flow', async () => {
+    const supabase = client([], {
+      assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'pending' }],
+    });
+    const payload = {
+      data: {
+        metadata: {
+          source: 'other',
+          request_id: 'wrong',
+          merchant_id: 'wrong',
+        },
+        customer: {
+          metadata: {
+            source: 'merchant_wallet_funding',
+            request_id: 'r',
+            merchant_id: 'm',
+          },
+        },
+        account_number: '1234567890',
+        currency: 'NGN',
+      },
+    };
+
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('match');
+  });
+  it('treats an exact fulfilled replay as success without rewriting the account', async () => {
+    const supabase = client([], {
+      assignmentRequestRows: [
+        { id: 'r', merchant_id: 'm', status: 'fulfilled' },
+      ],
+      assignmentExisting: {
+        account_number: '1234567890',
+        account_name: 'A',
+        bank_name: null,
+        currency: 'NGN',
+        provider_account_id: null,
+        provider_customer_code: null,
+      },
     });
     const payload = {
       data: {
@@ -227,16 +374,47 @@ describe('merchant wallet payment-account provisioning', () => {
     expect(
       (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
     ).toBe('match');
-    expect(supabase.rpc).toHaveBeenCalledWith(
-      'persist_merchant_wallet_payment_account',
-      expect.anything()
-    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
-  it('reviews a conflicting fulfilled replay while calling the same RPC', async () => {
-    const supabase = client();
-    (supabase.rpc as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('conflicting_assignment_replay')
-    );
+  it('reviews a fulfilled replay when the existing account lookup fails', async () => {
+    const supabase = client([], {
+      assignmentRequestRows: [
+        { id: 'r', merchant_id: 'm', status: 'fulfilled' },
+      ],
+      assignmentExistingError: new Error('account lookup failed'),
+    });
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        account_name: 'A',
+        currency: 'NGN',
+      },
+    };
+
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('review');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+  it('reviews a conflicting fulfilled replay without rewriting the account', async () => {
+    const supabase = client([], {
+      assignmentRequestRows: [
+        { id: 'r', merchant_id: 'm', status: 'fulfilled' },
+      ],
+      assignmentExisting: {
+        account_number: '1234567890',
+        account_name: 'Original',
+        bank_name: null,
+        currency: 'NGN',
+        provider_account_id: null,
+        provider_customer_code: null,
+      },
+    });
     const payload = {
       data: {
         metadata: {
@@ -252,10 +430,37 @@ describe('merchant wallet payment-account provisioning', () => {
     expect(
       (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
     ).toBe('review');
-    expect(supabase.rpc).toHaveBeenCalledWith(
-      'persist_merchant_wallet_payment_account',
-      expect.anything()
-    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.getRequestStatusFilters()).toEqual([
+      ['pending', 'fulfilled'],
+    ]);
+  });
+  it.each([
+    { assignmentRequestRows: [] },
+    {
+      assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'failed' }],
+    },
+  ])('reviews an inactive or unassigned funding request', async (options) => {
+    const supabase = client([], options);
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        currency: 'NGN',
+      },
+    };
+
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('review');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.getRequestStatusFilters()).toEqual([
+      ['pending', 'fulfilled'],
+    ]);
   });
   it('allows a later retry after a provider failure is transitioned to failed', async () => {
     customer.mockResolvedValueOnce({ success: false }).mockResolvedValueOnce({

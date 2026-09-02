@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
 import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
+import { attachBookingQuoteMetadata } from '@/lib/shipping/attach-booking-quote-metadata';
+import { buildOrderShipmentBookingRequest } from '@/lib/shipping/build-order-shipment-booking-request';
 import {
   findReusableOrderShipment,
   type ReusableOrderShipmentResult,
@@ -23,7 +25,7 @@ import {
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
-import type { BookingRequest, ShippingAddress } from '@/lib/shipping/types';
+import type { ShippingAddress } from '@/lib/shipping/types';
 
 type OrderRecord = {
   id: string;
@@ -51,7 +53,8 @@ export type BookOrderShipmentResult = ReusableOrderShipmentResult;
 export async function bookOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
-  orderId: string
+  orderId: string,
+  quoteIdOverride?: string
 ): Promise<BookOrderShipmentResult> {
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -81,8 +84,8 @@ export async function bookOrderShipment(
       quoteId: existingShipment.quoteId || typedOrder.selected_quote_id || '',
     };
   }
-
-  if (!typedOrder.selected_quote_id) {
+  const selectedQuoteId = quoteIdOverride ?? typedOrder.selected_quote_id;
+  if (!selectedQuoteId) {
     throw new OrderShipmentBookingError(
       'This order does not have a saved shipping quote. Please get a new quote before shipping.',
       400,
@@ -107,9 +110,9 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request'
     )
-    .eq('id', typedOrder.selected_quote_id)
+    .eq('id', selectedQuoteId)
     .eq('merchant_id', merchantId)
     .single();
   const typedStoredQuote = storedQuote as OrderShipmentQuoteRecord | null;
@@ -121,6 +124,12 @@ export async function bookOrderShipment(
       'QUOTE_NOT_FOUND'
     );
   }
+  const bookingQuote = await attachBookingQuoteMetadata(
+    supabase,
+    merchantId,
+    typedOrder.id,
+    typedStoredQuote
+  );
 
   const isGiglInternationalQuote = isGiglInternationalProviderRate(
     typedOrder.shipping_provider,
@@ -132,7 +141,6 @@ export async function bookOrderShipment(
   const isInternationalQuote =
     isGiglInternationalQuote ||
     storedQuoteRequest?.shipmentType === 'international';
-
   if (isGiglInternationalQuote && !storedQuoteRequest) {
     throw new OrderShipmentBookingError(
       'The saved international shipping quote is missing its original request. Please get a new quote before shipping.',
@@ -140,7 +148,6 @@ export async function bookOrderShipment(
       'INTERNATIONAL_QUOTE_REQUEST_MISSING'
     );
   }
-
   let merchantSender: ShippingAddress | undefined;
   if (!isInternationalQuote) {
     const merchantSenderResult = await resolveBookingMerchantSender(
@@ -166,10 +173,9 @@ export async function bookOrderShipment(
     }
     merchantSender = merchantSenderResult.sender;
   }
-
   const resolvedQuote = await refreshOrderShipmentQuote(
     supabase,
-    typedStoredQuote,
+    bookingQuote,
     typedOrder.shipping_provider,
     merchantSender,
     typedOrder.shipping_funding_source === 'merchant_wallet'
@@ -179,12 +185,10 @@ export async function bookOrderShipment(
   if (typedOrder.shipping_funding_source !== 'merchant_wallet') {
     assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
   }
-
   const resolvedQuoteRequest = parseStoredQuoteRequest(
     resolvedQuote.quote_request
   );
   const effectiveQuoteRequest = resolvedQuoteRequest ?? storedQuoteRequest;
-
   const orderReceiver = buildReceiver(typedOrder);
   if (isInternationalQuote && effectiveQuoteRequest) {
     assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
@@ -218,15 +222,13 @@ export async function bookOrderShipment(
         )
       : toShipmentItems(orderItems);
 
-  const bookingRequest: BookingRequest = {
-    orderId: typedOrder.id,
-    quoteId: resolvedQuote.id,
-    providerRateId: resolvedQuote.provider_rate_id || undefined,
-    quoteMetadata: resolvedQuote.provider_metadata,
-    sender,
-    receiver,
+  const bookingRequest = buildOrderShipmentBookingRequest({
     items,
-  };
+    orderId: typedOrder.id,
+    quote: resolvedQuote,
+    receiver,
+    sender,
+  });
 
   const result = await shippingService.bookShipment(
     typedOrder.shipping_provider,

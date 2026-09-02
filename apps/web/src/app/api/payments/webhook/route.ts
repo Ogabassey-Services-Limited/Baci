@@ -53,6 +53,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
+import { handlePaystackMerchantWalletAssignmentFailure } from '@/lib/paystack-merchant-wallet-assignment-failure-webhook';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -642,8 +643,15 @@ export async function POST(request: NextRequest) {
 
     if (
       gateway === 'paystack' &&
-      body.event === 'dedicatedaccount.assign.success'
+      (body.event === 'dedicatedaccount.assign.success' ||
+        body.event === 'dedicatedaccount.assign.failed')
     ) {
+      if (body.event === 'dedicatedaccount.assign.failed') {
+        return handlePaystackMerchantWalletAssignmentFailure(
+          createServiceClient(),
+          body as unknown as Record<string, unknown>
+        );
+      }
       const assignment = await persistMerchantWalletAssignmentEvent(
         createServiceClient(),
         body as unknown as Record<string, unknown>

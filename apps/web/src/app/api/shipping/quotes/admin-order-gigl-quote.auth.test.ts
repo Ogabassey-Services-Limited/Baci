@@ -6,6 +6,7 @@ const getUserAccess = vi.fn();
 const hasPermission = vi.fn();
 const checkCsrfProtection = vi.fn();
 const createAdminClient = vi.fn();
+const validOrderId = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest,
@@ -14,6 +15,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({ checkCsrfProtection }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient }));
+vi.mock('@/lib/shipping/persist-admin-gigl-quote', () => ({
+  persistAdminGiglQuote: vi.fn(),
+}));
 
 function request(body: unknown = {}) {
   return new NextRequest('https://usebaci.com/api/shipping/quotes', {
@@ -62,7 +66,7 @@ describe('Admin GIGL quote edge authorization', () => {
       './admin-order-gigl-quote'
     );
     const response = await postAdminOrderGiglQuote(
-      request({ admin_order_id: 'bad' })
+      request({ admin_order_id: validOrderId })
     );
     expect(response.status).toBe(403);
     expect(getUserAccess).not.toHaveBeenCalled();
@@ -75,7 +79,7 @@ describe('Admin GIGL quote edge authorization', () => {
       './admin-order-gigl-quote'
     );
     const response = await postAdminOrderGiglQuote(
-      request({ admin_order_id: 'bad' })
+      request({ admin_order_id: validOrderId })
     );
     expect(response.status).toBe(403);
     expect(createAdminClient).not.toHaveBeenCalled();
@@ -87,13 +91,13 @@ describe('Admin GIGL quote edge authorization', () => {
       './admin-order-gigl-quote'
     );
     const response = await postAdminOrderGiglQuote(
-      request({ admin_order_id: 'bad' })
+      request({ admin_order_id: validOrderId })
     );
     expect(response.status).toBe(403);
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 
-  it('validates Admin input after authorization', async () => {
+  it('validates Admin input before checking merchant access', async () => {
     const { postAdminOrderGiglQuote } = await import(
       './admin-order-gigl-quote'
     );
@@ -101,6 +105,7 @@ describe('Admin GIGL quote edge authorization', () => {
       request({ admin_order_id: 'bad' })
     );
     expect(response.status).toBe(400);
+    expect(getUserAccess).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 
@@ -110,7 +115,7 @@ describe('Admin GIGL quote edge authorization', () => {
       './admin-order-gigl-quote'
     );
     const response = await postAdminOrderGiglQuote(
-      request({ admin_order_id: 'bad' })
+      request({ admin_order_id: validOrderId })
     );
     expect(response.status).toBe(403);
     expect(createAdminClient).not.toHaveBeenCalled();

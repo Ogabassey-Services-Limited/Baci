@@ -29,6 +29,61 @@ describe('toShippingQuoteUpsert', () => {
       platform_margin: 1000,
       platform_margin_bps: 1000,
       pricing_version: 'gigl_platform_margin_v1',
+      provider_metadata: null,
     });
+  });
+
+  it('persists only the Topship booking fields instead of its raw response', () => {
+    const row = toShippingQuoteUpsert(
+      {
+        id: 'q-topship',
+        provider: 'TOPSHIP',
+        serviceTier: 'Premium',
+        carrierName: 'Topship Express',
+        displayName: 'Topship Express',
+        estimatedDays: 2,
+        price: 11000,
+        currency: 'NGN',
+        pickupIncluded: true,
+        insuranceIncluded: true,
+        expiresAt: new Date('2026-01-01'),
+        rawResponse: {
+          pricingTier: 'Premium',
+          serviceType: 'Express',
+          cost: 10000,
+          secretTariff: 'must-not-persist',
+        },
+      },
+      { merchantId: 'm', sessionId: 's', quoteRequest: {} as never }
+    );
+
+    expect(row.provider_metadata).toEqual({
+      pricingTier: 'Premium',
+      serviceType: 'Express',
+      cost: 10000,
+    });
+    expect(row.provider_metadata).not.toHaveProperty('secretTariff');
+  });
+
+  it('does not persist provider metadata when a Topship response has no safe fields', () => {
+    const row = toShippingQuoteUpsert(
+      {
+        id: 'q-topship-empty',
+        provider: 'TOPSHIP',
+        serviceTier: 'Premium',
+        carrierName: 'Topship Express',
+        displayName: 'Topship Express',
+        estimatedDays: 2,
+        price: 11000,
+        currency: 'NGN',
+        pickupIncluded: true,
+        insuranceIncluded: true,
+        expiresAt: new Date('2026-01-01'),
+        rawResponse: { secretTariff: 'must-not-persist' },
+      },
+      { merchantId: 'm', sessionId: 's', quoteRequest: {} as never }
+    );
+
+    expect(row.provider_metadata).toBeNull();
   });
 });

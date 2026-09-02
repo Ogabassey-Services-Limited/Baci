@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { toShippingQuoteUpsert } from '@/app/api/shipping/quotes/shipping-quote-persistence';
 import { shippingService } from '@/lib/shipping';
 import { domesticSendersDiffer } from '@/lib/shipping/merchant-sender-comparison';
 import {
@@ -7,6 +6,7 @@ import {
   parseStoredQuoteRequest,
   selectPreferredQuote,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { persistRefreshedShippingQuote } from '@/lib/shipping/persist-refreshed-shipping-quote';
 import type {
   ShippingAddress,
   ShippingProviderCode,
@@ -36,7 +36,7 @@ export type RefreshOrderShipmentQuoteOptions = {
 };
 
 export async function refreshOrderShipmentQuote(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   quote: OrderShipmentQuoteRecord,
   provider: ShippingProviderCode,
   senderOverride?: ShippingAddress,
@@ -116,20 +116,20 @@ export async function refreshOrderShipmentQuote(
     provider_rate_id: replacement.providerRateId || null,
     expires_at: replacement.expiresAt.toISOString(),
     quote_request: persistedQuoteRequest,
-    provider_metadata: replacement.rawResponse,
+    provider_metadata: provider === 'TOPSHIP' ? replacement.rawResponse : null,
     provider_cost: replacement.providerCost ?? null,
     platform_margin: replacement.platformMargin ?? null,
     platform_margin_bps: replacement.marginBasisPoints ?? null,
     pricing_version: replacement.pricingVersion ?? null,
   };
 
-  const { error: upsertError } = await supabase.from('shipping_quotes').upsert(
-    toShippingQuoteUpsert(replacement, {
+  const { error: upsertError } = await persistRefreshedShippingQuote(
+    replacement,
+    {
       merchantId: quote.merchant_id,
       sessionId: persistedQuoteRequest.sessionId,
       quoteRequest: persistedQuoteRequest,
-    }),
-    { onConflict: 'id' }
+    }
   );
 
   if (upsertError) {

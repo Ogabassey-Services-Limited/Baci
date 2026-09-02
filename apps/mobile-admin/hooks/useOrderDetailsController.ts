@@ -18,10 +18,11 @@ import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsRece
 import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
 import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
 import { useOrderAuditEvents } from '@/hooks/orders/useOrderAuditEvents';
-import { useOrderGiglShipping } from '@/hooks/orders/useOrderGiglShipping';
+import { useAuth } from '@/hooks/useAuth';
 import { useGiglAdminShippingEligibility } from '@/hooks/useGiglAdminShippingEligibility';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
+import { useOrderDetailsGiglShipping } from '@/hooks/useOrderDetailsGiglShipping';
 import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
 import { useOrderDetailsUiState } from '@/hooks/useOrderDetailsUiState';
 import {
@@ -34,10 +35,8 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import {
-  canUseSelectedShippingProvider,
   formatShippingProviderName,
   getOrderFulfillmentIdentifierItems,
-  getOrderGiglInitialAddress,
   orderRequiresFulfillment,
   updateShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
@@ -60,6 +59,7 @@ export function useOrderDetailsController() {
   const actionParam = validatedParams?.action;
 
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data: order, error, isLoading } = useOrder(orderId ?? '');
   const { merchant, storeUrl } = useMerchant();
   const giglEligibility = useGiglAdminShippingEligibility(merchant);
@@ -79,24 +79,17 @@ export function useOrderDetailsController() {
   const sendReminderMutation = useSendReminder();
   const recordPaymentMutation = useRecordPayment();
   const providerLabel = formatShippingProviderName(order?.shipping_provider);
-  const providerBookingAvailable = order
-    ? canUseSelectedShippingProvider(order)
-    : false;
   const uiState = useOrderDetailsUiState();
-  const giglShippingState = useOrderGiglShipping({
-    enabled:
-      giglEligibility.isEligible &&
-      uiState.showShipmentFlow &&
-      uiState.shipmentFlowStep === 'method' &&
-      !providerBookingAvailable,
-    initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
-    orderId: orderId ?? '',
-  });
-  const giglShipping = giglEligibility.isEligible
-    ? giglShippingState
-    : undefined;
-  const effectiveProviderLabel =
-    providerLabel || (giglShipping?.quote ? 'GIG Logistics' : null);
+  const { effectiveProviderLabel, giglShipping, providerBookingAvailable } =
+    useOrderDetailsGiglShipping({
+      giglEligible: giglEligibility.isEligible,
+      merchant,
+      order,
+      providerLabel,
+      shipmentFlowStep: uiState.shipmentFlowStep,
+      showShipmentFlow: uiState.showShipmentFlow,
+      userId: user?.id,
+    });
 
   const requiresShipmentDetails = orderRequiresFulfillment(
     order?.items,

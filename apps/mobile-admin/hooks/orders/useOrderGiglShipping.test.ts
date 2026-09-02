@@ -150,9 +150,64 @@ describe('useOrderGiglShipping', () => {
     );
     await flushPromises();
     expect(hook.current.quote).not.toBeNull();
-    await act(() => hook.current.startFunding());
+    await act(async () => {
+      await hook.current.startFunding();
+    });
     expect(api.requestFundingAccount).toHaveBeenCalledOnce();
     expect(hook.current.state).toBe('funding_pending');
+  });
+
+  it('refreshes a pending funding account and exposes it when assignment completes', async () => {
+    api.requestFundingAccount.mockResolvedValueOnce({
+      account: null,
+      status: 'pending',
+    });
+    const account = {
+      accountName: 'BACI / Store',
+      accountNumber: '1234567890',
+      bankName: 'Wema Bank',
+      currency: 'NGN' as const,
+      status: 'active' as const,
+    };
+    api.getFundingAccount
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(account);
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+    await act(async () => {
+      await hook.current.startFunding();
+    });
+    expect(hook.current.state).toBe('funding_pending');
+
+    await act(async () => {
+      await hook.current.refreshFundingAccount();
+    });
+    expect(api.getFundingAccount).toHaveBeenCalledTimes(2);
+    expect(hook.current.fundingAccount).toEqual(account);
+    expect(hook.current.state).toBe('ready');
+  });
+
+  it('returns null and enters an error state when funding status refresh fails', async () => {
+    api.getFundingAccount.mockRejectedValueOnce(
+      new Error('funding status unavailable')
+    );
+    const { result: hook } = renderHook(
+      () => useOrderGiglShipping({ enabled: true, orderId: 'order-1' }),
+      { wrapper }
+    );
+    await flushPromises();
+
+    let account: unknown;
+    await act(async () => {
+      account = await hook.current.refreshFundingAccount();
+    });
+
+    expect(account).toBeNull();
+    expect(hook.current.state).toBe('error');
+    expect(hook.current.error).toBe('funding status unavailable');
   });
 
   it('deduplicates funding provisioning while consent is in flight', async () => {

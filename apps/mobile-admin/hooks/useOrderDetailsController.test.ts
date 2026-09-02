@@ -21,6 +21,10 @@ const merchantState = vi.hoisted(() => ({
   current: null as unknown,
 }));
 
+const authState = vi.hoisted(() => ({
+  user: null as { id: string } | null,
+}));
+
 const giglShippingState = vi.hoisted(() => ({
   calls: [] as unknown[],
 }));
@@ -39,6 +43,10 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: merchantState.current }),
+}));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: authState.user }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -205,6 +213,7 @@ describe('useOrderDetailsController', () => {
     auditEventsState.current = { data: [], isError: false, isLoading: false };
     orderState.current = undefined;
     merchantState.current = null;
+    authState.user = null;
     giglShippingState.calls = [];
     shipmentUiState.current = {
       shipmentFlowStep: 'details',
@@ -374,8 +383,55 @@ describe('useOrderDetailsController', () => {
   it('starts and exposes GIGL for an eligible NG/NGN merchant with GIGL enabled', () => {
     merchantState.current = {
       id: 'merchant-1',
+      user_id: 'user-1',
       country: 'NG',
       payout_currency: 'NGN',
+    };
+    authState.user = { id: 'user-1' };
+    shipmentUiState.current = {
+      shipmentFlowStep: 'method',
+      showShipmentFlow: true,
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: true });
+    expect(result.current.giglShipping).toEqual({ quote: null, wallet: null });
+  });
+
+  it('hides wallet-backed GIGL shipping from staff accounts', () => {
+    merchantState.current = {
+      id: 'merchant-1',
+      user_id: 'owner-1',
+      country: 'NG',
+      payout_currency: 'NGN',
+    };
+    authState.user = { id: 'staff-1' };
+    shipmentUiState.current = {
+      shipmentFlowStep: 'method',
+      showShipmentFlow: true,
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: false });
+    expect(result.current.giglShipping).toBeUndefined();
+  });
+
+  it('keeps saved merchant-wallet GIGL orders in the wallet funding flow', () => {
+    merchantState.current = {
+      id: 'merchant-1',
+      user_id: 'owner-1',
+      country: 'NG',
+      payout_currency: 'NGN',
+    };
+    authState.user = { id: 'owner-1' };
+    orderState.current = {
+      id: 'order-1',
+      merchant_id: 'merchant-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'merchant_wallet',
+      selected_quote_id: 'quote-1',
     };
     shipmentUiState.current = {
       shipmentFlowStep: 'method',
@@ -385,6 +441,7 @@ describe('useOrderDetailsController', () => {
     const { result } = renderHook(() => useOrderDetailsController());
 
     expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: true });
+    expect(result.current.providerBookingAvailable).toBe(false);
     expect(result.current.giglShipping).toEqual({ quote: null, wallet: null });
   });
 });

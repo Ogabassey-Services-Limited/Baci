@@ -7,9 +7,9 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { ShippingService } from '@/lib/shipping';
 import { buildOrderGiglQuoteRequest } from '@/lib/shipping/build-order-gigl-quote-request';
+import { persistAdminGiglQuote } from '@/lib/shipping/persist-admin-gigl-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
 import type { ShippingQuote } from '@/lib/shipping/types';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   adminOrderGiglQuoteSchema,
   orderGiglQuoteSchema,
@@ -54,17 +54,6 @@ function publicQuote(quote: ShippingQuote) {
   }).quotes.featured[0];
 }
 
-function rpc<T>(
-  client: { rpc: (...args: never[]) => unknown },
-  name: string,
-  args: Record<string, unknown>
-) {
-  return client.rpc(name as never, args as never) as Promise<{
-    data: T | null;
-    error: { message?: string } | null;
-  }>;
-}
-
 export async function postAdminOrderGiglQuote(
   request: NextRequest,
   input?: Partial<AdminInput>
@@ -78,6 +67,43 @@ export async function postAdminOrderGiglQuote(
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
+  let resolvedInput = input;
+  if (!resolvedInput?.admin_order_id || resolvedInput.receiver === undefined) {
+    const body = await request.json().catch(() => null);
+    const headerOrderId = request.headers.get('x-baci-admin-order-id');
+    const parsed =
+      resolvedInput?.admin_order_id || headerOrderId
+        ? orderGiglQuoteSchema.safeParse(body)
+        : adminOrderGiglQuoteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const parsedOrderId =
+      'admin_order_id' in parsed.data &&
+      typeof parsed.data.admin_order_id === 'string'
+        ? parsed.data.admin_order_id
+        : undefined;
+    resolvedInput = {
+      admin_order_id:
+        resolvedInput?.admin_order_id ?? headerOrderId ?? parsedOrderId ?? '',
+      receiver: resolvedInput?.receiver ?? parsed.data.receiver,
+    };
+  }
+  const validatedInput = adminOrderGiglQuoteSchema.safeParse(resolvedInput);
+  if (!validatedInput.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: validatedInput.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const adminOrderId = validatedInput.data.admin_order_id;
+
   const access = await getUserAccess(auth.supabase);
   if (
     !access?.isOwner ||
@@ -85,52 +111,6 @@ export async function postAdminOrderGiglQuote(
     !hasPermission(access, 'orders', 'fulfill')
   ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-  let resolvedInput = input;
-  if (!resolvedInput?.admin_order_id) {
-    const body = await request.json().catch(() => null);
-    const headerOrderId = request.headers.get('x-baci-admin-order-id');
-    const parsed = headerOrderId
-      ? orderGiglQuoteSchema.safeParse(body)
-      : adminOrderGiglQuoteSchema.safeParse(body);
-    if (
-      !parsed.success ||
-      (!headerOrderId &&
-        (!body ||
-          typeof body !== 'object' ||
-          typeof (body as { admin_order_id?: unknown }).admin_order_id !==
-            'string'))
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: parsed.success ? undefined : parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-    resolvedInput = {
-      admin_order_id:
-        headerOrderId ?? (body as { admin_order_id: string }).admin_order_id,
-      receiver: parsed.data.receiver,
-    };
-  } else if (resolvedInput.receiver === undefined) {
-    const parsed = orderGiglQuoteSchema.safeParse(
-      await request.json().catch(() => null)
-    );
-    if (!parsed.success)
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    resolvedInput = { ...resolvedInput, receiver: parsed.data.receiver };
-  }
-  const adminOrderId = resolvedInput.admin_order_id as string;
-  if (
-    !adminOrderGiglQuoteSchema.shape.admin_order_id.safeParse(adminOrderId)
-      .success
-  ) {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
   const eligibility = await resolveAdminGiglEligibility(
@@ -141,10 +121,7 @@ export async function postAdminOrderGiglQuote(
     return NextResponse.json(eligibility.body, { status: eligibility.status });
   }
 
-  // The privileged client is created only after authentication, CSRF, owner,
-  // and fulfillment permission checks. It is the existing trusted quote edge.
-  const admin = createAdminClient();
-  const { data: order, error: orderError } = await admin
+  const { data: order, error: orderError } = await auth.supabase
     .from('orders')
     .select(orderSelect)
     .eq('id', adminOrderId)
@@ -169,9 +146,15 @@ export async function postAdminOrderGiglQuote(
       { status: 409 }
     );
   }
+  if (String(order.shipping_status).toLowerCase() !== 'processing') {
+    return NextResponse.json(
+      { error: 'Order must be processing before shipping' },
+      { status: 409 }
+    );
+  }
 
   const senderResult = await resolveBookingMerchantSender(
-    admin,
+    auth.supabase,
     access.merchantId
   );
   if (!senderResult.ok)
@@ -192,7 +175,7 @@ export async function postAdminOrderGiglQuote(
     { ...order, order_items: rawItems },
     senderResult.sender,
     async () => ({}),
-    resolvedInput.receiver
+    validatedInput.data.receiver
   );
   if (!built.ok) {
     return NextResponse.json(
@@ -232,20 +215,16 @@ export async function postAdminOrderGiglQuote(
     sessionId: adminOrderId,
     quoteRequest,
   });
-  const { error: persistError } = await rpc<string>(
-    admin,
-    'persist_admin_gigl_quote',
-    {
-      p_quote: persisted,
-      p_attestation: {
-        quote_id: quote.id,
-        order_id: adminOrderId,
-        merchant_id: access.merchantId,
-        provider_rate_id: quote.providerRateId ?? null,
-        quote_request: quoteRequest,
-      },
-    }
-  );
+  const { error: persistError } = await persistAdminGiglQuote({
+    quote: persisted,
+    attestation: {
+      quote_id: quote.id,
+      order_id: adminOrderId,
+      merchant_id: access.merchantId,
+      provider_rate_id: quote.providerRateId ?? null,
+      quote_request: quoteRequest,
+    },
+  });
   if (persistError) {
     console.error('Error persisting Admin GIGL quote', {
       message: persistError.message,
