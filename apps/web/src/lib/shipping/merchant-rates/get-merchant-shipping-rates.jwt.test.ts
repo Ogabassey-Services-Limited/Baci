@@ -2,12 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getMerchantShippingRatesOrThrow,
   MerchantShippingRatesLoadError,
+  type MerchantShippingRatesRpcClient,
 } from './get-merchant-shipping-rates';
 
-function clientWith(result: { data?: unknown; error?: unknown }) {
+function clientWith(result: {
+  data?: unknown;
+  error?: unknown;
+}): MerchantShippingRatesRpcClient {
   return {
     rpc: vi.fn().mockResolvedValue({ data: null, error: null, ...result }),
-  } as never;
+  };
 }
 
 describe('getMerchantShippingRatesOrThrow JWT failures', () => {
@@ -25,9 +29,7 @@ describe('getMerchantShippingRatesOrThrow JWT failures', () => {
     await expect(request).rejects.toBeInstanceOf(
       MerchantShippingRatesLoadError
     );
-    expect(
-      (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
-    ).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('wraps a nested PGRST301 without retrying when a transient outer code masks it', async () => {
@@ -38,9 +40,9 @@ describe('getMerchantShippingRatesOrThrow JWT failures', () => {
       code: 'UND_ERR_SOCKET',
       cause: { code: 'PGRST301', message: 'JWT decode failed' },
     });
-    const supabase = {
+    const supabase: MerchantShippingRatesRpcClient = {
       rpc: vi.fn().mockRejectedValue(jwtError),
-    } as never;
+    };
 
     // Act
     const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
@@ -51,9 +53,7 @@ describe('getMerchantShippingRatesOrThrow JWT failures', () => {
       cause: jwtError,
       code: 'UND_ERR_SOCKET',
     });
-    expect(
-      (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
-    ).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry normalized PGRST301 details when the message looks transient', async () => {
@@ -76,8 +76,6 @@ describe('getMerchantShippingRatesOrThrow JWT failures', () => {
       name: 'MerchantShippingRatesLoadError',
       cause: normalizedError,
     });
-    expect(
-      (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
-    ).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
   });
 });

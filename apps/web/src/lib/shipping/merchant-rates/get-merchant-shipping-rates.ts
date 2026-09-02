@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseStorefrontShippingRatesPayload } from '@/schemas/merchant-shipping-rates';
 import type { StorefrontShippingRatesPayload } from './types';
 
@@ -103,10 +102,17 @@ function isRetryableRpcError(error: unknown): boolean {
   );
 }
 
-type MerchantShippingRatesRpcResult = {
+export type MerchantShippingRatesRpcResult = {
   data: unknown;
   error: unknown;
 };
+
+export interface MerchantShippingRatesRpcClient {
+  rpc(
+    functionName: string,
+    args: { p_merchant_id: string }
+  ): PromiseLike<MerchantShippingRatesRpcResult>;
+}
 
 /**
  * Run the read-only storefront RPC with one bounded transport retry.
@@ -121,7 +127,7 @@ type MerchantShippingRatesRpcResult = {
  * empty-rate result.
  */
 async function loadMerchantShippingRatesRpc(
-  supabase: SupabaseClient,
+  supabase: MerchantShippingRatesRpcClient,
   merchantId: string
 ): Promise<MerchantShippingRatesRpcResult> {
   let lastResult: MerchantShippingRatesRpcResult | undefined;
@@ -171,7 +177,7 @@ async function loadMerchantShippingRatesRpc(
  * failure must NOT masquerade as an empty rate set.
  */
 export async function getMerchantShippingRates(
-  supabase: SupabaseClient,
+  supabase: MerchantShippingRatesRpcClient,
   merchantId: string
 ): Promise<StorefrontShippingRatesPayload> {
   const { data, error } = await loadMerchantShippingRatesRpc(
@@ -199,7 +205,7 @@ export async function getMerchantShippingRates(
  * (non-throwing) outcome the verifier can reject as an invalid rate (400).
  */
 export async function getMerchantShippingRatesOrThrow(
-  supabase: SupabaseClient,
+  supabase: MerchantShippingRatesRpcClient,
   merchantId: string
 ): Promise<StorefrontShippingRatesPayload> {
   const { data, error } = await loadMerchantShippingRatesRpc(
