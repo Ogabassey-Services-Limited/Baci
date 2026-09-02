@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import rawNextConfig from './next.config';
 import {
   getStorefrontMetadataCacheBucket,
@@ -55,7 +55,12 @@ describe('next.config OgaBassey resource headers', () => {
   let nextConfig: NextConfig;
 
   beforeAll(async () => {
+    vi.stubEnv('NODE_ENV', 'production');
     nextConfig = await resolveNextConfig(rawNextConfig as ResolvableNextConfig);
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
   });
 
   it('lets proxy handle legacy Klump webhook trailing slash compatibility', () => {
@@ -664,5 +669,22 @@ describe('next.config OgaBassey resource headers', () => {
           entry.headers.some((header) => header.key === 'Cache-Control')
       )
     ).toBe(false);
+  });
+
+  it('leaves Next development assets under the built-in no-cache policy', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    try {
+      expect(typeof nextConfig.headers).toBe('function');
+      const headers = await nextConfig.headers();
+      expect(
+        headers.some(
+          (entry) =>
+            entry.source === '/_next/static/:path*' &&
+            entry.headers.some((header) => header.key === 'Cache-Control')
+        )
+      ).toBe(false);
+    } finally {
+      vi.stubEnv('NODE_ENV', 'production');
+    }
   });
 });

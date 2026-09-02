@@ -154,8 +154,13 @@ async function summarizeBillingWindow(
   }
   if (!observedStart || !observedEnd)
     throw new Error(`billing export has no rows for project ${projectId}`);
+  const hasRequestedWindowStart = Boolean(options.requestedWindowStart);
+  const hasRequestedWindowEnd = Boolean(options.requestedWindowEnd);
+  if (hasRequestedWindowStart !== hasRequestedWindowEnd) {
+    throw new Error('requested billing window requires both start and end');
+  }
   const requestedWindow =
-    options.requestedWindowStart && options.requestedWindowEnd
+    hasRequestedWindowStart && hasRequestedWindowEnd
       ? {
           start: dateString(
             options.requestedWindowStart,
@@ -222,6 +227,19 @@ function compareWindows(
     ) {
       values.dbCallsPerRequest = before.dbTrace.dbCallsPerRequest;
       afterValues.dbCallsPerRequest = after.dbTrace.dbCallsPerRequest;
+    }
+  }
+  if (before.cacheProbe && after.cacheProbe) {
+    values.cacheStatusRows = before.cacheProbe.cacheStatusRows;
+    afterValues.cacheStatusRows = after.cacheProbe.cacheStatusRows;
+    values.cacheHitRows = before.cacheProbe.cacheHitRows;
+    afterValues.cacheHitRows = after.cacheProbe.cacheHitRows;
+    if (
+      before.cacheProbe.cacheHitRatio !== null &&
+      after.cacheProbe.cacheHitRatio !== null
+    ) {
+      values.cacheHitRatio = before.cacheProbe.cacheHitRatio;
+      afterValues.cacheHitRatio = after.cacheProbe.cacheHitRatio;
     }
   }
   return Object.fromEntries(

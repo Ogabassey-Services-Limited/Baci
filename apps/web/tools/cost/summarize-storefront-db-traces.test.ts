@@ -105,4 +105,15 @@ describe('summarizeStorefrontDbTraces', () => {
       'aggregate exceeds the safe integer bound for dbCalls'
     );
   });
+
+  it('rejects an empty DB trace instead of treating missing samples as zero work', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'storefront-db-trace-empty-'));
+    roots.push(root);
+    const path = join(root, 'trace.jsonl');
+    await writeFile(path, '\n');
+
+    await expect(summarizeStorefrontDbTraces(path)).rejects.toThrow(
+      'DB trace contains no rows'
+    );
+  });
 });

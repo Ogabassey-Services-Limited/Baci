@@ -16,6 +16,7 @@ async function fixtureFiles() {
   const beforePath = join(root, 'before.jsonl');
   const afterPath = join(root, 'after.jsonl');
   const cachePath = join(root, 'cache.jsonl');
+  const afterCachePath = join(root, 'after-cache.jsonl');
   const beforeDbTracePath = join(root, 'before-db.jsonl');
   const afterDbTracePath = join(root, 'after-db.jsonl');
   const rows = [
@@ -57,6 +58,10 @@ async function fixtureFiles() {
     `${JSON.stringify({ cacheStatus: 'HIT', ttfbMs: 12 })}\n${JSON.stringify({ cacheStatus: 'MISS', ttfbMs: 40 })}\n${JSON.stringify({ cacheStatus: 'STALE', ttfbMs: 20 })}\n${JSON.stringify({ cacheStatus: 'PRERENDER', ttfbMs: 18 })}\n`
   );
   await writeFile(
+    afterCachePath,
+    `${JSON.stringify({ cacheStatus: 'HIT', ttfbMs: 10 })}\n${JSON.stringify({ cacheStatus: 'MISS', ttfbMs: 30 })}\n`
+  );
+  await writeFile(
     beforeDbTracePath,
     `${JSON.stringify({ cohort: 'pdp', dbCalls: 4, dbTimeouts: 1 })}\n${JSON.stringify({ cohort: 'compare', dbCalls: 2, dbTimeouts: 0 })}\n`
   );
@@ -65,6 +70,7 @@ async function fixtureFiles() {
     `${JSON.stringify({ cohort: 'pdp', dbCalls: 1, dbTimeouts: 0 })}\n${JSON.stringify({ cohort: 'compare', dbCalls: 1, dbTimeouts: 0 })}\n`
   );
   return {
+    afterCachePath,
     afterDbTracePath,
     afterPath,
     beforeDbTracePath,
@@ -82,6 +88,7 @@ afterEach(async () => {
 describe('measureVercelStorefrontCost', () => {
   it('filters the project, aggregates billable services, and compares cache probes', async () => {
     const {
+      afterCachePath,
       afterDbTracePath,
       afterPath,
       beforeDbTracePath,
@@ -94,6 +101,7 @@ describe('measureVercelStorefrontCost', () => {
         inputPath: afterPath,
         window: {
           dbTracePath: afterDbTracePath,
+          cacheProbePath: afterCachePath,
           deploymentSha: afterSha,
           label: 'after',
           requestedWindowEnd: '2026-09-01T00:00:00.000Z',
@@ -141,6 +149,24 @@ describe('measureVercelStorefrontCost', () => {
       relativeChangePct: -60,
     });
     expect(result.comparison?.functionInvocations.absoluteDelta).toBe(-60);
+    expect(result.comparison?.cacheStatusRows).toEqual({
+      absoluteDelta: -2,
+      after: 2,
+      before: 4,
+      relativeChangePct: -50,
+    });
+    expect(result.comparison?.cacheHitRows).toEqual({
+      absoluteDelta: -2,
+      after: 1,
+      before: 3,
+      relativeChangePct: -66.666667,
+    });
+    expect(result.comparison?.cacheHitRatio).toEqual({
+      absoluteDelta: -0.25,
+      after: 0.5,
+      before: 0.75,
+      relativeChangePct: -33.333333,
+    });
     expect(result.comparison?.dbCalls).toEqual({
       absoluteDelta: -4,
       after: 2,
@@ -243,6 +269,44 @@ describe('measureVercelStorefrontCost', () => {
       end: '2026-08-01T01:30:00.000Z',
       start: '2026-08-01T00:00:00.000Z',
     });
+  });
+
+  it('rejects a half-specified before billing window', async () => {
+    const { beforePath } = await fixtureFiles();
+    await expect(
+      measureVercelStorefrontCost({
+        before: {
+          inputPath: beforePath,
+          window: {
+            deploymentSha: beforeSha,
+            label: 'before',
+            requestedWindowStart: '2026-08-01T00:00:00.000Z',
+          },
+        },
+        projectId,
+      })
+    ).rejects.toThrow('requested billing window requires both start and end');
+  });
+
+  it('rejects a half-specified after billing window', async () => {
+    const { afterPath, beforePath } = await fixtureFiles();
+    await expect(
+      measureVercelStorefrontCost({
+        after: {
+          inputPath: afterPath,
+          window: {
+            deploymentSha: afterSha,
+            label: 'after',
+            requestedWindowEnd: '2026-08-02T00:00:00.000Z',
+          },
+        },
+        before: {
+          inputPath: beforePath,
+          window: { deploymentSha: beforeSha, label: 'before' },
+        },
+        projectId,
+      })
+    ).rejects.toThrow('requested billing window requires both start and end');
   });
 
   it('rejects malformed or unbounded billing input', async () => {

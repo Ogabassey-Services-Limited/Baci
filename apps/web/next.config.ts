@@ -5,6 +5,7 @@ import { builderPreviewRouteHeaders } from './src/config/builder-preview-route-h
 import { CACHE_LIFE_PROFILES } from './src/config/cache-life-profiles';
 import { OGABASSEY_DOCUMENT_LINK_HEADER_VALUE } from './src/config/early-hints-link-header';
 import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
+import { IMMUTABLE_NEXT_STATIC_ASSET_HEADERS } from './src/config/next-static-asset-headers';
 import { STATIC_GENERATION_LIMITS } from './src/config/static-generation';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
@@ -25,7 +26,6 @@ import {
 const HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN =
   '.*\\.(?:avif|css|eot|gif|ico|jpe?g|js|json|map|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$';
 const HTML_DOCUMENT_ROUTE_SOURCE = `/((?!api(?:/|$)|_next(?:/|$)|${HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN}).*)`;
-const IMMUTABLE_NEXT_STATIC_ASSET_SOURCE = '/_next/static/:path*';
 const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   'rsc',
@@ -665,18 +665,9 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        // Next emits content-hashed build assets under this namespace. Keep
-        // this rule narrower than dotted-path matching so HTML/API/auth routes
-        // can never receive an immutable browser cache policy.
-        source: IMMUTABLE_NEXT_STATIC_ASSET_SOURCE,
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
+      ...(process.env.NODE_ENV === 'production'
+        ? [IMMUTABLE_NEXT_STATIC_ASSET_HEADERS]
+        : []),
       {
         source: OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE,
         has: [{ type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER }],

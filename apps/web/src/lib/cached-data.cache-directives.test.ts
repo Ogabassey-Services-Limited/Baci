@@ -47,6 +47,20 @@ const HYDRATE_PUBLIC_PRODUCTS_AST = ts.createSourceFile(
   true,
   ts.ScriptKind.TS
 );
+const CATEGORY_PAGE_SHELL_SOURCE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    'cached-category-page-shell.ts'
+  ),
+  'utf8'
+);
+const CATEGORY_PAGE_SHELL_AST = ts.createSourceFile(
+  'cached-category-page-shell.ts',
+  CATEGORY_PAGE_SHELL_SOURCE,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS
+);
 
 function getFunctionSourceFrom(
   functionName: string,
@@ -80,6 +94,14 @@ function getFunctionSource(functionName: string): string {
     functionName,
     CACHED_DATA_SOURCE,
     CACHED_DATA_AST
+  );
+}
+
+function getCategoryPageShellFunctionSource(functionName: string): string {
+  return getFunctionSourceFrom(
+    functionName,
+    CATEGORY_PAGE_SHELL_SOURCE,
+    CATEGORY_PAGE_SHELL_AST
   );
 }
 
@@ -188,7 +210,9 @@ describe('cached-data cache directives', () => {
     // slug. It therefore belongs on the same local cache: no remote write
     // round-trip, and its 'storefront-page' window (revalidate 300) already
     // bounds cross-instance staleness of the rarely-changing shell to ~5min.
-    const source = getFunctionSource('getCachedCategoryPageShellData');
+    const source = getCategoryPageShellFunctionSource(
+      'getCachedCategoryPageShellData'
+    );
 
     expect(source).toContain("'use cache';");
     expect(source).not.toContain("'use cache: remote';");

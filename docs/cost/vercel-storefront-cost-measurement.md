@@ -58,6 +58,10 @@ When both DB trace inputs are supplied, the comparison also reports DB calls,
 DB timeouts, and calls per sampled request, with cohort-level detail retained
 on each window. Reports written with `--out` replace the destination
 atomically using a private `0600` file.
+When both cache probes are supplied, the comparison also reports cache-status
+rows, cache-hit rows, and cache-hit ratio; a one-sided probe remains window
+metadata only rather than an inferred delta. Empty DB-trace files and
+half-specified requested windows are rejected as incomplete evidence.
 
 ## Interpretation
 

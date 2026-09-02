@@ -72,6 +72,7 @@ export async function summarizeStorefrontDbTraces(
     .toString('utf8')
     .split(/\r?\n/)
     .filter((line) => line.trim());
+  if (rows.length === 0) throw new Error('DB trace contains no rows');
   if (rows.length > MAX_INPUT_ROWS) {
     throw new Error(`DB trace exceeds the ${MAX_INPUT_ROWS}-row bound`);
   }
