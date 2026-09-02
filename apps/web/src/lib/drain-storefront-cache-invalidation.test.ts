@@ -63,7 +63,8 @@ describe('drainStorefrontCacheInvalidation', () => {
       expect.arrayContaining([
         'merchant-ogabassey.com',
         'product-lcp-image-22222222-2222-4222-8222-222222222222-cache-phone',
-      ])
+      ]),
+      { mode: 'delete' }
     );
     expect(mocks.vercel).not.toHaveBeenCalledWith(
       expect.arrayContaining(['product-lcp-image'])
@@ -103,12 +104,14 @@ describe('drainStorefrontCacheInvalidation', () => {
     ]);
   });
 
-  it('hard-expires only the exact tags carried by a product target', async () => {
+  it('stale-while-revalidates exact product tags without duplicating the ordered Cloudflare follow-up', async () => {
+    mocks.vercel.mockResolvedValueOnce({ ok: true, reason: 'invalidated' });
+
     await expect(
       drainStorefrontCacheInvalidation({
         ...claim,
         product_slugs: [],
-        related_identifiers: [],
+        related_identifiers: ['ogabassey', 'ogabassey.com'],
         target_id: 'renamed-phone',
         target_kind: 'storefront_product',
       })
@@ -116,19 +119,39 @@ describe('drainStorefrontCacheInvalidation', () => {
 
     expect(mocks.revalidateTag).toHaveBeenCalledWith(
       'product-22222222-2222-4222-8222-222222222222-renamed-phone',
-      { expire: 0 }
+      'products'
     );
     expect(mocks.revalidateTag).toHaveBeenCalledWith(
       'product-lcp-image-22222222-2222-4222-8222-222222222222-renamed-phone',
-      { expire: 0 }
+      'products'
     );
     expect(mocks.products).not.toHaveBeenCalled();
     expect(mocks.categories).not.toHaveBeenCalled();
     expect(mocks.cloudflare).not.toHaveBeenCalled();
-    expect(mocks.vercel).toHaveBeenCalledWith([
-      'product-22222222-2222-4222-8222-222222222222-renamed-phone',
-      'product-lcp-image-22222222-2222-4222-8222-222222222222-renamed-phone',
-    ]);
+    expect(mocks.vercel).toHaveBeenCalledWith(
+      [
+        'product-22222222-2222-4222-8222-222222222222-renamed-phone',
+        'product-lcp-image-22222222-2222-4222-8222-222222222222-renamed-phone',
+      ],
+      { mode: 'invalidate' }
+    );
+  });
+
+  it.each([
+    [{ ok: true, reason: 'deleted' }, 'vercel_deleted'],
+    [{ ok: false, reason: 'timeout' }, 'vercel_timeout'],
+  ] as const)('rejects an exact product purge that is not confirmed as invalidated', async (vercelResult, errorCode) => {
+    mocks.vercel.mockResolvedValueOnce(vercelResult);
+
+    await expect(
+      drainStorefrontCacheInvalidation({
+        ...claim,
+        product_slugs: [],
+        target_id: 'renamed-phone',
+        target_kind: 'storefront_product',
+      })
+    ).resolves.toEqual({ errorCode, ok: false });
+    expect(mocks.cloudflare).not.toHaveBeenCalled();
   });
 
   it('times out a delayed Vercel deletion before reaching Cloudflare', async () => {

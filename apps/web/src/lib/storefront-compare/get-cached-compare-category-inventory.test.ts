@@ -104,8 +104,7 @@ describe('getCachedCompareCategoryInventory', () => {
 
     expect(mockGetCachedCategoryPageShellData).toHaveBeenCalledWith(
       'merchant-1',
-      'laptops',
-      'ogabassey'
+      'laptops'
     );
     expect(productsQuery.select).toHaveBeenCalledWith(
       expect.stringContaining(

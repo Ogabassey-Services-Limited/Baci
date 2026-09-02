@@ -17,10 +17,6 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(),
 }));
 
-vi.mock('@/components/seo/json-ld', () => ({
-  JsonLd: vi.fn(() => null),
-}));
-
 vi.mock('@/templates/registry', () => ({
   getTemplate: vi.fn(() => null),
 }));

@@ -6,7 +6,7 @@ import {
 
 describe('STOREFRONT_CACHE', () => {
   it('defines storefront product cache durations in seconds', () => {
-    expect(STOREFRONT_CACHE.productsSMaxAge).toBe(300);
+    expect(STOREFRONT_CACHE.productsSMaxAge).toBe(1800);
     expect(STOREFRONT_CACHE.productsStaleWhileRevalidate).toBe(86400);
   });
 

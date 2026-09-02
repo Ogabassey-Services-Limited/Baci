@@ -49,13 +49,10 @@ export const STOREFRONT_PUBLIC_CACHE_POLICIES = [
   },
 ] as const satisfies readonly StorefrontPublicCachePolicy[];
 
-// Freshness stays SHORT (5m) with a LONG stale-while-revalidate window,
-// mirroring the proxy's STOREFRONT_DOCUMENT_CACHE_CONTROL rationale: the long
-// SWR keeps edge MISS rates (and user-facing TTFB) low, while the short
-// s-maxage bounds how long a mutated/removed product can be served before a
-// background revalidation — products have NO active Cloudflare purge path yet,
-// so do not raise s-maxage until one is wired (see lib/cloudflare-purge.ts).
+// Product/PDP documents use a 30m freshness window with a LONG
+// stale-while-revalidate window. Tag/path invalidation handles mutations; the
+// time window remains a bounded fallback when an invalidation is delayed.
 export const STOREFRONT_CACHE = {
-  productsSMaxAge: 300,
+  productsSMaxAge: 1800,
   productsStaleWhileRevalidate: 86400,
 } as const;

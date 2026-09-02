@@ -11,6 +11,12 @@ import {
 export const preferredRegion = 'dub1';
 
 const NEWS_SITEMAP_WINDOW_MS = 48 * 60 * 60 * 1000;
+const NEWS_SITEMAP_MAX_CACHE_AGE_MS = 60 * 60 * 1000;
+const NEWS_SITEMAP_CLOCK_SKEW_MARGIN_MS = 5 * 60 * 1000;
+const NEWS_SITEMAP_QUERY_WINDOW_MS =
+  NEWS_SITEMAP_WINDOW_MS -
+  NEWS_SITEMAP_MAX_CACHE_AGE_MS -
+  NEWS_SITEMAP_CLOCK_SKEW_MARGIN_MS;
 const NEWS_SITEMAP_LIMIT = 1000;
 
 interface NewsSitemapPostRow {
@@ -114,7 +120,7 @@ function createNewsSitemapResponse(entries: NewsSitemapEntry[]): NextResponse {
   return new NextResponse(buildNewsSitemapXml(entries), {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
-      'cache-control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'cache-control': 'public, s-maxage=1800, stale-while-revalidate=1800',
       'x-content-type-options': 'nosniff',
     },
   });
@@ -148,7 +154,11 @@ export async function GET(
     return createNewsSitemapResponse([]);
   }
 
-  const cutoffIso = new Date(Date.now() - NEWS_SITEMAP_WINDOW_MS).toISOString();
+  // Reserve the full possible CDN age plus processing/clock-skew margin inside
+  // Google's 48-hour window, so stale XML cannot retain an expired entry.
+  const cutoffIso = new Date(
+    Date.now() - NEWS_SITEMAP_QUERY_WINDOW_MS
+  ).toISOString();
   const { data: posts, error } = (await supabase
     .from('blog_posts')
     .select('slug, title, published_at, updated_at')

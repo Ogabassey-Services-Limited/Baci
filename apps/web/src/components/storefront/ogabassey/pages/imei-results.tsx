@@ -82,9 +82,6 @@ export function OgabasseyImeiResults({
                 <span className="text-[var(--store-icon-muted,#d1d5db)]">
                   •
                 </span>
-                <span className="font-mono text-xs text-[var(--store-muted-text,#6b7280)]">
-                  {new Date().toLocaleString()}
-                </span>
               </div>
               <h2 className="text-xl font-bold text-[var(--store-text,#111827)] md:text-2xl">
                 {result.device}

@@ -8,6 +8,9 @@ export const maxDuration = 60;
 const BATCH_SIZE = 2;
 const TARGET_BUDGET = 10;
 const CLAIM_CUTOFF_MS = 30_000;
+// Report current dead-letter presence on every request. The VPS scheduler owns
+// durable transition detection and repeated-alert suppression.
+
 export async function GET(request: Request): Promise<NextResponse> {
   if (!hasValidCronSecret(request.headers, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -85,15 +88,13 @@ export async function GET(request: Request): Promise<NextResponse> {
       { status: 500 }
     );
   }
-  if (deadLetters.data) {
-    return NextResponse.json(
-      {
-        error: 'Cache invalidations require intervention',
-        code: 'cache_invalidation_dead_letter',
-      },
-      { status: 503 }
-    );
-  }
-
-  return NextResponse.json({ claimed, completed, failed });
+  const hasDeadLetters = deadLetters.data;
+  return NextResponse.json({
+    claimed,
+    completed,
+    failed,
+    ...(hasDeadLetters
+      ? { deadLettersPresent: true }
+      : { deadLettersPresent: false }),
+  });
 }

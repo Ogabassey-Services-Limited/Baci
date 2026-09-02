@@ -126,7 +126,7 @@ function toInventoryProduct(
 export async function getCachedCompareCategoryInventory(
   merchantId: string,
   categorySlug: string,
-  storeSlug: string
+  _storeSlug: string
 ): Promise<CompareCategoryInventory> {
   // LOCAL 'use cache' (not remote): this ~1MB entry is filled inside the
   // compare page model, whose large Vercel remote-cache SET (RemoteCacheHandler
@@ -135,10 +135,10 @@ export async function getCachedCompareCategoryInventory(
   // getCachedMerchant for the same remote→local rationale.
   'use cache';
   try {
-    // 'products' (revalidate 300), NOT 'categories' (3600): as a LOCAL entry
+    // 'products' (revalidate 1800), NOT 'categories' (3600): as a LOCAL entry
     // (see the directive note above), tag revalidation only evicts the mutating
     // instance, so bound cross-instance staleness of the embedded price to
-    // ~5min. This query is <1s, so more frequent refills are cheap.
+    // ~30min. This query is <1s, so refills remain inexpensive.
     cacheLife('products');
     cacheTag(
       'category-page-data',
@@ -151,11 +151,7 @@ export async function getCachedCompareCategoryInventory(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
-  const shell = await getCachedCompareCategoryShell(
-    merchantId,
-    categorySlug,
-    storeSlug
-  );
+  const shell = await getCachedCompareCategoryShell(merchantId, categorySlug);
   const fallbackName = shell.fallbackName ?? '';
 
   if (shell.isCollection) {
