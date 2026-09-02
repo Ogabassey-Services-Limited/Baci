@@ -7,6 +7,7 @@ import {
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getCurrencyConfig } from '@/lib/currency';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -129,6 +130,10 @@ export async function POST(request: NextRequest) {
       const productIds = Array.from(
         new Set([...requestedProductIds, ...resolvedProductIds])
       ).filter(isValidUuid);
+      // The immediate purge can refill related articles from the edge before
+      // the post-response enrichment runs, so expire the merchant-scoped blog
+      // data before scheduling the Cloudflare purge.
+      expireProductBlogCache(merchantId);
       // Keep paginated article fallback reads out of the mutation response.
       // The after-response helper hard-expires the related-blog cache before
       // scheduling any linked article URLs.

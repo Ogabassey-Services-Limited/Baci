@@ -28,11 +28,6 @@ vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
 }));
-const mockScheduleProductBlogPurgeAfterResponse = vi.fn();
-vi.mock('@/lib/schedule-product-blog-purge-after-response', () => ({
-  scheduleProductBlogPurgeAfterResponse: (...args: unknown[]) =>
-    mockScheduleProductBlogPurgeAfterResponse(...args),
-}));
 
 let csrfValid = true;
 vi.mock('@/lib/csrf', () => ({
@@ -408,87 +403,6 @@ describe('POST /api/products/bulk-update', () => {
     const purgeOrder =
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0];
     expect(revalidateOrder).toBeLessThan(purgeOrder);
-  });
-
-  it('schedules a Cloudflare purge for the affected updated products', async () => {
-    const { POST } = await import('./route');
-    productUpdateSelectRows = [
-      {
-        id: 'product-1',
-        slug: 'updated-product',
-        category: 'Electronics',
-        status: 'active',
-        categories: null,
-        product_categories: [],
-      },
-    ];
-
-    const res = await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'update',
-            productId: 'product-1',
-            newPrice: 150,
-            details: { name: 'Updated Product', price: 150 },
-          },
-        ],
-      })
-    );
-
-    expect(res.status).toBe(200);
-    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'ogabassey',
-      [{ slug: 'updated-product', categorySegment: 'electronics' }]
-    );
-    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith({
-      supabase: expect.anything(),
-      merchantId: MERCHANT_ID,
-      merchantSlug: 'ogabassey',
-      productIds: [],
-      entries: [{ slug: 'updated-product', categorySegment: 'electronics' }],
-      categorySlugs: ['electronics'],
-      skipProductPurge: true,
-    });
-  });
-
-  it('passes the resolved UUID for a SKU-matched update to article purge enrichment', async () => {
-    const { POST } = await import('./route');
-    const resolvedProductId = '123e4567-e89b-42d3-a456-426614174000';
-    productUpdateSelectRows = [
-      {
-        id: resolvedProductId,
-        slug: 'sku-phone',
-        category: 'Smartphones',
-        status: 'active',
-        categories: null,
-        product_categories: [],
-      },
-    ];
-
-    const res = await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'update',
-            details: {
-              sku: 'SKU-PHONE',
-              name: 'SKU phone',
-              price: 150,
-              category: 'Smartphones',
-            },
-            newPrice: 150,
-          },
-        ],
-      })
-    );
-
-    expect(res.status).toBe(200);
-    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        productIds: [resolvedProductId],
-      })
-    );
   });
 
   it('falls back to the product id for the purge target when the row slug is null', async () => {

@@ -57,6 +57,7 @@ import type {
   TaxSubtotal,
 } from '@/lib/invoice-generator';
 import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
+import { isInventoryTrackedProduct } from '@/lib/is-inventory-tracked-product';
 import { logger } from '@/lib/logger';
 import { dispatchOrderCreationNotifications } from '@/lib/order-notification-dispatch';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
@@ -3008,10 +3009,17 @@ export async function POST(request: NextRequest) {
           const { data: revalidateProductRows, error: revalidateSlugError } =
             await supabase
               .from('products')
-              .select('slug')
+              .select('id, slug, manage_stock, inventory_tracking_policy')
               .eq('merchant_id', merchant_id)
               .in('id', revalidateProductIds)
-              .returns<Array<{ slug: string }>>();
+              .returns<
+                Array<{
+                  id: string;
+                  inventory_tracking_policy: string | null;
+                  manage_stock: boolean | null;
+                  slug: string;
+                }>
+              >();
           if (revalidateSlugError) {
             logger.error({
               message:
@@ -3026,16 +3034,104 @@ export async function POST(request: NextRequest) {
               revalidateProductRows.map((row) => row.slug)
             );
           }
+          const resolvedProductRows = revalidateProductRows ?? [];
+          const resolvedProductIds = new Set(
+            resolvedProductRows.map((product) => product.id)
+          );
+          const productsNeedingVariantLookup = new Set(
+            resolvedProductRows
+              .filter((product) => !isInventoryTrackedProduct(product))
+              .map((product) => product.id)
+          );
 
-          // Article enrichment can require several paginated reads. Keep it
-          // on the request's post-response queue so checkout latency remains
-          // bounded by the order RPC and the existing PDP cache invalidation.
-          scheduleOrderProductBlogPurgeAfterResponse({
-            merchantId: merchant_id,
-            merchantSlug: merchant.slug,
-            productIds: revalidateProductIds,
-            supabase,
-          });
+          const variantIds = Array.from(
+            new Set(
+              orderItemsPayload
+                .filter(
+                  (item) =>
+                    typeof item.product_id === 'string' &&
+                    productsNeedingVariantLookup.has(item.product_id)
+                )
+                .map((item) => item.variant_id)
+                .filter(
+                  (variantId): variantId is string =>
+                    typeof variantId === 'string' && variantId.length > 0
+                )
+            )
+          );
+          const serializedVariantProductIds = new Set<string>();
+          let variantPolicyLookupFailed = false;
+          if (variantIds.length > 0) {
+            const { data: variantRows, error: variantRowsError } =
+              await supabase
+                .from('product_variants')
+                .select('product_id, inventory_tracking_policy')
+                .eq('merchant_id', merchant_id)
+                .in('id', variantIds)
+                .returns<
+                  Array<{
+                    inventory_tracking_policy: string | null;
+                    product_id: string;
+                  }>
+                >();
+            if (variantRowsError) {
+              variantPolicyLookupFailed = true;
+              logger.error({
+                message:
+                  'Failed to resolve variant inventory policies after order creation',
+                error: variantRowsError,
+                orderId: order.id,
+                merchantId: merchant_id,
+              });
+            } else {
+              for (const variant of variantRows ?? []) {
+                if (
+                  isInventoryTrackedProduct(
+                    { id: variant.product_id, manage_stock: false },
+                    [variant]
+                  )
+                ) {
+                  serializedVariantProductIds.add(variant.product_id);
+                }
+              }
+            }
+          }
+
+          const trackedProductIds = resolvedProductRows
+            .filter((product) =>
+              isInventoryTrackedProduct(product, [
+                ...(serializedVariantProductIds.has(product.id)
+                  ? [
+                      {
+                        product_id: product.id,
+                        inventory_tracking_policy: 'serialized_strict',
+                      },
+                    ]
+                  : []),
+              ])
+            )
+            .map((product) => product.id);
+          const unresolvedProductIds = revalidateProductIds.filter(
+            (productId) =>
+              !resolvedProductIds.has(productId) ||
+              (variantPolicyLookupFailed &&
+                productsNeedingVariantLookup.has(productId))
+          );
+          const productIdsForBlogPurge = Array.from(
+            new Set([...trackedProductIds, ...unresolvedProductIds])
+          );
+
+          if (productIdsForBlogPurge.length > 0) {
+            // Article enrichment can require several paginated reads. Keep it
+            // on the request's post-response queue so checkout latency remains
+            // bounded by the order RPC and the existing PDP cache invalidation.
+            scheduleOrderProductBlogPurgeAfterResponse({
+              merchantId: merchant_id,
+              merchantSlug: merchant.slug,
+              productIds: productIdsForBlogPurge,
+              supabase,
+            });
+          }
         }
       } catch (revalidateError) {
         logger.error({

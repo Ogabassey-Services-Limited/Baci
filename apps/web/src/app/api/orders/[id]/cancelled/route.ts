@@ -4,15 +4,11 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { isInventoryTrackedProduct } from '@/lib/is-inventory-tracked-product';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
-
-const SERIALIZED_INVENTORY_POLICIES = new Set([
-  'serialized_strict',
-  'serialized_then_unlimited',
-]);
 
 /**
  * POST /api/orders/[id]/cancelled
@@ -115,44 +111,74 @@ export async function POST(
         )
       );
       if (productIds.length > 0) {
-        const variantIds = Array.from(
-          new Set(
-            (orderItems ?? [])
-              .map((item) => item.variant_id)
-              .filter((variantId): variantId is string => Boolean(variantId))
-          )
-        );
-        const serializedVariantProductIds = new Set<string>();
-        if (variantIds.length > 0) {
-          const { data: variants, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('id, product_id, inventory_tracking_policy')
-            .eq('merchant_id', merchantId)
-            .in('id', variantIds);
-          if (variantsError) throw variantsError;
-          for (const variant of variants ?? []) {
-            if (
-              SERIALIZED_INVENTORY_POLICIES.has(
-                variant.inventory_tracking_policy ?? ''
-              )
-            ) {
-              serializedVariantProductIds.add(variant.product_id);
-            }
-          }
-        }
         const { data: products, error: productsError } = await supabase
           .from('products')
           .select('id, slug, manage_stock, inventory_tracking_policy')
           .eq('merchant_id', merchantId)
           .in('id', productIds);
         if (productsError) throw productsError;
-        const trackedProducts = (products ?? []).filter(
-          (product) =>
-            product.manage_stock === true ||
-            SERIALIZED_INVENTORY_POLICIES.has(
-              product.inventory_tracking_policy ?? ''
-            ) ||
-            serializedVariantProductIds.has(product.id)
+        const productsNeedingVariantLookup = new Set(
+          (products ?? [])
+            .filter((product) => !isInventoryTrackedProduct(product))
+            .map((product) => product.id)
+        );
+        const variantIds = Array.from(
+          new Set(
+            (orderItems ?? [])
+              .filter((item) =>
+                productsNeedingVariantLookup.has(item.product_id)
+              )
+              .map((item) => item.variant_id)
+              .filter((variantId): variantId is string => Boolean(variantId))
+          )
+        );
+        const serializedVariantProductIds = new Set<string>();
+        let variantPolicyLookupFailed = false;
+        if (variantIds.length > 0) {
+          const { data: variants, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, product_id, inventory_tracking_policy')
+            .eq('merchant_id', merchantId)
+            .in('id', variantIds);
+          if (variantsError) {
+            variantPolicyLookupFailed = true;
+            // A variant projection failure must not suppress cache invalidation
+            // for the parent product. The parent policy is still authoritative;
+            // serialized child coverage is best-effort for this side effect.
+            logger.error({
+              error: variantsError,
+              merchantId,
+              orderId: id,
+              message:
+                'Failed to resolve variant inventory policies after cancellation',
+            });
+          } else {
+            for (const variant of variants ?? []) {
+              if (
+                isInventoryTrackedProduct(
+                  { id: variant.product_id, manage_stock: false },
+                  [variant]
+                )
+              ) {
+                serializedVariantProductIds.add(variant.product_id);
+              }
+            }
+          }
+        }
+        const trackedProducts = (products ?? []).filter((product) =>
+          variantPolicyLookupFailed &&
+          productsNeedingVariantLookup.has(product.id)
+            ? true
+            : isInventoryTrackedProduct(product, [
+                ...(serializedVariantProductIds.has(product.id)
+                  ? [
+                      {
+                        product_id: product.id,
+                        inventory_tracking_policy: 'serialized_strict',
+                      },
+                    ]
+                  : []),
+              ])
         );
         if (trackedProducts.length > 0) {
           productCacheRevalidation.revalidateProducts(merchantId, undefined, {

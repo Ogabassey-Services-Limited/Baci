@@ -11,7 +11,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
@@ -45,6 +44,8 @@ import {
 } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
+
+const PREDELETE_BLOG_POST_ID_LIMIT = 256;
 
 export async function GET(
   _request: NextRequest,
@@ -1028,15 +1029,32 @@ export async function DELETE(
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
-    // Capture linked published articles BEFORE the delete cascades their
-    // relationship rows. The article document embeds this product's card, so
-    // those exact blog URLs must be evicted after the mutation succeeds.
-    const linkedBlogPostSlugs = await getPublishedBlogPostSlugsForProducts(
-      supabase,
-      merchantId,
-      [id],
-      []
-    );
+    // Capture relationship IDs BEFORE the delete cascades join rows. Resolve
+    // the published slugs after the mutation commits so the delete handler
+    // does not paginate/join blog content on its critical path.
+    let linkedBlogPostIds: string[] = [];
+    try {
+      const { data: linkedPosts, error: linkedPostsError } = await supabase
+        .from('blog_post_products')
+        .select('blog_post_id')
+        .eq('merchant_id', merchantId)
+        .eq('product_id', id)
+        .limit(PREDELETE_BLOG_POST_ID_LIMIT);
+      if (linkedPostsError) throw linkedPostsError;
+      linkedBlogPostIds = (linkedPosts ?? [])
+        .map((row) => (row as { blog_post_id?: unknown }).blog_post_id)
+        .filter(
+          (blogPostId): blogPostId is string =>
+            typeof blogPostId === 'string' && blogPostId.trim().length > 0
+        )
+        .map((blogPostId) => blogPostId.trim());
+    } catch (linkedPostsError) {
+      console.warn('Could not snapshot linked blog post IDs before delete', {
+        merchantId,
+        productId: id,
+        linkedPostsError,
+      });
+    }
 
     // Keep the delete itself lean — the purge inputs were pre-read above.
     const { error: deleteError } = await supabase
@@ -1093,7 +1111,7 @@ export async function DELETE(
           merchantSlug: merchantContext.merchantSlug,
           productIds: [id],
           entries: purgeEntries,
-          blogPostSlugs: linkedBlogPostSlugs,
+          blogPostIds: linkedBlogPostIds,
         });
       } else {
         // The pre-read errored or came back null, yet the delete above
@@ -1113,7 +1131,7 @@ export async function DELETE(
           merchantSlug: merchantContext.merchantSlug,
           productIds: [id],
           entries: [{ slug: id, categorySegment: null }],
-          blogPostSlugs: linkedBlogPostSlugs,
+          blogPostIds: linkedBlogPostIds,
         });
       }
     } catch (purgeError) {

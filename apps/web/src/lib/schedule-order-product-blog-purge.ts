@@ -72,14 +72,21 @@ export async function scheduleOrderProductBlogPurge({
       merchantId,
       products
     );
-    if (entries.length === 0 || blogPostSlugs.length === 0) {
+    if (entries.length === 0) {
       return;
     }
 
     await expireProductBlogCacheReliable(merchantId);
-    scheduleStorefrontProductPurge(merchantSlug, entries, {
-      blogPostSlugs,
-    });
+    if (blogPostSlugs.length > 0) {
+      scheduleStorefrontProductPurge(merchantSlug, entries, {
+        blogPostSlugs,
+      });
+    } else {
+      // The relationship lookup can legitimately find no published article,
+      // but the order still changed the product PDP/listing. Keep the core
+      // purge in that case so those pages cannot remain stale until TTL.
+      scheduleStorefrontProductPurge(merchantSlug, entries);
+    }
   } catch (error) {
     console.warn('Skipped order-related blog purge after enrichment failed', {
       merchantId,

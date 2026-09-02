@@ -65,8 +65,8 @@ function createSupabase() {
   });
   const productIn = vi.fn().mockResolvedValue({
     data: [
-      { id: 'product-1', slug: 'phone-one' },
-      { id: 'product-2', slug: 'phone-two' },
+      { id: 'product-1', slug: 'phone-one', manage_stock: true },
+      { id: 'product-2', slug: 'phone-two', manage_stock: true },
     ],
     error: null,
   });
@@ -149,5 +149,54 @@ describe('customer cancellation cache invalidation', () => {
     expect(
       mockScheduleOrderProductBlogPurgeAfterResponse
     ).toHaveBeenCalledOnce();
+  });
+
+  it('skips cache and article purges for an unlimited-stock cancellation', async () => {
+    const supabase = createSupabase();
+    const productIn = vi.fn().mockResolvedValue({
+      data: [
+        { id: 'product-1', slug: 'phone-one', manage_stock: false },
+        { id: 'product-2', slug: 'phone-two', manage_stock: false },
+      ],
+      error: null,
+    });
+    supabase.from = vi.fn((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  merchant_id: 'merchant-1',
+                  order_items: [{ product_id: 'product-1' }],
+                },
+                error: null,
+              }),
+            })),
+          })),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: vi.fn(() => ({ eq: vi.fn(() => ({ in: productIn })) })),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    }) as typeof supabase.from;
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: { id: 'customer-1' },
+      error: null,
+      supabase,
+    });
+    mockRpc.mockResolvedValue({ data: true, error: null });
+
+    const response = await POST(makeRequest(), { params });
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
+    expect(
+      mockScheduleOrderProductBlogPurgeAfterResponse
+    ).not.toHaveBeenCalled();
   });
 });

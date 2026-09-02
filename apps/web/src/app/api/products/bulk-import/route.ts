@@ -6,6 +6,7 @@ import {
   revalidateProducts,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -233,6 +234,9 @@ export async function POST(request: NextRequest) {
           merchantId,
           publicPurgeEntries.map((entry) => entry.slug)
         );
+        // Expire the merchant-scoped related-blog data before an edge MISS can
+        // refill a stale article while the deferred lookup is still queued.
+        expireProductBlogCache(merchantId);
         scheduleStorefrontProductPurge(
           merchantContext.merchantSlug,
           publicPurgeEntries

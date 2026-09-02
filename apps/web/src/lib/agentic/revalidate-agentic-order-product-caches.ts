@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isInventoryTrackedProduct } from '@/lib/is-inventory-tracked-product';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -6,8 +7,14 @@ import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order
 
 interface ProductCacheRow {
   id: string;
+  inventory_tracking_policy: string | null;
   manage_stock: boolean | null;
   slug: string;
+}
+
+interface ProductVariantCacheRow {
+  inventory_tracking_policy: string | null;
+  product_id: string;
 }
 
 interface RevalidateAgenticOrderProductCachesInput {
@@ -45,7 +52,7 @@ export async function revalidateAgenticOrderProductCaches({
     try {
       const { data: products, error } = await supabase
         .from('products')
-        .select('id, slug, manage_stock')
+        .select('id, slug, manage_stock, inventory_tracking_policy')
         .in('id', normalizedProductIds)
         .eq('merchant_id', merchantId)
         .returns<ProductCacheRow[]>();
@@ -62,8 +69,51 @@ export async function revalidateAgenticOrderProductCaches({
         return;
       }
 
-      const trackedProducts = (products ?? []).filter(
-        (product) => product.manage_stock === true
+      const variantsByProductId = new Map<string, ProductVariantCacheRow[]>();
+      const productsNeedingVariantLookup = (products ?? []).filter(
+        (product) => !isInventoryTrackedProduct(product)
+      );
+      let variantPolicyLookupFailed = false;
+      if (productsNeedingVariantLookup.length > 0) {
+        const { data: variants, error: variantsError } = await supabase
+          .from('product_variants')
+          .select('product_id, inventory_tracking_policy')
+          .eq('merchant_id', merchantId)
+          .in(
+            'product_id',
+            productsNeedingVariantLookup.map((product) => product.id)
+          )
+          .returns<ProductVariantCacheRow[]>();
+        if (variantsError) {
+          variantPolicyLookupFailed = true;
+          // Child policy is an optimization for serialized inventory; a
+          // failed projection must not suppress invalidation for managed
+          // parent products whose policy remains authoritative.
+          logger.error({
+            error: sanitizeForLog(variantsError),
+            message: slugLookupFailureMessage,
+            sessionId: sanitizeForLog(sessionId),
+          });
+        } else {
+          for (const variant of variants ?? []) {
+            const productVariants =
+              variantsByProductId.get(variant.product_id) ?? [];
+            productVariants.push(variant);
+            variantsByProductId.set(variant.product_id, productVariants);
+          }
+        }
+      }
+
+      const trackedProducts = (products ?? []).filter((product) =>
+        variantPolicyLookupFailed &&
+        productsNeedingVariantLookup.some(
+          (candidate) => candidate.id === product.id
+        )
+          ? true
+          : isInventoryTrackedProduct(
+              product,
+              variantsByProductId.get(product.id) ?? []
+            )
       );
       if (trackedProducts.length > 0) {
         // Article rails change only when inventory-tracked products mutate.

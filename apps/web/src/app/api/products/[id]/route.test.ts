@@ -196,6 +196,7 @@ const productSelectArgs: string[] = [];
 // assert the DELETE handler pre-reads the row BEFORE deleting it (the junction
 // rows cascade away with the delete, so reading after would come back empty).
 const productOps: string[] = [];
+let linkedBlogPostRows: unknown[] = [];
 
 const createMockSupabase = () => ({
   rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
@@ -304,6 +305,19 @@ const createMockSupabase = () => ({
         }),
       };
       return productsApi;
+    }
+    if (table === 'blog_post_products') {
+      const linkedPostsChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn((limit: number) => {
+          return Promise.resolve({
+            data: linkedBlogPostRows.slice(0, limit),
+            error: null,
+          });
+        }),
+      };
+      return linkedPostsChain;
     }
     if (table === 'product_variants') {
       const variantSelectFilters: [string, unknown][] = [];
@@ -460,6 +474,7 @@ function resetMocks() {
   lastVariantDeleteFilters.length = 0;
   productSelectArgs.length = 0;
   productOps.length = 0;
+  linkedBlogPostRows = [];
   csrfValid = true;
 }
 

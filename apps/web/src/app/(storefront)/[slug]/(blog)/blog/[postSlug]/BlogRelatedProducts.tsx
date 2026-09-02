@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
+import { isInventoryTrackedProduct } from '@/lib/is-inventory-tracked-product';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
@@ -49,10 +50,17 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
     true;
   const hasDirectPurchasableOffer =
     product.offers?.some((offer) => getEffectiveStock(offer) > 0) === true;
+  const hasTrackedInventory = isInventoryTrackedProduct(
+    product,
+    (product.variants ?? []).map((variant) => ({
+      product_id: product.id,
+      inventory_tracking_policy: variant.inventory_tracking_policy,
+    }))
+  );
   const hasConfirmedUnavailableVariant =
     product.has_variants === true &&
     product.has_purchasable_variant === false &&
-    (product.manage_stock === true || (product.variants?.length ?? 0) === 0) &&
+    (hasTrackedInventory || (product.variants?.length ?? 0) === 0) &&
     !hasDirectPurchasableVariant;
   const hasOutOfStockManagedParent =
     product.manage_stock === true &&

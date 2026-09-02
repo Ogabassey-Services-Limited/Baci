@@ -218,4 +218,30 @@ describe('BlogRelatedProducts', () => {
 
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
+
+  it('shows unavailable for a depleted serialized child under an unmanaged parent', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-serialized-child',
+            name: 'Galaxy S25 serialized variant',
+            manage_stock: false,
+            has_variants: true,
+            has_purchasable_variant: false,
+            variants: [
+              {
+                inventory_tracking_policy: 'serialized_strict',
+                stock_quantity: 0,
+              },
+            ],
+            slug: 'galaxy-s25',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
+  });
 });

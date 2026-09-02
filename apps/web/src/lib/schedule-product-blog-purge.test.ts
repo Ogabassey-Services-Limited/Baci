@@ -20,6 +20,20 @@ import { scheduleProductBlogPurge } from './schedule-product-blog-purge';
 const supabase = {} as never;
 const entries = [{ slug: 'pixel-11', categorySegment: 'smartphones' }];
 
+function makeBlogPostIdSupabase(rows: unknown[], error: unknown = null) {
+  const inQuery = vi.fn().mockResolvedValue({ data: rows, error });
+  const chain = {
+    eq: vi.fn(() => chain),
+    in: inQuery,
+    not: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+  };
+  return {
+    client: { from: vi.fn(() => chain) } as never,
+    inQuery,
+  };
+}
+
 describe('scheduleProductBlogPurge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,6 +77,29 @@ describe('scheduleProductBlogPurge', () => {
     expect(mockLookup).not.toHaveBeenCalled();
     expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
       blogPostSlugs: ['Guide-A', 'guide-a', 'guide-b'],
+    });
+  });
+
+  it('resolves pre-delete relationship IDs after the mutation commits', async () => {
+    const { client, inQuery } = makeBlogPostIdSupabase([
+      { slug: 'pixel-guide', status: 'published', published_at: '2026-09-01' },
+      { slug: 'draft-guide', status: 'draft', published_at: null },
+    ]);
+
+    await scheduleProductBlogPurge({
+      supabase: client,
+      merchantId: 'merchant-1',
+      merchantSlug: 'store',
+      productIds: ['product-1'],
+      entries,
+      blogPostIds: ['11111111-1111-4111-8111-111111111111'],
+    });
+
+    expect(inQuery).toHaveBeenCalledWith('id', [
+      '11111111-1111-4111-8111-111111111111',
+    ]);
+    expect(mockSchedule).toHaveBeenCalledWith('store', entries, {
+      blogPostSlugs: ['pixel-guide'],
     });
   });
 

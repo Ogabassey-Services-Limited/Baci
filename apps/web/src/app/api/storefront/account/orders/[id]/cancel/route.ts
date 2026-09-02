@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getTrackedCustomerCancellationProducts } from '@/lib/get-tracked-customer-cancellation-products';
 import { logger } from '@/lib/logger';
 import { sendOrderCancellationEmail } from '@/lib/order-cancellation-email';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
@@ -126,7 +127,7 @@ export async function POST(
       const { data: cancelledOrder, error: cancelledOrderError } =
         await auth.supabase
           .from('orders')
-          .select('merchant_id, order_items(product_id)')
+          .select('merchant_id, order_items(product_id, variant_id)')
           .eq('id', id)
           .maybeSingle();
       if (cancelledOrderError || !cancelledOrder) {
@@ -137,14 +138,16 @@ export async function POST(
         merchant_id?: string | null;
         order_items?: unknown;
       };
+      const orderItems = (
+        Array.isArray(typedOrder.order_items) ? typedOrder.order_items : []
+      ).filter(
+        (item): item is { product_id?: unknown; variant_id?: unknown } =>
+          typeof item === 'object' && item !== null
+      );
       const productIds = Array.from(
         new Set(
-          (Array.isArray(typedOrder.order_items) ? typedOrder.order_items : [])
-            .map((item) =>
-              typeof item === 'object' && item !== null && 'product_id' in item
-                ? (item as { product_id?: unknown }).product_id
-                : null
-            )
+          orderItems
+            .map((item) => item.product_id)
             .filter(
               (productId): productId is string =>
                 typeof productId === 'string' && productId.trim().length > 0
@@ -154,55 +157,41 @@ export async function POST(
       );
       const merchantId = typedOrder.merchant_id?.trim();
       if (merchantId && productIds.length > 0) {
-        try {
-          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
-            feedScope: 'merchant',
-          });
-        } catch (productCacheError) {
-          // The article purge below is independent of Next tag invalidation;
-          // keep queueing it even if a cache API is unavailable in this scope.
-          logger.error({
-            message:
-              'Failed to revalidate product caches after customer cancellation',
-            orderId: id,
-            merchantId,
-            error: productCacheError,
-          });
-        }
-
-        // Per-slug PDP tags are narrower than the merchant-wide product tag.
-        // A read failure must not suppress the article purge, so keep this
-        // optional enrichment fail-open and queue all known product IDs below.
-        try {
-          const { data: productRows, error: productRowsError } =
-            await auth.supabase
-              .from('products')
-              .select('id, slug')
-              .eq('merchant_id', merchantId)
-              .in('id', productIds);
-          if (productRowsError) throw productRowsError;
-          const slugs = (productRows ?? [])
-            .map((row) => (row as { slug?: string | null }).slug)
-            .filter((slug): slug is string => Boolean(slug?.trim()))
-            .map((slug) => slug.trim());
-          if (slugs.length > 0) {
-            productCacheRevalidation.revalidateProductSlugs(merchantId, slugs);
-          }
-        } catch (productRowsError) {
-          logger.error({
-            message:
-              'Failed to resolve product slugs after customer cancellation',
-            orderId: id,
-            merchantId,
-            error: productRowsError,
-          });
-        }
-
-        scheduleOrderProductBlogPurgeAfterResponse({
+        const trackedProducts = await getTrackedCustomerCancellationProducts({
           merchantId,
+          orderItems,
           productIds,
           supabase: auth.supabase,
         });
+        const trackedProductIds = trackedProducts.map((product) => product.id);
+        const slugs = trackedProducts
+          .map((product) => product.slug)
+          .filter((slug): slug is string => Boolean(slug?.trim()))
+          .map((slug) => slug.trim());
+        if (slugs.length > 0) {
+          productCacheRevalidation.revalidateProductSlugs(merchantId, slugs);
+        }
+
+        if (trackedProductIds.length > 0) {
+          try {
+            productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+              feedScope: 'merchant',
+            });
+          } catch (productCacheError) {
+            logger.error({
+              message:
+                'Failed to revalidate product caches after customer cancellation',
+              orderId: id,
+              merchantId,
+              error: productCacheError,
+            });
+          }
+          scheduleOrderProductBlogPurgeAfterResponse({
+            merchantId,
+            productIds: trackedProductIds,
+            supabase: auth.supabase,
+          });
+        }
       }
     } catch (cacheError) {
       // Cancellation is already committed. Cache invalidation remains

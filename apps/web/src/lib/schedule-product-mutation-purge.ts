@@ -11,6 +11,7 @@ interface ScheduleProductMutationPurgeInput {
   productIds: readonly string[];
   entries: readonly StorefrontProductPurgeEntry[];
   blogPostSlugs?: readonly string[];
+  blogPostIds?: readonly string[];
 }
 
 /**
@@ -25,6 +26,7 @@ export function scheduleProductMutationPurge({
   productIds,
   entries,
   blogPostSlugs,
+  blogPostIds,
 }: ScheduleProductMutationPurgeInput): void {
   revalidateProductSlugs(
     merchantId,
@@ -38,6 +40,7 @@ export function scheduleProductMutationPurge({
     productIds,
     entries,
     blogPostSlugs,
+    blogPostIds,
     categorySlugs: entries.map((entry) => entry.categorySegment),
     skipProductPurge: true,
   });

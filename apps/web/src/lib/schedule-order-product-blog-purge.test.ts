@@ -93,7 +93,7 @@ describe('scheduleOrderProductBlogPurge', () => {
     );
   });
 
-  it('does not purge when the product has no affected published articles', async () => {
+  it('keeps the core purge when no published article is linked', async () => {
     mockEnrichProductPurgeEntries.mockResolvedValue({
       entries: [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
       blogPostSlugs: [],
@@ -107,7 +107,13 @@ describe('scheduleOrderProductBlogPurge', () => {
       supabase: supabase as never,
     });
 
-    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    expect(mockExpireProductBlogCacheReliable).toHaveBeenCalledWith(
+      'merchant-1'
+    );
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
   });
 
   it('fails open when merchant slug resolution fails', async () => {

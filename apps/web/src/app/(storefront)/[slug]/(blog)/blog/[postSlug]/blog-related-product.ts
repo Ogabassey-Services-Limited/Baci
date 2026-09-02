@@ -8,6 +8,7 @@ export interface BlogRelatedProduct {
   has_variants?: boolean | null;
   has_purchasable_condition_offer?: boolean;
   has_purchasable_variant?: boolean;
+  inventory_tracking_policy?: string | null;
   manage_stock?: boolean | null;
   max_variant_price?: number | null;
   min_variant_price?: number | null;
@@ -21,6 +22,7 @@ export interface BlogRelatedProduct {
   stock_quantity?: number | null;
   slug?: string | null;
   variants?: Array<{
+    inventory_tracking_policy?: string | null;
     price_override?: number | null;
     stock_quantity?: number | null;
   }>;
