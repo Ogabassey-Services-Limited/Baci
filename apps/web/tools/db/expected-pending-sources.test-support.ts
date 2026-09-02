@@ -247,4 +247,74 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260901123000_repair_storefront_semantic_inventory_indexes.sql',
     sha256: '2999879d1a4127e4b703c8cb18a88f276ced6b2512331c1383402fdf36fff76d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901190000_add_gigl_quote_economics.sql',
+    sha256: '2f25cb4c44571b6e7376dac39151005e7cc5df6792b60fd7666c9d26aecf44de',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901191000_stamp_gigl_order_economics.sql',
+    sha256: '2e31e872f00cf430de6282f18f100b1a3780ca2b3aba5063754ff3b581c9b88e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901192000_add_merchant_shipping_charges.sql',
+    sha256: '2f88980c7b705d4e781168e904170beec9990a16fa2d21c826e74f671b79966f',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901193000_add_merchant_wallet_funding.sql',
+    sha256: 'c1731436da2434cae7bcbd94478e385c1a2ca1fef1f16a1c9d0b56369c5f483f',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901194000_bind_admin_gigl_quote.sql',
+    sha256: '018b762725270625ba92d9490054bb14f778685bf044eeaab9b38bb877e7d66d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901200000_secure_admin_gigl_quote_attestation.sql',
+    sha256: 'a6f3e62e5cb3692aed8bc3f89963c1a66503cac9ba5a22b249b5f3ad0557d18c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901201000_harden_wallet_shipping_quote_attestation.sql',
+    sha256: 'a5fe749546a131a822bb8aa6d6423e520004652f71656101a184685c03acf163',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901202000_block_active_shipping_charge_quote_replacement.sql',
+    sha256: '1b7f7dbdd87b3111328bdb0225e010edd685a5305ba7e6d1ebbab5a4a6bc2d1d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901203000_harden_shipping_charge_completion.sql',
+    sha256: 'ebcb625df818db4f7065c0e6eb9cceac98fbcd4d7ea608d8e5276b94ba6c55c0',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901204000_harden_wallet_charge_and_account_updates.sql',
+    sha256: 'e292366670d1971c3361e6b18b478ffd168299c5dc4445f4440926314df9096f',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260901205000_add_wallet_shipping_fk_indexes.sql',
+    sha256: '8b3cbf10e2a045d6c368064fb5b2c7761531810f669302bd65bfc96bf91ef789',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902081234_restrict_gigl_quote_economics_access.sql',
+    sha256: '6838947dabd9fdaa6456141c1e98644b555c9cc6f8f3abef2430cd00bd107061',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902090000_allow_cleanup_expired_attested_quotes.sql',
+    sha256: 'fbe472d211161a2f22bdfed6523188fe2aa275d5c4a1e1680761559745aa2475',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902100000_repair_reconciliation_review_issue_types.sql',
+    sha256: '1653c0ba5a4b28ccabffc2dcea63923c96bdda9f6aa98066868c2a8b413cb985',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
