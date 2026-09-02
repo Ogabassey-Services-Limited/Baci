@@ -172,6 +172,37 @@ function createProductsChain(
   return chain;
 }
 
+function createVariantsChain() {
+  const chain: {
+    eq: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    returns: ReturnType<typeof vi.fn>;
+    select: ReturnType<typeof vi.fn>;
+  } = {
+    eq: vi.fn(() => chain),
+    in: vi.fn(() => chain),
+    returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+    select: vi.fn(() => chain),
+  };
+  return chain;
+}
+
+function createCheckoutSupabase(
+  mock: ReturnType<typeof buildSessionUpdateMock>,
+  productsChain: ReturnType<typeof createProductsChain>
+) {
+  const variantsChain = createVariantsChain();
+  return {
+    from: vi.fn((table: string) =>
+      table === 'products'
+        ? productsChain
+        : table === 'product_variants'
+          ? variantsChain
+          : mock.chain
+    ),
+  };
+}
+
 function callFinalize(
   supabase: unknown,
   orderSessionCalcOverride?: typeof orderSessionCalc
@@ -372,11 +403,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     const productsChain = createProductsChain([
       { id: 'product-1', manage_stock: true, slug: 'phone-slug' },
     ]);
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productsChain : mock.chain
-      ),
-    };
+    const supabase = createCheckoutSupabase(mock, productsChain);
 
     const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
@@ -392,11 +419,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     const productsChain = createProductsChain([
       { manage_stock: true, slug: 'phone-slug' },
     ]);
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productsChain : mock.chain
-      ),
-    };
+    const supabase = createCheckoutSupabase(mock, productsChain);
 
     const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
@@ -406,7 +429,9 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       undefined,
       { feedScope: 'merchant' }
     );
-    expect(productsChain.select).toHaveBeenCalledWith('id, slug, manage_stock');
+    expect(productsChain.select).toHaveBeenCalledWith(
+      'id, slug, manage_stock, inventory_tracking_policy'
+    );
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
@@ -420,11 +445,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       error: null,
     });
     const productsChain = createProductsChain(null, { message: 'db down' });
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productsChain : mock.chain
-      ),
-    };
+    const supabase = createCheckoutSupabase(mock, productsChain);
 
     const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
@@ -445,11 +466,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     const productsChain = createProductsChain([
       { id: 'product-1', manage_stock: false, slug: 'unlimited-phone' },
     ]);
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productsChain : mock.chain
-      ),
-    };
+    const supabase = createCheckoutSupabase(mock, productsChain);
 
     const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
