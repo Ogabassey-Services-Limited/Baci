@@ -213,10 +213,13 @@ describe('getMerchantShippingRatesOrThrow', () => {
         .mockRejectedValueOnce(transportError),
     } as never;
 
-    // Act + Assert
-    await expect(
-      getMerchantShippingRatesOrThrow(supabase, 'merchant-1')
-    ).rejects.toBeInstanceOf(MerchantShippingRatesLoadError);
+    // Act
+    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
+
+    // Assert
+    await expect(request).rejects.toBeInstanceOf(
+      MerchantShippingRatesLoadError
+    );
     expect(
       (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledTimes(2);
@@ -229,30 +232,39 @@ describe('getMerchantShippingRatesOrThrow', () => {
       error: { message: 'fetch failed while decoding JWT', code: 'PGRST301' },
     });
 
-    // Act + Assert
-    await expect(
-      getMerchantShippingRatesOrThrow(supabase, 'merchant-1')
-    ).rejects.toBeInstanceOf(MerchantShippingRatesLoadError);
+    // Act
+    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
+
+    // Assert
+    await expect(request).rejects.toBeInstanceOf(
+      MerchantShippingRatesLoadError
+    );
     expect(
       (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry a wrapped PGRST301 hidden behind a fetch-style message', async () => {
+  it('wraps a nested PGRST301 without retrying when a transient outer code masks it', async () => {
     // Arrange — a runtime wrapper can expose a generic transport message on
-    // the outer error while PostgREST puts the deterministic JWT code on its
-    // cause.
+    // the outer error and even attach a transient code, while PostgREST puts
+    // the deterministic JWT code on its cause.
     const jwtError = Object.assign(new TypeError('fetch failed'), {
+      code: 'UND_ERR_SOCKET',
       cause: { code: 'PGRST301', message: 'JWT decode failed' },
     });
     const supabase = {
       rpc: vi.fn().mockRejectedValue(jwtError),
     } as never;
 
-    // Act + Assert
-    await expect(
-      getMerchantShippingRatesOrThrow(supabase, 'merchant-1')
-    ).rejects.toBe(jwtError);
+    // Act
+    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
+
+    // Assert
+    await expect(request).rejects.toMatchObject({
+      name: 'MerchantShippingRatesLoadError',
+      cause: jwtError,
+      code: 'UND_ERR_SOCKET',
+    });
     expect(
       (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledTimes(1);
