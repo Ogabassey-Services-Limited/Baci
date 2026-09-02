@@ -2,7 +2,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MAX_INPUT_ROWS } from './measure-vercel-storefront-cost-types';
+import {
+  MAX_INPUT_BYTES,
+  MAX_INPUT_ROWS,
+} from './measure-vercel-storefront-cost-types';
 import { summarizeStorefrontDbTraces } from './summarize-storefront-db-traces';
 
 const roots: string[] = [];
@@ -57,6 +60,49 @@ describe('summarizeStorefrontDbTraces', () => {
     );
     await expect(summarizeStorefrontDbTraces(oversizedPath)).rejects.toThrow(
       'exceeds the 100000-row bound'
+    );
+
+    const oversizedBytesPath = join(root, 'oversized-bytes.jsonl');
+    await writeFile(
+      oversizedBytesPath,
+      Buffer.alloc(MAX_INPUT_BYTES + 1, 0x20)
+    );
+    await expect(
+      summarizeStorefrontDbTraces(oversizedBytesPath)
+    ).rejects.toThrow(`exceeds the ${MAX_INPUT_BYTES}-byte bound`);
+  });
+
+  it('keeps constructor as a normal cohort instead of reading the object prototype', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'storefront-db-trace-cohort-'));
+    roots.push(root);
+    const path = join(root, 'trace.jsonl');
+    await writeFile(
+      path,
+      `${JSON.stringify({ cohort: 'constructor', dbCalls: 2 })}\n`
+    );
+
+    await expect(summarizeStorefrontDbTraces(path)).resolves.toMatchObject({
+      byCohort: {
+        constructor: {
+          dbCalls: 2,
+          dbCallsPerRequest: 2,
+          rows: 1,
+        },
+      },
+    });
+  });
+
+  it('rejects safe rows whose aggregate counters overflow the safe integer range', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'storefront-db-trace-overflow-'));
+    roots.push(root);
+    const path = join(root, 'trace.jsonl');
+    await writeFile(
+      path,
+      `${JSON.stringify({ dbCalls: Number.MAX_SAFE_INTEGER })}\n${JSON.stringify({ dbCalls: 1 })}\n`
+    );
+
+    await expect(summarizeStorefrontDbTraces(path)).rejects.toThrow(
+      'aggregate exceeds the safe integer bound for dbCalls'
     );
   });
 });

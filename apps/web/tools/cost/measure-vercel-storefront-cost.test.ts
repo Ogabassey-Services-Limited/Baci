@@ -115,6 +115,7 @@ describe('measureVercelStorefrontCost', () => {
     });
 
     expect(result.before.ignoredRows).toBe(1);
+    expect(result.comparisonStatus).toBe('complete');
     expect(result.before.metrics.projectEffectiveCostUsd).toBe(3.5);
     expect(result.before.metrics.services.fluidActiveCpuHours).toBe(10);
     expect(result.before.metrics.services.functionInvocations).toBe(100);
@@ -165,13 +166,83 @@ describe('measureVercelStorefrontCost', () => {
     });
 
     expect(result.after).toBeNull();
+    expect(result.comparisonStatus).toBe('not_available');
     expect(result.comparison).toBeNull();
     expect(result.limitations).toContain(
       'No after window was supplied, so no before/after savings claim is produced.'
     );
     expect(result.limitations).toContain(
-      'Vercel billing exports do not contain database-call counts; provide a bounded DB trace JSONL input or collect the same fields from Supabase telemetry.'
+      'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.'
     );
+  });
+
+  it.each([
+    ['before-only', true, false],
+    ['after-only', false, true],
+  ] as const)('marks an asymmetric %s DB trace comparison incomplete without DB deltas', async (_label, includeBeforeTrace, includeAfterTrace) => {
+    const { afterPath, beforePath, beforeDbTracePath, afterDbTracePath } =
+      await fixtureFiles();
+    const result = await measureVercelStorefrontCost({
+      after: {
+        inputPath: afterPath,
+        window: {
+          dbTracePath: includeAfterTrace ? afterDbTracePath : undefined,
+          deploymentSha: afterSha,
+          label: 'after',
+        },
+      },
+      before: {
+        inputPath: beforePath,
+        window: {
+          dbTracePath: includeBeforeTrace ? beforeDbTracePath : undefined,
+          deploymentSha: beforeSha,
+          label: 'before',
+        },
+      },
+      projectId,
+    });
+
+    expect(result.comparisonStatus).toBe('incomplete');
+    expect(result.comparison).not.toHaveProperty('dbCalls');
+    expect(result.limitations).toContain(
+      'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.'
+    );
+  });
+
+  it('normalizes offset billing timestamps before comparing charge periods', async () => {
+    const { beforePath } = await fixtureFiles();
+    const offsetPath = beforePath.replace('before.jsonl', 'offset.jsonl');
+    await writeFile(
+      offsetPath,
+      `${JSON.stringify({
+        ChargePeriodStart: '2026-08-01T01:00:00+01:00',
+        ChargePeriodEnd: '2026-08-01T02:00:00+01:00',
+        ConsumedQuantity: 1,
+        EffectiveCost: 1,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: projectId },
+      })}\n${JSON.stringify({
+        ChargePeriodStart: '2026-08-01T00:30:00Z',
+        ChargePeriodEnd: '2026-08-01T01:30:00Z',
+        ConsumedQuantity: 1,
+        EffectiveCost: 1,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: projectId },
+      })}\n`
+    );
+
+    const result = await measureVercelStorefrontCost({
+      before: {
+        inputPath: offsetPath,
+        window: { deploymentSha: beforeSha, label: 'before' },
+      },
+      projectId,
+    });
+
+    expect(result.before.observedChargePeriod).toEqual({
+      end: '2026-08-01T01:30:00.000Z',
+      start: '2026-08-01T00:00:00.000Z',
+    });
   });
 
   it('rejects malformed or unbounded billing input', async () => {

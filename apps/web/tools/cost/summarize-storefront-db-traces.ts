@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import {
   MAX_INPUT_BYTES,
   MAX_INPUT_ROWS,
@@ -33,13 +33,40 @@ function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+async function readBoundedFile(path: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let byteLength = 0;
+  const stream = createReadStream(path, { highWaterMark: 64 * 1024 });
+  try {
+    for await (const chunk of stream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      byteLength += buffer.byteLength;
+      if (byteLength > MAX_INPUT_BYTES) {
+        stream.destroy();
+        throw new Error(`DB trace exceeds the ${MAX_INPUT_BYTES}-byte bound`);
+      }
+      chunks.push(buffer);
+    }
+  } finally {
+    stream.destroy();
+  }
+  return Buffer.concat(chunks, byteLength);
+}
+
+function addSafeInteger(current: number, increment: number, field: string) {
+  const next = current + increment;
+  if (!Number.isSafeInteger(next)) {
+    throw new Error(
+      `DB trace aggregate exceeds the safe integer bound for ${field}`
+    );
+  }
+  return next;
+}
+
 export async function summarizeStorefrontDbTraces(
   path: string
 ): Promise<StorefrontDbTraceMetrics> {
-  const bytes = await readFile(path);
-  if (bytes.byteLength > MAX_INPUT_BYTES) {
-    throw new Error(`DB trace exceeds the ${MAX_INPUT_BYTES}-byte bound`);
-  }
+  const bytes = await readBoundedFile(path);
 
   const rows = bytes
     .toString('utf8')
@@ -54,7 +81,10 @@ export async function summarizeStorefrontDbTraces(
   const byCohort: Record<
     string,
     { dbCalls: number; dbTimeouts: number; rows: number }
-  > = {};
+  > = Object.create(null) as Record<
+    string,
+    { dbCalls: number; dbTimeouts: number; rows: number }
+  >;
   for (const line of rows) {
     let candidate: unknown;
     try {
@@ -78,11 +108,15 @@ export async function summarizeStorefrontDbTraces(
       aggregate = { dbCalls: 0, dbTimeouts: 0, rows: 0 };
       byCohort[cohort] = aggregate;
     }
-    aggregate.dbCalls += rowCalls;
-    aggregate.dbTimeouts += rowTimeouts;
-    aggregate.rows += 1;
-    dbCalls += rowCalls;
-    dbTimeouts += rowTimeouts;
+    aggregate.dbCalls = addSafeInteger(aggregate.dbCalls, rowCalls, 'dbCalls');
+    aggregate.dbTimeouts = addSafeInteger(
+      aggregate.dbTimeouts,
+      rowTimeouts,
+      'dbTimeouts'
+    );
+    aggregate.rows = addSafeInteger(aggregate.rows, 1, 'rows');
+    dbCalls = addSafeInteger(dbCalls, rowCalls, 'dbCalls');
+    dbTimeouts = addSafeInteger(dbTimeouts, rowTimeouts, 'dbTimeouts');
   }
 
   const withRates = Object.fromEntries(

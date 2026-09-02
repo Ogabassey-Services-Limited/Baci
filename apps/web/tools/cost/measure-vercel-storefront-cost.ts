@@ -36,9 +36,12 @@ function finiteNonnegative(value: unknown, field: string) {
 }
 
 function dateString(value: unknown, field: string) {
-  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value)))
+  if (typeof value !== 'string')
     throw new Error(`billing row has an invalid ${field}`);
-  return value;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp))
+    throw new Error(`billing row has an invalid ${field}`);
+  return new Date(timestamp).toISOString();
 }
 
 function roundMetric(value: number) {
@@ -258,17 +261,23 @@ export async function measureVercelStorefrontCost(options: {
         options.after.window
       )
     : null;
+  const hasDbTracePair = Boolean(before.dbTrace && after?.dbTrace);
   return {
     after,
     before,
+    comparisonStatus: after
+      ? hasDbTracePair
+        ? 'complete'
+        : 'incomplete'
+      : 'not_available',
     comparison: compareWindows(before, after),
     limitations: [
       'FOCUS billing rows are project-level; they cannot attribute CPU, memory, or invocations to PDP, compare, or blog routes.',
       'The requested window is recorded as provenance; supply exports already filtered to that UTC window because billing rows are not split by route or request.',
-      ...(before.dbTrace
+      ...(hasDbTracePair
         ? []
         : [
-            'Vercel billing exports do not contain database-call counts; provide a bounded DB trace JSONL input or collect the same fields from Supabase telemetry.',
+            'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.',
           ]),
       'Cache hit ratio requires the optional sampled cache-probe JSONL; it is not a billing-export field and is not a census.',
       ...(after

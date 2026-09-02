@@ -660,7 +660,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(
       headers.some(
         (entry) =>
-          entry.source === '/:path*' &&
+          entry.source === '/(.*)' &&
           entry.headers.some((header) => header.key === 'Cache-Control')
       )
     ).toBe(false);

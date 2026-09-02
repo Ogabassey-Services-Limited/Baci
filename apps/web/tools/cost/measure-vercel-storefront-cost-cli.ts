@@ -1,6 +1,26 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { measureVercelStorefrontCost } from './measure-vercel-storefront-cost';
 import type { WindowOptions } from './measure-vercel-storefront-cost-types';
+
+const SUPPORTED_MEASUREMENT_OPTIONS = new Set([
+  '--project-id',
+  '--before',
+  '--before-sha',
+  '--before-cache-probe',
+  '--before-db-trace',
+  '--before-label',
+  '--before-window-end',
+  '--before-window-start',
+  '--after',
+  '--after-sha',
+  '--after-cache-probe',
+  '--after-db-trace',
+  '--after-label',
+  '--after-window-end',
+  '--after-window-start',
+  '--out',
+]);
 
 export type MeasurementCliOptions = Readonly<{
   after?: { inputPath: string; window: WindowOptions };
@@ -18,6 +38,8 @@ export function parseMeasurementArgs(
     const value = args[index + 1];
     if (!key?.startsWith('--') || !value || values.has(key))
       throw new Error('measurement options are invalid');
+    if (!SUPPORTED_MEASUREMENT_OPTIONS.has(key))
+      throw new Error(`unknown measurement option: ${key}`);
     values.set(key, value);
   }
   const projectId = values.get('--project-id');
@@ -53,12 +75,33 @@ export function parseMeasurementArgs(
   };
 }
 
+/** Replaces a report atomically with a newly-created private file. */
+export async function writeMeasurementReport(
+  outputPath: string,
+  serialized: string
+): Promise<void> {
+  const temporaryDirectory = await mkdtemp(
+    join(dirname(outputPath), '.vercel-cost-report-')
+  );
+  const temporaryPath = join(temporaryDirectory, 'report.json');
+  try {
+    await writeFile(temporaryPath, serialized, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600,
+    });
+    await rename(temporaryPath, outputPath);
+  } finally {
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+}
+
 async function runMeasurementCli(): Promise<void> {
   const parsed = parseMeasurementArgs(process.argv.slice(2));
   const result = await measureVercelStorefrontCost(parsed);
   const serialized = `${JSON.stringify(result, null, 2)}\n`;
   if (parsed.outputPath) {
-    await writeFile(parsed.outputPath, serialized, { mode: 0o600 });
+    await writeMeasurementReport(parsed.outputPath, serialized);
   } else {
     process.stdout.write(serialized);
   }

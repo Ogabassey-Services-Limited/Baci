@@ -77,6 +77,7 @@ export type CostWindowMeasurement = Readonly<{
 export type StorefrontCostMeasurement = Readonly<{
   after: CostWindowMeasurement | null;
   before: CostWindowMeasurement;
+  comparisonStatus: 'complete' | 'incomplete' | 'not_available';
   comparison: Readonly<
     Record<
       string,

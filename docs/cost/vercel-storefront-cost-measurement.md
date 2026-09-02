@@ -51,14 +51,21 @@ invocations, Fluid CPU/memory, Global Config reads, ISR reads/writes, runtime
 cache reads/writes, cache hit ratio, and p50/p95 sampled TTFB. For Vercel
 `x-vercel-cache` samples, `HIT`, `STALE`, and `PRERENDER` count as cache hits;
 `MISS`, `BYPASS`, and `REVALIDATED` do not. A comparison is omitted unless an
-after window is supplied. When both DB trace inputs are supplied, the
-comparison also reports DB calls, DB timeouts, and calls per sampled request,
-with cohort-level detail retained on each window.
+after window is supplied. `comparisonStatus` is `complete` only when both
+before and after DB traces are supplied; otherwise it is `incomplete` (or
+`not_available` when there is no after window), and no DB deltas are emitted.
+When both DB trace inputs are supplied, the comparison also reports DB calls,
+DB timeouts, and calls per sampled request, with cohort-level detail retained
+on each window. Reports written with `--out` replace the destination
+atomically using a private `0600` file.
 
 ## Interpretation
 
 * Compare per-request or per-session rates as well as totals; traffic changes
   can otherwise look like a caching win or regression.
+* Treat an `incomplete` comparison as measurement work still outstanding. Do
+  not present project-cost deltas as a complete storefront savings claim until
+  both DB traces and comparable route samples are present.
 * A lower ISR-write count is expected from the longer TTL, but targeted
   invalidation may add event-driven writes. Attribute those separately.
 * A lower Global Config read count is expected from the warm-instance mapping
