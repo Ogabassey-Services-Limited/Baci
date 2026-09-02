@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hasStockedRelatedBlogVariant } from '@/lib/has-stocked-related-blog-variant';
 import { hydrateRelatedBlogProductSerializedInventory } from '@/lib/hydrate-related-blog-product-serialized-inventory';
 import { mergeRelatedBlogProductSerializedInventory } from '@/lib/merge-related-blog-product-serialized-inventory';
 import { getEffectiveStock } from '@/lib/product-stock';
@@ -75,18 +76,6 @@ function normalizeOfferRows(data: unknown): RelatedBlogProductOffer[] {
 }
 function isVariantStockRow(value: unknown): value is VariantStockRow {
   return typeof value === 'object' && value !== null;
-}
-
-function hasStockedVariant(data: unknown, productId: string): boolean {
-  return (
-    Array.isArray(data) &&
-    data.some(
-      (variant) =>
-        isVariantStockRow(variant) &&
-        variant.product_id === productId &&
-        getEffectiveStock(variant) > 0
-    )
-  );
 }
 
 function normalizeVariantRows(
@@ -223,7 +212,7 @@ export async function hydrateRelatedBlogProductAvailability(
                 [
                   product.id,
                   {
-                    available: hasStockedVariant(data, product.id),
+                    available: hasStockedRelatedBlogVariant(data, product),
                     variants: normalizeVariantRows(data, product),
                   },
                 ] satisfies AvailabilityPair

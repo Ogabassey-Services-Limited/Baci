@@ -126,6 +126,21 @@ describe('hydrateRelatedBlogProductAvailability variant paths', () => {
     expect(result[0]?.has_purchasable_variant).toBe(false);
   });
 
+  it('inherits parent stock when a public variant omits its own quantity', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ product_id: VARIANT_PRODUCT_ID, stock_quantity: null }],
+      error: null,
+    });
+
+    const result = await hydrateRelatedBlogProductAvailability(
+      { rpc } as never,
+      [product({ stock: 5, stock_quantity: 5 })],
+      { merchantId: 'merchant-1' }
+    );
+
+    expect(result[0]?.has_purchasable_variant).toBe(true);
+  });
+
   it('fails open when the public variant lookup errors', async () => {
     const warnSpy = vi
       .spyOn(console, 'warn')

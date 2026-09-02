@@ -1,22 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockExpireProductBlogCache } = vi.hoisted(() => ({
-  mockExpireProductBlogCache: vi.fn(),
+const { mockScheduleOrderProductBlogPurge } = vi.hoisted(() => ({
+  mockScheduleOrderProductBlogPurge: vi.fn(),
 }));
 
-vi.mock('@/lib/expire-product-blog-cache', () => ({
-  expireProductBlogCache: mockExpireProductBlogCache,
+vi.mock('@/lib/schedule-order-product-blog-purge', () => ({
+  scheduleOrderProductBlogPurge: mockScheduleOrderProductBlogPurge,
 }));
 
 import { invalidateQuizProductCaches } from './quiz-product-cache-invalidation';
 
-function createClient() {
+function createClient(reservationRows: unknown[] = []) {
   const eventRows = [
-    { merchant_id: 'merchant-1', settings: { prize_product_id: 'product-1' } },
-    { merchant_id: 'merchant-2', settings: { title: 'Trivia only' } },
+    {
+      id: 'event-1',
+      merchant_id: 'merchant-1',
+      settings: { prize_product_id: 'product-1' },
+    },
+    {
+      id: 'event-2',
+      merchant_id: 'merchant-2',
+      settings: { title: 'Trivia only' },
+    },
   ];
   const awardRows = [{ event_id: 'event-2', product_id: 'product-2' }];
-  const expiredEventRows = [{ merchant_id: 'merchant-2' }];
+  const expiredEventRows = [{ id: 'event-2', merchant_id: 'merchant-2' }];
   return {
     from: vi.fn((table: string) => {
       const rows: unknown[] =
@@ -24,7 +32,9 @@ function createClient() {
           ? eventRows
           : table === 'quiz_awards'
             ? awardRows
-            : [];
+            : table === 'quiz_prize_reservations'
+              ? reservationRows
+              : [];
       const builder = {
         data: rows,
         error: null,
@@ -44,17 +54,39 @@ function createClient() {
 
 describe('invalidateQuizProductCaches', () => {
   beforeEach(() => {
-    mockExpireProductBlogCache.mockReset();
+    mockScheduleOrderProductBlogPurge.mockReset();
   });
 
-  it('expires merchant tags for changed prize events and expired awards', async () => {
+  it('schedules linked article purges for changed prize events and expired awards', async () => {
     const client = createClient();
 
     await invalidateQuizProductCaches(client as never, '2026-09-01T00:00:00Z');
 
-    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
-    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-2');
-    expect(mockExpireProductBlogCache).toHaveBeenCalledTimes(2);
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      productIds: ['product-1'],
+      supabase: client,
+    });
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledWith({
+      merchantId: 'merchant-2',
+      productIds: ['product-2'],
+      supabase: client,
+    });
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledTimes(2);
+  });
+
+  it('schedules product purges for reservation and release transitions', async () => {
+    const client = createClient([
+      { merchant_id: 'merchant-3', product_id: 'product-3' },
+    ]);
+
+    await invalidateQuizProductCaches(client as never, '2026-09-01T00:00:00Z');
+
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledWith({
+      merchantId: 'merchant-3',
+      productIds: ['product-3'],
+      supabase: client,
+    });
   });
 
   it('does not invalidate non-product quiz events', async () => {
@@ -81,6 +113,6 @@ describe('invalidateQuizProductCaches', () => {
 
     await invalidateQuizProductCaches(client as never, '2026-09-01T00:00:00Z');
 
-    expect(mockExpireProductBlogCache).not.toHaveBeenCalled();
+    expect(mockScheduleOrderProductBlogPurge).not.toHaveBeenCalled();
   });
 });
