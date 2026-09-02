@@ -42,15 +42,20 @@ export class MerchantShippingRatesLoadError extends Error {
   }
 }
 
-function extractErrorCode(error: unknown): string | undefined {
+function extractErrorCodes(error: unknown): string[] {
+  const codes: string[] = [];
   let current: unknown = error;
   for (let depth = 0; current && depth < 3; depth += 1) {
-    if (typeof current !== 'object') return undefined;
+    if (typeof current !== 'object') break;
     const record = current as Record<string, unknown>;
-    if (typeof record.code === 'string') return record.code;
+    if (typeof record.code === 'string') codes.push(record.code);
     current = record.cause;
   }
-  return undefined;
+  return codes;
+}
+
+function extractErrorCode(error: unknown): string | undefined {
+  return extractErrorCodes(error)[0];
 }
 
 function extractErrorText(error: unknown): string {
@@ -79,11 +84,14 @@ function extractErrorText(error: unknown): string {
 }
 
 function isRetryableRpcError(error: unknown): boolean {
-  const code = extractErrorCode(error)?.trim().toUpperCase();
+  const codes = extractErrorCodes(error).map((code) =>
+    code.trim().toUpperCase()
+  );
   // A JWT failure is deterministic even when a wrapper gives it a generic
-  // transport-looking message. Never turn the production auth boundary into
-  // a retry loop.
-  if (code === 'PGRST301') return false;
+  // transport-looking message or transient outer code. Never turn the
+  // production auth boundary into a retry loop.
+  if (codes.includes('PGRST301')) return false;
+  const code = codes[0];
   return Boolean(
     (code && RETRYABLE_RPC_ERROR_CODES.has(code)) ||
       RETRYABLE_RPC_ERROR_PATTERN.test(extractErrorText(error))
