@@ -1,4 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+
+const { mockExpireProductBlogCache } = vi.hoisted(() => ({
+  mockExpireProductBlogCache: vi.fn(),
+}));
+
+vi.mock('@/lib/expire-product-blog-cache', () => ({
+  expireProductBlogCache: mockExpireProductBlogCache,
+}));
+
 import { launchMerchantQuizDraftV2 } from './quiz-launch-v2';
 
 const baseInput = {
@@ -86,6 +95,7 @@ describe('launchMerchantQuizDraftV2', () => {
       p_time_per_question_seconds: 10,
       p_time_zone: 'Africa/Lagos',
     });
+    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
   });
 
   it('fails closed when the live prize has no reservable inventory', async () => {

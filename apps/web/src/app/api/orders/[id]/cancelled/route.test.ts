@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   revalidateDashboard: vi.fn(),
   revalidateProductSlugs: vi.fn(),
   revalidateProducts: vi.fn(),
+  scheduleOrderProductBlogPurgeAfterResponse: vi
+    .fn()
+    .mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -20,6 +23,10 @@ vi.mock('@/lib/product-cache-revalidation', () => ({
     revalidateProductSlugs: mocks.revalidateProductSlugs,
     revalidateProducts: mocks.revalidateProducts,
   },
+}));
+vi.mock('@/lib/schedule-order-product-blog-purge-after-response', () => ({
+  scheduleOrderProductBlogPurgeAfterResponse:
+    mocks.scheduleOrderProductBlogPurgeAfterResponse,
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
@@ -36,8 +43,9 @@ function createSupabase() {
     data: [{ product_id: 'product-1' }],
     error: null,
   });
+  const variantsIn = vi.fn().mockResolvedValue({ data: [], error: null });
   const productsIn = vi.fn().mockResolvedValue({
-    data: [{ manage_stock: true, slug: 'phone' }],
+    data: [{ id: 'product-1', manage_stock: true, slug: 'phone' }],
     error: null,
   });
   const supabase = {
@@ -52,11 +60,18 @@ function createSupabase() {
           })),
         };
       }
+      if (table === 'product_variants') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ in: variantsIn })),
+          })),
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     }),
     rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
   };
-  return { orderItemsEq, productsIn, supabase };
+  return { orderItemsEq, productsIn, supabase, variantsIn };
 }
 
 describe('POST /api/orders/[id]/cancelled', () => {
@@ -117,6 +132,15 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
       'phone',
     ]);
+    expect(
+      mocks.scheduleOrderProductBlogPurgeAfterResponse
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        productIds: ['product-1'],
+        supabase,
+      })
+    );
     await expect(response.json()).resolves.toMatchObject({
       message: 'Cancellation completed; side effects are queued',
       sideEffects: { customerEmail: 'queued', refund: 'queued_if_required' },
@@ -163,7 +187,6 @@ describe('POST /api/orders/[id]/cancelled', () => {
       success: true,
     });
   });
-
   it('avoids product and feed cache churn for unlimited-inventory items', async () => {
     const { productsIn, supabase } = createSupabase();
     productsIn.mockResolvedValue({

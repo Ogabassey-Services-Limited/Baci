@@ -15,6 +15,7 @@ import {
   type SpecialCollectionSlug,
 } from '@/lib/category-page-product-id-cache';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
+import { hydrateRelatedBlogProductAvailability } from '@/lib/hydrate-related-blog-product-availability';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
@@ -2865,6 +2866,10 @@ async function getCachedBlogPostCore(
 
   if (!merchant) return null;
 
+  // The core includes payout_currency, so merchant profile changes must
+  // invalidate this outer cache as well as the enrichment's product tag.
+  cacheTag(`merchant-id-${merchant.id}`);
+
   if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = getPublicSupabaseClient();
@@ -2900,6 +2905,7 @@ async function getCachedBlogPostCore(
       logo_url: merchant.logo_url,
       custom_domain: merchant.custom_domain,
       country: merchant.country,
+      payout_currency: merchant.payout_currency,
       social_media: merchant.social_media,
     },
     post,
@@ -3007,6 +3013,12 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
 
     normalizedRelatedProducts = normalizeRelatedBlogProducts(relatedProducts);
   }
+
+  normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
+    supabase,
+    normalizedRelatedProducts,
+    { merchantId: merchant.id, throwOnError: true }
+  );
 
   return {
     relatedPosts: selectSemanticRelatedBlogPosts(
