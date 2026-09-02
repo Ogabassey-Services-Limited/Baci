@@ -75,8 +75,26 @@ describe('getCachedPdpSemanticInventory', () => {
     mocks.getCachedCompareCategoryShell.mockResolvedValue(categoryShell);
   });
 
-  it('bugfix: excludes the unused store slug before entering the cached inventory', () => {
-    expect(getCachedPdpSemanticInventory.length).toBe(2);
+  it('bugfix: ignores legacy storefront aliases while keeping the cached result stable', async () => {
+    mocks.getCachedCompareCategoryShell.mockResolvedValue({
+      fallbackName: 'New Arrivals',
+      isCollection: true,
+      productScope: { collectionSlug: 'new-arrivals', kind: 'collection' },
+    });
+    const invokeWithLegacyAlias = getCachedPdpSemanticInventory as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      legacyStoreSlug: string
+    ) => ReturnType<typeof getCachedPdpSemanticInventory>;
+
+    const results = await Promise.all([
+      invokeWithLegacyAlias('merchant-1', 'new-arrivals', 'ogabassey'),
+      invokeWithLegacyAlias('merchant-1', 'new-arrivals', 'shop-alias'),
+    ]);
+
+    expect(results[0]).toEqual(results[1]);
+    expect(mocks.cacheTag).toHaveBeenCalledTimes(2);
+    expect(mocks.cacheTag.mock.calls[0]).toEqual(mocks.cacheTag.mock.calls[1]);
   });
 
   afterEach(() => {
