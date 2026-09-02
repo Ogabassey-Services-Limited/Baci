@@ -141,7 +141,10 @@ async function loadMerchantShippingRatesRpc(
         return { data: null, error };
       }
       if (!isRetryableRpcError(error)) {
-        throw error;
+        // A direct rejection that is not retryable is already terminal. Keep
+        // it inside the RPC result boundary so fail-soft callers can return an
+        // empty payload and fail-loud callers can wrap it consistently.
+        return { data: null, error };
       }
       // Retry the same read-only RPC once when the awaitable itself rejects.
     }

@@ -244,7 +244,7 @@ describe('getMerchantShippingRatesOrThrow', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry PGRST301 when a transient outer code masks it', async () => {
+  it('wraps a nested PGRST301 without retrying when a transient outer code masks it', async () => {
     // Arrange — a runtime wrapper can expose a generic transport message on
     // the outer error and even attach a transient code, while PostgREST puts
     // the deterministic JWT code on its cause.
@@ -256,10 +256,15 @@ describe('getMerchantShippingRatesOrThrow', () => {
       rpc: vi.fn().mockRejectedValue(jwtError),
     } as never;
 
-    // Act + Assert
-    await expect(
-      getMerchantShippingRatesOrThrow(supabase, 'merchant-1')
-    ).rejects.toBe(jwtError);
+    // Act
+    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
+
+    // Assert
+    await expect(request).rejects.toMatchObject({
+      name: 'MerchantShippingRatesLoadError',
+      cause: jwtError,
+      code: 'UND_ERR_SOCKET',
+    });
     expect(
       (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledTimes(1);
