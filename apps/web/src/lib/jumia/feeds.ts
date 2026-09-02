@@ -4,6 +4,7 @@
  */
 
 import type { JumiaClient } from '@/lib/jumia/client';
+import { JumiaApiError } from '@/lib/jumia/helpers';
 import type { JumiaFeedDetailsResponse } from '@/schemas/jumia';
 import {
   JumiaFeedCreateResponseSchema,
@@ -14,6 +15,7 @@ import {
   validateRequiredString,
   validateVariation,
 } from './feeds-validation';
+import { verifyJumiaSingleMarketplaceScope } from './verify-jumia-single-marketplace-scope';
 
 export { updatePrice } from './feeds-price';
 export { updateStatus } from './feeds-status';
@@ -187,6 +189,19 @@ export async function updateStock(
     }
     return { ...item, sellerSku, id };
   });
+  // The stock-feed contract has no business-client selector. Refuse to send
+  // an unscoped feed when a shop has multiple active marketplaces.
+  const marketplaceScope = await verifyJumiaSingleMarketplaceScope(client);
+  if (!marketplaceScope.ok) {
+    const status =
+      marketplaceScope.reason === 'provider_unavailable' ? 502 : 400;
+    throw new JumiaApiError(
+      status,
+      marketplaceScope.reason === 'provider_unavailable'
+        ? 'Unable to verify the selected Jumia marketplace. Try again.'
+        : 'Jumia stock updates cannot target a selected marketplace when the provider stock-feed contract has no business-client selector.'
+    );
+  }
   const response = await client.request(
     'POST',
     '/feeds/products/stock',

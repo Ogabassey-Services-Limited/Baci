@@ -54,7 +54,6 @@ export async function GET(request: NextRequest) {
       response.headers.set('Cache-Control', 'private, no-store');
       return jumiaOAuthCallbackRedirect.clear(response);
     }
-
     // Mobile flow: pass code back via deep link, don't exchange here
     if (request.cookies.get('jumia_oauth_platform')?.value === 'mobile') {
       if (rawError) {
@@ -242,9 +241,12 @@ export async function GET(request: NextRequest) {
       supabase: auth.supabase,
       tokens,
     });
-    if (persistence.status === 'database_error') {
+    if (
+      persistence.status === 'database_error' ||
+      persistence.status === 'shop_discovery_failed'
+    ) {
       return jumiaOAuthCallbackRedirect.create(request, {
-        error: 'database_error',
+        error: persistence.status,
       });
     }
     if (persistence.status === 'shop_already_self_authorized') {
@@ -253,8 +255,7 @@ export async function GET(request: NextRequest) {
         shops: persistence.shopIds.join(','),
       });
     }
-    // VARIANT-TEST: REMOVE — append the variant outcome to the redirect so it
-    // surfaces in the browser URL bar (no need to dig through Vercel logs).
+    // VARIANT-TEST: REMOVE — append variant outcome to the browser URL.
     const variantResult = variant
       ? `${variant}:has_refresh=${tokens.refresh_token ? 'true' : 'false'},re_exp=${tokens.refresh_expires_in ?? 'null'}`
       : undefined;

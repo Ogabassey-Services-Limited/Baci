@@ -2,18 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockRpc } = vi.hoisted(() => ({ mockRpc: vi.fn() }));
 
-vi.mock('@/lib/jumia/server-credential-client', () => ({
-  createJumiaCredentialServiceClient: vi.fn(() => ({ rpc: mockRpc })),
-}));
-
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
+
+const supabase = { rpc: mockRpc };
 
 describe('loadJumiaAuthorizationGrant', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns the scoped authorization grant from the worker RPC', async () => {
+  it('returns the scoped authorization grant from the caller RPC', async () => {
     mockRpc.mockResolvedValue({
       data: [
         {
@@ -28,7 +26,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     });
 
     await expect(
-      loadJumiaAuthorizationGrant({} as never, 'auth-1', 'merchant-1')
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
     ).resolves.toEqual({
       credential_ciphertext: 'opaque-ciphertext',
       token_expires_at: '2026-03-27T10:00:00.000Z',
@@ -52,7 +50,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     });
 
     await expect(
-      loadJumiaAuthorizationGrant({} as never, 'auth-1', 'merchant-1')
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
     ).rejects.toMatchObject({ status: 503 });
   });
 
@@ -63,7 +61,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     });
 
     await expect(
-      loadJumiaAuthorizationGrant({} as never, 'auth-1', 'merchant-1')
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
     ).rejects.toMatchObject({ status: 403 });
   });
 
@@ -81,7 +79,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     });
 
     await expect(
-      loadJumiaAuthorizationGrant({} as never, 'auth-1', 'merchant-1')
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
     ).rejects.toMatchObject({ status: 404 });
   });
 });

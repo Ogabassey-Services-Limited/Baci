@@ -340,6 +340,22 @@ BEGIN
   ) IS NULL THEN
     RAISE EXCEPTION 'Jumia credential loading worker function is missing';
   END IF;
+
+  IF NOT has_function_privilege(
+    'authenticated',
+    to_regprocedure('public.load_jumia_authorization_credentials(uuid,uuid)'),
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'authenticated callers cannot load Jumia authorization credentials';
+  END IF;
+
+  IF has_function_privilege(
+    'anon',
+    to_regprocedure('public.load_jumia_authorization_credentials(uuid,uuid)'),
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'anonymous callers can load Jumia authorization credentials';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 

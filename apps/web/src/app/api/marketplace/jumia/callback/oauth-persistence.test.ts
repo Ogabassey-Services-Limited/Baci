@@ -103,6 +103,21 @@ describe('persistJumiaOAuthConnection', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it('fails closed when shop discovery fails before OAuth persistence', async () => {
+    getShops.mockRejectedValueOnce(new Error('Jumia unavailable'));
+    const supabase = makeSupabase();
+
+    await expect(
+      persistJumiaOAuthConnection({
+        merchantId: 'merchant-1',
+        supabase: supabase as never,
+        tokens,
+      })
+    ).resolves.toEqual({ status: 'shop_discovery_failed' });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('returns a database error when atomic OAuth persistence fails', async () => {
     getShops.mockResolvedValueOnce([
       {

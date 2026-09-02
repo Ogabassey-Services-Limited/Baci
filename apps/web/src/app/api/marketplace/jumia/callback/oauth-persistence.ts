@@ -10,6 +10,7 @@ import type { JumiaTokenResponse } from '@/schemas/jumia';
 
 type JumiaOAuthPersistenceResult =
   | { status: 'database_error' }
+  | { status: 'shop_discovery_failed' }
   | { status: 'shop_already_self_authorized'; shopIds: string[] }
   | { status: 'success'; shopIds: string[] };
 
@@ -36,7 +37,7 @@ export async function persistJumiaOAuthConnection(args: {
     discoveredShops = await tempClient.getShops();
   } catch (shopError) {
     logger.error({
-      message: 'Jumia Callback Failed to fetch shops, using fallback',
+      message: 'Jumia Callback Failed to fetch shops',
       merchantId,
       error:
         shopError instanceof Error
@@ -46,7 +47,7 @@ export async function persistJumiaOAuthConnection(args: {
             }
           : 'Unknown error',
     });
-    discoveredShops = [];
+    return { status: 'shop_discovery_failed' };
   }
 
   const { data: existingIntegrations, error: existingIntegrationsError } =

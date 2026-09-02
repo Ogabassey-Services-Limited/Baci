@@ -2,7 +2,6 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
-import { createJumiaCredentialServiceClient } from '@/lib/jumia/server-credential-client';
 
 type JumiaCredentialRpcClient = {
   rpc: (
@@ -23,12 +22,14 @@ type JumiaAuthorizationGrantRow = {
 };
 
 export async function loadJumiaAuthorizationGrant(
-  _supabase: SupabaseClient,
+  supabase: SupabaseClient,
   authorizationId: string,
   merchantId: string
 ): Promise<JumiaAuthorizationGrantRow> {
-  const credentialClient =
-    createJumiaCredentialServiceClient() as unknown as JumiaCredentialRpcClient;
+  // User-facing routes pass their authenticated client so the SECURITY
+  // DEFINER RPC can enforce the merchant/staff permission checks. Worker
+  // callers may still pass their dedicated service client explicitly.
+  const credentialClient = supabase as unknown as JumiaCredentialRpcClient;
   const { data, error } = await credentialClient.rpc(
     'load_jumia_authorization_credentials',
     {

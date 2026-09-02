@@ -25,6 +25,23 @@ describe('Jumia credential hardening migrations', () => {
     );
   });
 
+  it('restores scoped authenticated execution for the credential RPC', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260902100000_restore_jumia_authorization_credential_rpc.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.load_jumia_authorization_credentials\(uuid, uuid\)[\s\S]*?FROM PUBLIC, anon, authenticated/i
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.load_jumia_authorization_credentials\(uuid, uuid\)[\s\S]*?TO authenticated, service_role/i
+    );
+  });
+
   it('keeps credential columns out of direct authenticated reads', () => {
     const sql = readFileSync(
       path.join(
