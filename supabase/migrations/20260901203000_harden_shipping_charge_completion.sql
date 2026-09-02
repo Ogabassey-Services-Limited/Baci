@@ -75,5 +75,5 @@ CREATE POLICY merchant_wallet_request_owner_insert
         AND m.user_id = auth.uid()
     )
   );
-REVOKE ALL ON TABLE public.merchant_wallet_funding_account_requests FROM anon, authenticated;
+REVOKE ALL ON TABLE public.merchant_wallet_funding_account_requests FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON TABLE public.merchant_wallet_funding_account_requests TO authenticated;

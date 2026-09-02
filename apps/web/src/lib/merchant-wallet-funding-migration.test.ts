@@ -107,7 +107,7 @@ describe('merchant wallet funding migration contract', () => {
 
   it('revokes request updates/deletes and grants only select/insert', () => {
     expect(hardeningSql).toContain(
-      'REVOKE ALL ON TABLE public.merchant_wallet_funding_account_requests FROM anon, authenticated;'
+      'REVOKE ALL ON TABLE public.merchant_wallet_funding_account_requests FROM PUBLIC, anon, authenticated;'
     );
     expect(hardeningSql).toContain(
       'GRANT SELECT, INSERT ON TABLE public.merchant_wallet_funding_account_requests TO authenticated;'
