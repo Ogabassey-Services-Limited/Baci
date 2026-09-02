@@ -13,7 +13,7 @@ export function useGiglAdminShippingEligibility(
   merchant: MerchantEligibilityInput | null | undefined
 ) {
   const shippingSettingsQuery = useQuery({
-    queryKey: ['shipping-settings', merchant?.id],
+    queryKey: ['shipping-settings', merchant?.id, 'gigl-eligibility'],
     queryFn: async () => {
       if (!merchant?.id) {
         throw new Error('Merchant is required');
