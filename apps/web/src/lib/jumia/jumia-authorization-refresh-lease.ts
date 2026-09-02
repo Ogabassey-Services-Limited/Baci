@@ -174,7 +174,7 @@ export async function acquireJumiaAuthorizationRefreshLease(
   state: JumiaAuthorizationRefreshState,
   supabase: SupabaseClient
 ): Promise<
-  | { leaseToken: string }
+  | { leaseToken: string; authorizationRotationVersion?: number }
   | {
       reloaded: Awaited<
         ReturnType<typeof reloadSharedAuthorizationCredentials>
@@ -189,7 +189,10 @@ export async function acquireJumiaAuthorizationRefreshLease(
       supabase
     );
     if (claim.status === 'claimed') {
-      return { leaseToken: claim.leaseToken };
+      return {
+        leaseToken: claim.leaseToken,
+        authorizationRotationVersion: currentState.authorizationRotationVersion,
+      };
     }
 
     if (claim.status === 'stale') {

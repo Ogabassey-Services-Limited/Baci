@@ -15,6 +15,7 @@ import {
   integrationIdSchema,
   jumiaOrderIdParamSchema,
 } from '@/schemas/marketplace';
+import { getCachedJumiaOrderItems } from './get-cached-jumia-order-items';
 
 export async function GET(
   request: NextRequest,
@@ -67,6 +68,41 @@ export async function GET(
         { error: 'Merchant not found' },
         { status: 403 }
       );
+    }
+
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      const cached = await getCachedJumiaOrderItems({
+        supabase: auth.supabase,
+        merchantId,
+        integrationId,
+        orderId: id,
+      });
+      if (cached.kind === 'database_error') {
+        logger.error({
+          message: 'Failed to load cached Jumia order items',
+          integrationId,
+          orderId: id,
+          error: cached.message,
+        });
+        return NextResponse.json(
+          { error: 'Failed to fetch cached items' },
+          { status: 500 }
+        );
+      }
+      if (cached.kind === 'missing') {
+        return NextResponse.json(
+          {
+            error:
+              'Order items are not cached; ask an integrations manager to sync Jumia orders',
+          },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json({
+        orderId: cached.orderId,
+        orderNumber: cached.orderNumber,
+        items: cached.items,
+      });
     }
 
     let jumiaClient: JumiaClient;

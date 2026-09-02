@@ -1,10 +1,11 @@
 export const JUMIA_INTEGRATION_COLUMNS =
-  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at, sync_config';
+  'id, merchant_id, shop_id, marketplace_key, access_token, refresh_token, token_expires_at, last_sync_at, sync_config';
 
 export interface JumiaOrderSyncIntegration {
   id: string;
   merchant_id: string;
   shop_id: string;
+  marketplace_key: string | null;
   access_token: string | null;
   refresh_token: string;
   token_expires_at: string | null;
@@ -19,7 +20,10 @@ export interface JumiaOrderSyncIntegration {
 type IntegrationQuery = {
   select(columns: string): IntegrationQuery;
   eq(column: string, value: unknown): IntegrationQuery;
-  neq(column: string, value: unknown): Promise<{
+  neq(
+    column: string,
+    value: unknown
+  ): Promise<{
     data: unknown[] | null;
     error: { message: string } | null;
   }>;

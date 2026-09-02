@@ -7,21 +7,22 @@ function createSupabase(result: { data: unknown[] | null; error: unknown }) {
     select: vi.fn(() => query),
     eq: vi.fn(() => {
       eqCalls += 1;
-      return eqCalls === 3 ? Promise.resolve(result) : query;
+      return eqCalls === 4 ? Promise.resolve(result) : query;
     }),
   };
-  return { from: vi.fn(() => query) };
+  return { from: vi.fn(() => query), query };
 }
 
 describe('syncJumiaStockForIntegration', () => {
   it('does nothing when an integration has no mappings', async () => {
-    const supabase = createSupabase({ data: [], error: null });
+    const { query, ...supabase } = createSupabase({ data: [], error: null });
 
     const result = await syncJumiaStockForIntegration({
       supabase: supabase as never,
       integration: {
         merchant_id: 'merchant-1',
         shop_id: 'shop-1',
+        marketplace_key: 'oauth',
       } as never,
       accessToken: 'access-token',
       config: { apiBase: 'https://vendor-api.example' },
@@ -29,10 +30,11 @@ describe('syncJumiaStockForIntegration', () => {
     });
 
     expect(result).toEqual({ updated: 0, skipped: 0 });
+    expect(query.eq).toHaveBeenCalledWith('marketplace_key', 'oauth');
   });
 
   it('fails closed on a mapping lookup error without calling Jumia', async () => {
-    const supabase = createSupabase({
+    const { query, ...supabase } = createSupabase({
       data: null,
       error: { message: 'temporary database failure' },
     });
@@ -43,6 +45,7 @@ describe('syncJumiaStockForIntegration', () => {
       integration: {
         merchant_id: 'merchant-1',
         shop_id: 'shop-1',
+        marketplace_key: 'oauth',
       } as never,
       accessToken: 'access-token',
       config: { apiBase: 'https://vendor-api.example' },
@@ -50,6 +53,7 @@ describe('syncJumiaStockForIntegration', () => {
     });
 
     expect(result).toEqual({ updated: 0, skipped: 0 });
+    expect(query.eq).toHaveBeenCalledWith('marketplace_key', 'oauth');
     expect(fetchMock).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });

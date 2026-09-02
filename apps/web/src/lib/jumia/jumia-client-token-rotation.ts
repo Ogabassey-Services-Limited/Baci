@@ -4,7 +4,9 @@ import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorizatio
 import { logger } from '@/lib/logger';
 import type { JumiaSelfAuthorizationTokenResponse } from '@/schemas/jumia';
 import {
+  acquireJumiaAuthorizationRefreshLease,
   type JumiaAuthorizationRefreshState,
+  releaseJumiaAuthorizationRefreshLease,
   reloadSharedAuthorizationCredentials,
 } from './jumia-authorization-refresh-lease';
 import type { JumiaClientTokenPersistenceState } from './jumia-client-token-persistence';
@@ -64,7 +66,7 @@ export async function persistJumiaAuthorizationRotation(args: {
     authorizationGrant.client_key_hash
   );
 
-  const rotationRpcArgs = {
+  let rotationRpcArgs = {
     p_authorization_id: authorizationId,
     p_credential_ciphertext: ciphertext,
     p_token_expires_at: args.tokenExpiresAt.toISOString(),
@@ -75,6 +77,7 @@ export async function persistJumiaAuthorizationRotation(args: {
 
   let rotationVersion: unknown;
   let updateError: { code?: string; message?: string } | null = null;
+  let replacementLeaseToken: string | null = null;
   for (
     let attempt = 1;
     attempt <= JUMIA_ROTATION_PERSIST_ATTEMPTS;
@@ -102,15 +105,78 @@ export async function persistJumiaAuthorizationRotation(args: {
         tokenExpiresAt: state.tokenExpiresAt,
         refreshTokenExpiresAt: state.refreshTokenExpiresAt,
       };
-      return reloadSharedAuthorizationCredentials(refreshState, supabase);
+      const leaseResult = await acquireJumiaAuthorizationRefreshLease(
+        refreshState,
+        supabase
+      );
+      if ('reloaded' in leaseResult) {
+        if (replacementLeaseToken) {
+          await releaseReplacementLease({
+            authorizationId,
+            merchantId: state.merchantId,
+            leaseToken: replacementLeaseToken,
+            supabase,
+          });
+        }
+        return leaseResult.reloaded;
+      }
+      replacementLeaseToken = leaseResult.leaseToken;
+      const expectedRotationVersion =
+        refreshState.authorizationRotationVersion ?? 1;
+      if (
+        leaseResult.authorizationRotationVersion !== undefined &&
+        leaseResult.authorizationRotationVersion !== expectedRotationVersion
+      ) {
+        await releaseReplacementLease({
+          authorizationId,
+          merchantId: state.merchantId,
+          leaseToken: leaseResult.leaseToken,
+          supabase,
+        });
+        return reloadSharedAuthorizationCredentials(
+          {
+            ...refreshState,
+            authorizationRotationVersion:
+              leaseResult.authorizationRotationVersion,
+          },
+          supabase
+        );
+      }
+      rotationRpcArgs = {
+        ...rotationRpcArgs,
+        p_expected_rotation_version:
+          leaseResult.authorizationRotationVersion ?? expectedRotationVersion,
+        p_refresh_lease_token: leaseResult.leaseToken,
+      };
+      // A 40001 can mean that the lease expired after the provider exchange,
+      // not that another actor won the rotation. Re-acquire the lease and
+      // retry with the same rotated ciphertext instead of discarding it.
+      continue;
     }
 
     if (attempt === JUMIA_ROTATION_PERSIST_ATTEMPTS) {
+      if (replacementLeaseToken) {
+        await releaseReplacementLease({
+          authorizationId,
+          merchantId: state.merchantId,
+          leaseToken: replacementLeaseToken,
+          supabase,
+        });
+        replacementLeaseToken = null;
+      }
       break;
     }
   }
 
   if (updateError) {
+    if (replacementLeaseToken) {
+      await releaseReplacementLease({
+        authorizationId,
+        merchantId: state.merchantId,
+        leaseToken: replacementLeaseToken,
+        supabase,
+      });
+    }
     logger.error({
       message: 'Failed to persist rotated Jumia credentials after retrying',
       error: updateError,
@@ -132,4 +198,26 @@ export async function persistJumiaAuthorizationRotation(args: {
         ? rotationVersion
         : state.authorizationRotationVersion,
   };
+}
+
+async function releaseReplacementLease(args: {
+  authorizationId: string;
+  merchantId: string;
+  leaseToken: string;
+  supabase: SupabaseClient;
+}): Promise<void> {
+  try {
+    await releaseJumiaAuthorizationRefreshLease({
+      authorizationId: args.authorizationId,
+      merchantId: args.merchantId,
+      leaseToken: args.leaseToken,
+      supabase: args.supabase,
+    });
+  } catch (error) {
+    logger.error({
+      message: 'Failed to release replacement Jumia refresh lease',
+      integration_id: args.merchantId,
+      error,
+    });
+  }
 }

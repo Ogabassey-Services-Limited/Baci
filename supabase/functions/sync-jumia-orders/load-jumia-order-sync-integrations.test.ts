@@ -26,7 +26,7 @@ describe('loadJumiaOrderSyncIntegrations', () => {
     expect(result).toEqual([{ id: 'integration-1' }]);
     expect(supabase.from).toHaveBeenCalledWith('marketplace_integrations');
     expect(query.select).toHaveBeenCalledWith(
-      'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at, sync_config'
+      'id, merchant_id, shop_id, marketplace_key, access_token, refresh_token, token_expires_at, last_sync_at, sync_config'
     );
     expect(query.eq).toHaveBeenNthCalledWith(1, 'platform', 'jumia');
     expect(query.eq).toHaveBeenNthCalledWith(2, 'is_active', true);

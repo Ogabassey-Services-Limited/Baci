@@ -6,6 +6,7 @@ const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 const mockForIntegration = vi.fn();
 const mockGetOrderItems = vi.fn();
+const mockGetCachedOrderItems = vi.fn();
 const mockSupabase = {};
 
 vi.mock('@/lib/api-auth', () => ({
@@ -31,6 +32,10 @@ vi.mock('@/lib/jumia/orders', () => ({
   getOrderItems: (...args: unknown[]) => mockGetOrderItems(...args),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
+vi.mock('./get-cached-jumia-order-items', () => ({
+  getCachedJumiaOrderItems: (...args: unknown[]) =>
+    mockGetCachedOrderItems(...args),
+}));
 
 const { GET } = await import('./route');
 
@@ -63,6 +68,12 @@ describe('GET /api/marketplace/jumia/orders/[id]/items', () => {
       orderId: 'order-1',
       orderNumber: 'J-1',
       items: [{ id: 'item-1' }],
+    });
+    mockGetCachedOrderItems.mockResolvedValue({
+      kind: 'ok',
+      orderId: 'order-1',
+      orderNumber: 'J-1',
+      items: [{ id: 'cached-item-1' }],
     });
   });
 
@@ -106,6 +117,18 @@ describe('GET /api/marketplace/jumia/orders/[id]/items', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockGetOrderItems).toHaveBeenCalled();
+    expect(await response.json()).toEqual({
+      orderId: 'order-1',
+      orderNumber: 'J-1',
+      items: [{ id: 'cached-item-1' }],
+    });
+    expect(mockGetCachedOrderItems).toHaveBeenCalledWith({
+      supabase: mockSupabase,
+      merchantId: 'merchant-1',
+      integrationId,
+      orderId: 'order-1',
+    });
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockGetOrderItems).not.toHaveBeenCalled();
   });
 });

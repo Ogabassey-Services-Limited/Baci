@@ -44,7 +44,8 @@ export async function syncJumiaStockForIntegration(args: {
     )
     .eq('merchant_id', integration.merchant_id)
     .eq('jumia_shop_id', integration.shop_id)
-    .eq('sync_status', 'synced');
+    .eq('sync_status', 'synced')
+    .eq('marketplace_key', integration.marketplace_key?.trim() || 'oauth');
 
   if (mappingsError || !mappings || mappings.length === 0) {
     return { updated: 0, skipped: 0 };
