@@ -264,13 +264,6 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/lib/jumia/server-credential-client.ts',
       ],
       [
-        'apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts',
-        'apps/web/src/lib/jumia/client.ts',
-        'apps/web/src/lib/jumia/jumia-client-config.ts',
-        'apps/web/src/lib/jumia/load-jumia-authorization-grant.ts',
-        'apps/web/src/lib/jumia/server-credential-client.ts',
-      ],
-      [
         'apps/web/src/app/api/marketplace/jumia/consignment/route.ts',
         'apps/web/src/lib/jumia/client.ts',
         'apps/web/src/lib/jumia/jumia-client-config.ts',
@@ -328,6 +321,14 @@ describe('event pipeline authority manifest', () => {
       ],
       [
         'apps/web/src/app/api/marketplace/jumia/products/update/route.ts',
+        'apps/web/src/lib/jumia/client.ts',
+        'apps/web/src/lib/jumia/jumia-client-config.ts',
+        'apps/web/src/lib/jumia/load-jumia-authorization-grant.ts',
+        'apps/web/src/lib/jumia/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts',
+        'apps/web/src/app/api/marketplace/jumia/connect/exchange/discover-jumia-oauth-shops.ts',
         'apps/web/src/lib/jumia/client.ts',
         'apps/web/src/lib/jumia/jumia-client-config.ts',
         'apps/web/src/lib/jumia/load-jumia-authorization-grant.ts',

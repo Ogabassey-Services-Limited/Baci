@@ -24,6 +24,10 @@ const validateSelfAuthorizationForConnect = `${connectRoot}/validate-jumia-self-
 const claimResumedAuthorization = `${connectRoot}/claim-jumia-resumed-authorization.ts`;
 const consignmentStockRoute =
   'apps/web/src/app/api/marketplace/jumia/consignment/get-jumia-consignment-stock.ts';
+const oauthShopDiscovery =
+  'apps/web/src/app/api/marketplace/jumia/connect/exchange/discover-jumia-oauth-shops.ts';
+const exchangeRoute =
+  'apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts';
 
 const clientCredentialSuffixes = [
   [client, envPath],
@@ -130,6 +134,14 @@ export const eventPipelineJumiaCredentialPaths = [
     jumiaHelpers,
     envPath,
   ],
+  ...withPrefix(
+    [oauthShopDiscovery],
+    [...clientCredentialSuffixes, [client, jumiaHelpers, envPath]]
+  ),
+  ...withPrefix(
+    [exchangeRoute, oauthShopDiscovery],
+    [...clientCredentialSuffixes, [client, jumiaHelpers, envPath]]
+  ),
   ...jumiaApiRoutesUsingClient.flatMap((route) =>
     withPrefix(
       [route],

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
-vi.mock('@/lib/jumia/client', () => ({
+vi.mock('@/lib/jumia/helpers', () => ({
   JumiaApiError: class JumiaApiError extends Error {
     status: number;
 
@@ -14,7 +14,7 @@ vi.mock('@/lib/jumia/client', () => ({
     Response.json({ error: 'Jumia error' }, { status: error.status }),
 }));
 
-import { JumiaApiError } from '@/lib/jumia/client';
+import { JumiaApiError } from '@/lib/jumia/helpers';
 import { handleJumiaFeedProcessingFailure } from './handle-jumia-feed-processing-failure';
 
 describe('handleJumiaFeedProcessingFailure', () => {

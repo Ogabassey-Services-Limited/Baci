@@ -200,7 +200,7 @@ describe('usePublishProductsDialog', () => {
     });
   });
 
-  it('clears selected products that disappear when search results replace the list', async () => {
+  it('retains selected products when search results replace the list', async () => {
     let productRequestCount = 0;
     const fetchMock = vi.fn((url: string) => {
       if (url.includes('mapped-product-ids')) {
@@ -256,6 +256,13 @@ describe('usePublishProductsDialog', () => {
     await waitFor(() => {
       expect(result.current.products).toEqual([
         {
+          id: 'prod-1',
+          name: 'Phone',
+          price: 10,
+          sku: 'PHONE-1',
+          image: 'https://example.com/phone.png',
+        },
+        {
           id: 'prod-2',
           name: 'Tablet',
           price: 20,
@@ -264,7 +271,7 @@ describe('usePublishProductsDialog', () => {
         },
       ]);
     });
-    expect(result.current.selectedIds).toEqual(new Set());
+    expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
   });
 
   it('retains products from a single page when pagination metadata is missing', async () => {

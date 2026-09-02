@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   }
 
   const access = await getUserAccess(supabase);
-  if (!access || !hasPermission(access, 'integrations', 'manage')) {
+  if (!access || !hasPermission(access, 'integrations', 'view')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

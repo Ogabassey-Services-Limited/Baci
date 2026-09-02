@@ -350,7 +350,7 @@ describe('Products Import POST', () => {
       getShops: vi.fn().mockResolvedValue([
         {
           id: 'shop-ng',
-          businessClients: [{ status: 'active' }],
+          businessClients: [{ status: 'active', code: 'NG' }],
         },
       ]),
     });

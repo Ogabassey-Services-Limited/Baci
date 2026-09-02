@@ -126,6 +126,21 @@ describe('GET /api/marketplace/jumia/products', () => {
     expect(mockProductSingle).not.toHaveBeenCalled();
   });
 
+  it('allows view-only staff to read integration-scoped mappings', async () => {
+    mockHasPermission.mockImplementation(
+      (_access: unknown, _resource: unknown, action: unknown) =>
+        action === 'view'
+    );
+    mockMappingsOrder.mockResolvedValue({ data: [], error: null });
+
+    const response = await GET(
+      makeRequest({ productId: PRODUCT_ID, integrationId: INTEGRATION_ID })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ mapping: null, mappings: [] });
+  });
+
   it('returns 404 when integration lookup fails with JumiaApiError 404', async () => {
     const { JumiaApiError } = await import('@/lib/jumia/helpers');
     mockForIntegration.mockRejectedValue(new JumiaApiError(404, 'missing'));

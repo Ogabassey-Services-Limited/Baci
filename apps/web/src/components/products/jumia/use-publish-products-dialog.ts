@@ -58,15 +58,14 @@ export function usePublishProductsDialog({
     setProductsLoadError(null);
     loadPublishProducts(search.trim() || undefined, controller.signal)
       .then((loadedProducts) => {
-        setProducts(loadedProducts);
-        setSelectedIds((current) => {
-          const availableIds = new Set(
-            loadedProducts.map((product) => product.id)
+        setProducts((current) => {
+          const productsById = new Map(
+            current.map((product) => [product.id, product])
           );
-          const next = new Set(
-            [...current].filter((productId) => availableIds.has(productId))
-          );
-          return next.size === current.size ? current : next;
+          for (const product of loadedProducts) {
+            productsById.set(product.id, product);
+          }
+          return [...productsById.values()];
         });
       })
       .catch((error: unknown) => {
