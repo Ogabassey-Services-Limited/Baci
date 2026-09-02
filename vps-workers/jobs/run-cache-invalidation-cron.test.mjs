@@ -147,4 +147,45 @@ describe('adaptive cache invalidation scheduler', () => {
     assert.equal(JSON.parse(warnings[0]).intervalMs, 120_000);
     assert.equal(h.state.deadLettersPresent, true);
   });
+
+  it('does not re-alert a known dead letter after a transient drain failure', async () => {
+    const h = harness();
+    const warnings = [];
+    const options = {
+      env: { CACHE_INVALIDATION_STATE_FILE: '/tmp/state' },
+      read: h.read,
+      write: h.write,
+      makeDirectory: h.mkdir,
+      move: h.move,
+      logger: { warn: (line) => warnings.push(line) },
+    };
+    const deadLetterResult = {
+      body: JSON.stringify({ claimed: 0, deadLettersPresent: true }),
+    };
+
+    await runCacheInvalidationCron({
+      ...options,
+      now: 5_000,
+      run: async () => deadLetterResult,
+    });
+    await assert.rejects(
+      runCacheInvalidationCron({
+        ...options,
+        now: 125_000,
+        run: () => {
+          throw new Error('temporary Vercel failure');
+        },
+      }),
+      /temporary Vercel failure/
+    );
+    const recovered = await runCacheInvalidationCron({
+      ...options,
+      now: 245_000,
+      run: async () => deadLetterResult,
+    });
+
+    assert.equal(h.state.deadLettersPresent, true);
+    assert.equal(recovered.deadLetter, undefined);
+    assert.equal(warnings.length, 1);
+  });
 });

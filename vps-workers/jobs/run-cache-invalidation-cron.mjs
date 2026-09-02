@@ -63,7 +63,11 @@ export async function runCacheInvalidationCron({
   } catch (error) {
     // Preserve a short retry cadence for alerts/transient failures.
     const retryMs = MIN_INTERVAL_MS;
-    const nextState = { nextAllowedAt: now + retryMs, intervalMs: retryMs };
+    const nextState = {
+      nextAllowedAt: now + retryMs,
+      intervalMs: retryMs,
+      deadLettersPresent: state.deadLettersPresent === true,
+    };
     await persistState({
       makeDirectory,
       move,
