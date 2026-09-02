@@ -90,4 +90,45 @@ describe('buildOrderGiglQuoteRequest', () => {
     );
     expect(empty).toMatchObject({ code: 'ORDER_SHIPPING_ITEMS_EMPTY' });
   });
+
+  it('marks a foreign receiver as international instead of using domestic pricing', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          ...base.shipping_address,
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+        },
+      },
+      sender
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      request: { shipmentType: 'international' },
+    });
+  });
+
+  it('does not let a default Nigerian code override a foreign country name', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          ...base.shipping_address,
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+        },
+      },
+      sender
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      request: { shipmentType: 'international' },
+    });
+  });
 });

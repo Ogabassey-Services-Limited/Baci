@@ -55,12 +55,14 @@ export async function bookWalletFundedOrderShipment(
       'SHIPMENT_BOOKING_IN_PROGRESS'
     );
   }
+  let providerSubmissionStarted = false;
   try {
     await beginMerchantShippingChargeSubmission(
       supabase,
       charge.chargeId,
       token
     );
+    providerSubmissionStarted = true;
     const shipment = await book();
     await completeMerchantShippingCharge(
       supabase,
@@ -70,7 +72,11 @@ export async function bookWalletFundedOrderShipment(
     );
     return shipment;
   } catch (error) {
-    const definitive = shouldReleaseBookingLock(error);
+    // A failed submission transition happens before the provider booking
+    // callback runs, so the reservation is safe to refund and the lock can be
+    // released even when the RPC error is otherwise ambiguous.
+    const definitive =
+      !providerSubmissionStarted || shouldReleaseBookingLock(error);
     if (definitive) {
       await refundMerchantShippingCharge(
         supabase,

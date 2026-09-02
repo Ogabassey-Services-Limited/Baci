@@ -107,7 +107,7 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata, provider_cost, platform_margin, pricing_version'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
     )
     .eq('id', typedOrder.selected_quote_id)
     .eq('merchant_id', merchantId)
@@ -255,8 +255,6 @@ export async function bookOrderShipment(
       pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
       label_url: result.labelUrl,
       provider_response: result.rawResponse,
-      provider_cost: resolvedQuote.provider_cost ?? null,
-      platform_margin: resolvedQuote.platform_margin ?? null,
     })
     .select('id')
     .single();

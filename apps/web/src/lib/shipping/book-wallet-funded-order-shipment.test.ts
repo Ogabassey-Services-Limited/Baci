@@ -12,7 +12,7 @@ vi.mock('./merchant-shipping-charge', () => ({
 }));
 
 describe('wallet-funded shipment orchestration', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
   it('does not invoke GIGL when reservation reports insufficient funds', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockRejectedValue(
       new OrderShipmentBookingError(
@@ -78,6 +78,51 @@ describe('wallet-funded shipment orchestration', () => {
       'a'.repeat(64),
       's1'
     );
+  });
+
+  it('refunds and releases the lock when submission cannot begin before provider booking', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c-submit',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 's'.repeat(64),
+    });
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockRejectedValue(
+      new OrderShipmentBookingError(
+        'Unable to begin shipment submission.',
+        500,
+        'MERCHANT_WALLET_SUBMISSION_FAILED'
+      )
+    );
+    const book = vi.fn();
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        {} as never,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        release
+      )
+    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_SUBMISSION_FAILED' });
+
+    expect(book).not.toHaveBeenCalled();
+    expect(charge.refundMerchantShippingCharge).toHaveBeenCalledWith(
+      expect.anything(),
+      'c-submit',
+      's'.repeat(64),
+      'MERCHANT_WALLET_SUBMISSION_FAILED'
+    );
+    expect(
+      charge.markMerchantShippingChargeForReconciliation
+    ).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
   });
 
   it('refunds definitive rejection but reconciles ambiguous failures', async () => {

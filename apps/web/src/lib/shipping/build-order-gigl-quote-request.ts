@@ -59,6 +59,35 @@ function readAddress(raw: unknown, order: OrderLike): ShippingAddress {
   };
 }
 
+function isNigeriaDestination(address: ShippingAddress): boolean {
+  const countryCode = String(address.countryCode ?? '')
+    .trim()
+    .toUpperCase();
+  const country = String(address.country ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (
+    country &&
+    country !== 'nigeria' &&
+    country !== 'ng' &&
+    country !== 'nga'
+  ) {
+    return false;
+  }
+  if (countryCode && countryCode !== 'NG' && countryCode !== 'NGA') {
+    return false;
+  }
+
+  return (
+    countryCode === 'NG' ||
+    countryCode === 'NGA' ||
+    country === 'nigeria' ||
+    country === 'ng' ||
+    country === 'nga'
+  );
+}
+
 export async function buildOrderGiglQuoteRequest(
   order: OrderLike,
   sender: ShippingAddress,
@@ -113,7 +142,9 @@ export async function buildOrderGiglQuoteRequest(
       sender,
       receiver,
       items,
-      shipmentType: 'domestic',
+      shipmentType: isNigeriaDestination(receiver)
+        ? 'domestic'
+        : 'international',
       deliveryPreference: 'door',
     },
   };

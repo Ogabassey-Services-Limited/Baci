@@ -16,15 +16,20 @@ function client(
 ) {
   const rpc = vi.fn().mockResolvedValue(rpcResult);
   const chain = {
+    insert: vi.fn().mockResolvedValue({ data: null, error: null }),
     select: () => chain,
     eq: () => chain,
     // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
     then: (resolve: (v: unknown) => unknown) =>
       resolve({ data: rows, error: null }),
   };
-  return { from: () => chain, rpc } as unknown as Parameters<
+  return {
+    from: () => chain,
+    rpc,
+    insert: chain.insert,
+  } as unknown as Parameters<
     typeof confirmPaystackMerchantWalletDva
-  >[0]['supabase'] & { rpc: typeof rpc };
+  >[0]['supabase'] & { insert: typeof chain.insert; rpc: typeof rpc };
 }
 const input = (
   supabase: Parameters<typeof confirmPaystackMerchantWalletDva>[0]['supabase'],
@@ -107,7 +112,47 @@ describe('verified merchant-wallet DVA credit', () => {
     const result = await confirmPaystackMerchantWalletDva(input(s));
     expect(result).toMatchObject({
       kind: 'review',
+      body: {
+        code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
+        error: expect.stringContaining('Filed for manual reconciliation'),
+      },
+    });
+    expect(s.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'wallet_dva_order_alias_conflict',
+        merchant_id: 'm',
+        paystack_ref: 'R1',
+      })
+    );
+    expect(s.rpc).not.toHaveBeenCalled();
+  });
+  it('fails the webhook when the alias review cannot be persisted', async () => {
+    alias.mockResolvedValue(true);
+    const s = client([{ merchant_id: 'm' }]);
+    s.insert.mockResolvedValue({
+      data: null,
+      error: new Error('review insert failed'),
+    });
+
+    await expect(confirmPaystackMerchantWalletDva(input(s))).rejects.toThrow(
+      'review insert failed'
+    );
+    expect(s.rpc).not.toHaveBeenCalled();
+  });
+  it('treats a duplicate alias review as an idempotent retry', async () => {
+    alias.mockResolvedValue(true);
+    const s = client([{ merchant_id: 'm' }]);
+    s.insert.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate review' },
+    });
+
+    await expect(
+      confirmPaystackMerchantWalletDva(input(s))
+    ).resolves.toMatchObject({
       body: { code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT' },
+      kind: 'review',
+      status: 409,
     });
     expect(s.rpc).not.toHaveBeenCalled();
   });

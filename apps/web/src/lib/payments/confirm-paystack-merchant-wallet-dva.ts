@@ -1,6 +1,50 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { hasActivePaystackOrderDvaAlias } from '@/lib/payments/paystack-dva-order-alias';
 
+const POSTGRES_UNIQUE_VIOLATION = '23505';
+
+async function fileOrderAliasReview({
+  accountNumber,
+  gatewayReference,
+  merchantId,
+  paidAt,
+  supabase,
+  verifiedAmount,
+}: {
+  accountNumber: string;
+  gatewayReference: string;
+  merchantId: string;
+  paidAt: Date;
+  supabase: SupabaseClient;
+  verifiedAmount: { amount: number; currency?: string };
+}) {
+  const { error } = await supabase.from('reconciliation_review').insert({
+    candidates: [],
+    issue_type: 'wallet_dva_order_alias_conflict',
+    merchant_id: merchantId,
+    metadata: {
+      account_number: accountNumber,
+      paid_at: paidAt.toISOString(),
+      verified_amount: verifiedAmount.amount,
+      verified_currency: verifiedAmount.currency ?? null,
+    },
+    paystack_ref: gatewayReference,
+    reason:
+      'Paystack receiver account belongs to a merchant wallet DVA but is still inside an active order DVA window.',
+  });
+
+  // A duplicate webhook means the original review was already filed. Treat
+  // that unique violation as an idempotent success; any other write failure
+  // must propagate so the webhook retries instead of acknowledging a payment
+  // with no durable operator trail.
+  if (
+    error &&
+    (error as { code?: string }).code !== POSTGRES_UNIQUE_VIOLATION
+  ) {
+    throw error;
+  }
+}
+
 export type MerchantWalletDvaResult =
   | { kind: 'none' }
   | { kind: 'match'; balance: number; firstCredit: boolean }
@@ -57,15 +101,25 @@ export async function confirmPaystackMerchantWalletDva({
       asOf: paidAt,
       supabase,
     })
-  )
+  ) {
+    await fileOrderAliasReview({
+      accountNumber,
+      gatewayReference,
+      merchantId: accounts[0].merchant_id,
+      paidAt,
+      supabase,
+      verifiedAmount,
+    });
     return {
       kind: 'review',
       status: 409,
       body: {
         code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
-        error: 'Receiver account is reserved for an active order',
+        error:
+          'Receiver account is reserved for an active order. Filed for manual reconciliation.',
       },
     };
+  }
   const { data, error: creditError } = await supabase.rpc(
     'credit_merchant_wallet_funding',
     {
