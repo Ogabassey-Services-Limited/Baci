@@ -16,9 +16,11 @@ interface QuizEventsListProps {
   events: QuizEvent[];
   fetchEvents?: () => Promise<QuizEvent[]>;
   isStarting: boolean;
+  isSignedIn?: boolean;
   locale?: string;
   onRefresh?: () => Promise<void>;
   onStart: (eventId: string, termsAccepted?: true) => void;
+  onSignIn?: () => void;
   resumeEventId?: string | null;
   serverNow?: string;
   styles: QuizStyles;
@@ -34,9 +36,11 @@ export function QuizEventsList({
   events,
   fetchEvents,
   isStarting,
+  isSignedIn = true,
   locale,
   onRefresh,
   onStart,
+  onSignIn,
   resumeEventId,
   serverNow,
   styles,
@@ -105,6 +109,7 @@ export function QuizEventsList({
         renderItem={({ item }) => (
           <QuizLobbyEventCard
             event={item}
+            isSignedIn={isSignedIn}
             isResume={resumeEventId === item.id}
             isStarting={isStarting}
             locale={locale}
@@ -126,6 +131,7 @@ export function QuizEventsList({
                 requiresAcceptance: true,
               })
             }
+            onSignIn={onSignIn}
             serverNow={item.serverNow ?? serverNow}
             styles={styles}
           />

@@ -230,22 +230,52 @@ describe('QuizScreen', () => {
     ).toBeTruthy();
   });
 
-  it('disables start for scheduled quiz events', async () => {
-    jest
-      .mocked(fetchQuizEvents)
-      .mockResolvedValueOnce([{ ...quizEvent, status: 'scheduled' }]);
+  it('emphasizes sign in instead of starting a quiz for a signed-out shopper', async () => {
+    mockAuthUserId = null;
+    const onSignIn = jest.fn();
+
+    render(
+      <QuizScreen integrityTier="device" locale="en-US" onSignIn={onSignIn} />
+    );
+
+    const signInButton = await screen.findByRole('button', {
+      name: 'Sign in to play Daily Prize Quiz',
+    });
+    fireEvent.press(signInButton);
+
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('We couldn’t start the quiz')).toBeNull();
+    expect(screen.queryByRole('header', { name: 'How to play' })).toBeNull();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+  });
+
+  it('opens a waiting room for scheduled quiz events', async () => {
+    jest.mocked(fetchQuizEvents).mockResolvedValueOnce([
+      {
+        ...quizEvent,
+        serverNow: new Date(quizEventNow).toISOString(),
+        startsAt: new Date(quizEventNow + 10 * 60 * 1000).toISOString(),
+        status: 'scheduled',
+      },
+    ]);
 
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    const startButton = await screen.findByRole('button', {
-      name: 'Scheduled Daily Prize Quiz',
+    const waitingRoomButton = await screen.findByRole('button', {
+      name: 'Enter waiting room Daily Prize Quiz',
     });
-    expect(screen.getByText('Scheduled')).toBeTruthy();
-    expect(startButton.props.accessibilityState).toMatchObject({
-      disabled: true,
+    expect(waitingRoomButton.props.accessibilityState).toMatchObject({
+      disabled: false,
     });
 
-    fireEvent.press(startButton);
+    fireEvent.press(waitingRoomButton);
+    fireEvent.press(
+      screen.getByRole('checkbox', { name: 'Accept quiz rules and terms' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Accept and play quiz' })
+    );
+    expect(screen.getByText('SuperQuiz waiting room')).toBeTruthy();
     expect(startQuizAttempt).not.toHaveBeenCalled();
   });
 

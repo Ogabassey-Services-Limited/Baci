@@ -33,7 +33,9 @@ export default function QuizRoute() {
         }}
       />
       <StorefrontScreenShell>
-        <QuizScreen />
+        <QuizScreen
+          onSignIn={() => router.push('/auth/login?returnTo=/quiz')}
+        />
       </StorefrontScreenShell>
     </>
   );

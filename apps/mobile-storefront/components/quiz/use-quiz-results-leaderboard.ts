@@ -5,7 +5,6 @@ import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
 import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 
-const FINAL_RETRY_INTERVAL_MS = 1_000;
 const LIVE_REFRESH_INTERVAL_MS = 5_000;
 
 interface UseQuizResultsLeaderboardInput {
@@ -61,7 +60,7 @@ export function useQuizResultsLeaderboard({
       loadInFlight = true;
       let retryDelayMs: number | null = isLive
         ? LIVE_REFRESH_INTERVAL_MS
-        : FINAL_RETRY_INTERVAL_MS;
+        : null;
       try {
         const result = isLive
           ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })

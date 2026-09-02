@@ -73,6 +73,13 @@ export function QuizResultRoute({
         onRetryRecovery();
       }}
       serverNow={terminalContext?.serverNow}
+      simulatedPrize={
+        event?.mode === 'test' &&
+        v2Result?.availability === 'final' &&
+        v2Result.rank === 1
+          ? (event.prizeProduct ?? null)
+          : null
+      }
       styles={styles}
       v2Result={v2Result}
     />

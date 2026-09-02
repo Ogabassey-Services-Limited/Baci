@@ -374,6 +374,8 @@ jest.mock('@/services/push-notifications', () => ({
 }));
 
 const CheckoutScreen = require('@/app/checkout').default as React.ComponentType;
+const CheckoutScreenView = require('@/components/checkout/CheckoutScreenView')
+  .CheckoutScreenView as React.ComponentType<Record<string, unknown>>;
 
 export function setupCheckoutTest() {
   jest.useRealTimers();
@@ -474,6 +476,16 @@ export function renderCheckoutScreen() {
   return render(
     <QueryClientProvider client={queryClient}>
       <CheckoutScreen />
+    </QueryClientProvider>
+  );
+}
+
+export function renderCheckoutScreenView(props: Record<string, unknown> = {}) {
+  const queryClient = createCheckoutQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <CheckoutScreenView {...props} />
     </QueryClientProvider>
   );
 }

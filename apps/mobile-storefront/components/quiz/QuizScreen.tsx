@@ -4,11 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
 import { prepareQuizMobileAds } from '@/services/prepare-quiz-mobile-ads';
-import {
-  fetchQuizEvents,
-  type QuizIntegrityTier,
-  submitQuizAnswer,
-} from '@/services/quiz';
+import { fetchQuizEvents, submitQuizAnswer } from '@/services/quiz';
 import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
 import { useAuthStore } from '@/stores/auth-store';
 import { useQuizStore } from '@/stores/quiz-store';
@@ -23,6 +19,7 @@ import { QuizMusicPlayer } from './QuizMusicPlayer';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { QuizResultRoute } from './QuizResultRoute';
 import { createQuizStyles } from './QuizScreen.styles';
+import type { QuizScreenProps } from './QuizScreen.types';
 import {
   getQuizErrorMessage,
   isQuizRecoveryCurrent,
@@ -40,13 +37,10 @@ import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
 const QUIZ_COPY = { actionFailed: 'Quiz action failed' } as const;
-interface QuizScreenProps {
-  integrityTier?: QuizIntegrityTier;
-  locale?: string;
-}
 export function QuizScreen({
   integrityTier = 'basic',
   locale,
+  onSignIn,
 }: QuizScreenProps = {}) {
   const { colors } = useTheme();
   const styles = createQuizStyles(colors);
@@ -233,8 +227,10 @@ export function QuizScreen({
         <QuizEventsList
           events={events}
           isStarting={status === 'starting'}
+          isSignedIn={authUserId !== null}
           locale={locale}
           onStart={requestStart}
+          onSignIn={onSignIn}
           resumeEventId={v2Attempt?.eventId}
           serverNow={v2Attempt?.serverNow}
           styles={lobbyStyles}

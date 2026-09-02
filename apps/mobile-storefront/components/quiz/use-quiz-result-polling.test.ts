@@ -4,6 +4,33 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
 import { useQuizResultPolling } from './use-quiz-result-polling';
 
+const mockQuizResultsWakeup = { current: null as (() => void) | null };
+const mockRemoveChannel = jest.fn();
+
+jest.mock('@/lib/supabase', () => {
+  const channel = {
+    on: jest.fn(
+      (
+        type: string,
+        config: { event?: string },
+        callback: (() => void) | undefined
+      ) => {
+        if (type === 'broadcast' && config.event === 'quiz_results_ready') {
+          mockQuizResultsWakeup.current = callback ?? null;
+        }
+        return channel;
+      }
+    ),
+    subscribe: jest.fn(() => channel),
+  };
+  return {
+    supabase: {
+      channel: jest.fn(() => channel),
+      removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
+    },
+  };
+});
+
 jest.mock('@/services/quiz-results', () => ({
   fetchQuizResult: jest.fn(),
 }));
@@ -11,6 +38,7 @@ jest.mock('@/services/quiz-results', () => ({
 describe('useQuizResultPolling', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockQuizResultsWakeup.current = null;
   });
 
   afterEach(() => {
@@ -19,7 +47,7 @@ describe('useQuizResultPolling', () => {
     jest.useRealTimers();
   });
 
-  it('polls pending results until publication and then stops', async () => {
+  it('uses the fallback when no publication wakeup arrives and then stops', async () => {
     const onResult = jest.fn();
     jest
       .mocked(fetchQuizResult)
@@ -46,10 +74,14 @@ describe('useQuizResultPolling', () => {
         onResult,
       })
     );
-    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(
+        expect.objectContaining({ availability: 'pending' })
+      )
+    );
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
+      jest.advanceTimersByTime(30_000);
       await Promise.resolve();
     });
 
@@ -81,19 +113,25 @@ describe('useQuizResultPolling', () => {
         totalQuestions: 5,
       });
 
+    const onResult = jest.fn();
     renderHook(() =>
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
         eventId: null,
         expectedUserId: 'user-1',
-        onResult: jest.fn(),
+        onResult,
       })
     );
-    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(
+        expect.objectContaining({ availability: 'pending' })
+      )
+    );
 
+    const remainingUntilAvailability = Date.parse(availableAt) - Date.now();
     await act(async () => {
-      jest.advanceTimersByTime(19_999);
+      jest.advanceTimersByTime(remainingUntilAvailability - 1);
       await Promise.resolve();
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(1);
@@ -105,32 +143,47 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
   });
 
-  it('retries every second once the server availability time has passed', async () => {
+  it('waits for the private publication wakeup instead of polling every second', async () => {
     const availableAt = new Date(Date.now()).toISOString();
-    jest.mocked(fetchQuizResult).mockResolvedValue({
-      attemptId: 'attempt-1',
-      availability: 'pending',
-      availableAt,
-    });
+    jest
+      .mocked(fetchQuizResult)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'pending',
+        availableAt,
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt,
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
 
     renderHook(() =>
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: 'event-1',
         expectedUserId: 'user-1',
         onResult: jest.fn(),
       })
     );
     await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     await act(async () => {
-      jest.advanceTimersByTime(999);
+      jest.advanceTimersByTime(1_000);
       await Promise.resolve();
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      jest.advanceTimersByTime(1);
+      mockQuizResultsWakeup.current?.();
       await Promise.resolve();
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
@@ -149,6 +202,10 @@ describe('useQuizResultPolling', () => {
       })
     );
     await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     await act(async () => {
       jest.advanceTimersByTime(4_999);

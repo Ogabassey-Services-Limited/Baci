@@ -21,6 +21,7 @@ type QuizStyles = ReturnType<typeof createQuizLobbyStyles>;
 
 interface QuizLobbyEventCardProps {
   event: QuizEvent;
+  isSignedIn?: boolean;
   isResume: boolean;
   isStarting: boolean;
   locale?: string;
@@ -28,12 +29,14 @@ interface QuizLobbyEventCardProps {
   onEnterWaitingRoom?: () => void;
   onOpenRules: (requiresAcceptance: boolean) => void;
   onResume: () => void;
+  onSignIn?: () => void;
   serverNow?: string;
   styles: QuizStyles;
 }
 
 export function QuizLobbyEventCard({
   event,
+  isSignedIn = true,
   isResume,
   isStarting,
   locale,
@@ -41,6 +44,7 @@ export function QuizLobbyEventCard({
   onEnterWaitingRoom,
   onOpenRules,
   onResume,
+  onSignIn,
   serverNow,
   styles,
 }: QuizLobbyEventCardProps) {
@@ -63,9 +67,12 @@ export function QuizLobbyEventCard({
   const isClosed = ['closed', 'completed', 'cancelled', 'finalizing'].includes(
     effectiveStatus
   );
-  const buttonText = isScheduled
-    ? 'Enter waiting room'
-    : getEventStartButtonText(effectiveStatus, isStarting, isResume);
+  const requiresSignIn = !isSignedIn && (isPlayable || isScheduled);
+  const buttonText = requiresSignIn
+    ? 'Sign in to play'
+    : isScheduled
+      ? 'Enter waiting room'
+      : getEventStartButtonText(effectiveStatus, isStarting, isResume);
   const condition = event.prizeProduct?.condition?.replace('_', ' ');
 
   return (
@@ -158,11 +165,13 @@ export function QuizLobbyEventCard({
           }}
           disabled={isStarting || (!isPlayable && !isScheduled)}
           onPress={
-            isResume
-              ? onResume
-              : isScheduled
-                ? onEnterWaitingRoom
-                : () => onOpenRules(true)
+            requiresSignIn
+              ? onSignIn
+              : isResume
+                ? onResume
+                : isScheduled
+                  ? onEnterWaitingRoom
+                  : () => onOpenRules(true)
           }
           style={styles.primaryButton}
         >

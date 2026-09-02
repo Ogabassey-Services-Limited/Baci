@@ -102,7 +102,7 @@ describe('useQuizResultsLeaderboard', () => {
     });
   });
 
-  it('retries final standings after the first publication request fails', async () => {
+  it('does not run a second final-standings polling loop after publication', async () => {
     jest.useFakeTimers();
     jest
       .mocked(fetchQuizLeaderboard)
@@ -128,19 +128,11 @@ describe('useQuizResultsLeaderboard', () => {
     });
     expect(result.current.leaderboardError).toBe(true);
     await act(async () => {
-      jest.advanceTimersByTime(999);
+      jest.advanceTimersByTime(30_000);
       await Promise.resolve();
     });
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      jest.advanceTimersByTime(1);
-      await Promise.resolve();
-    });
-
-    await waitFor(() =>
-      expect(result.current.leaderboard?.status).toBe('published')
-    );
-    expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(2);
+    expect(result.current.leaderboard).toBeNull();
   });
 
   it('pauses live standings refresh in the background and resumes in the foreground', async () => {

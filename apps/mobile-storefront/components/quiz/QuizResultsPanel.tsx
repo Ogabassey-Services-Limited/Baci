@@ -1,11 +1,16 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import type { QuizResult, QuizV2Result } from '@/services/quiz-types';
+import type {
+  QuizPrizeProduct,
+  QuizResult,
+  QuizV2Result,
+} from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
 import { QuizResultsActions } from './QuizResultsActions';
 import { QuizResultsStandings } from './QuizResultsStandings';
 import type { createQuizStyles } from './QuizScreen.styles';
+import { QuizTestPrizeSimulationPanel } from './QuizTestPrizeSimulationPanel';
 import { useQuizEventTimer } from './use-quiz-event-timer';
 import { useQuizResultsLeaderboard } from './use-quiz-results-leaderboard';
 import { useQuizServerClock } from './use-quiz-server-clock';
@@ -37,6 +42,7 @@ interface QuizResultsPanelProps {
   allowPendingResultsExit?: boolean;
   onReturnToQuizList?: () => void;
   serverNow?: string | null;
+  simulatedPrize?: QuizPrizeProduct | null;
   styles: QuizStyles;
   v2Result: QuizV2Result | null;
 }
@@ -50,6 +56,7 @@ export function QuizResultsPanel({
   allowPendingResultsExit = false,
   onReturnToQuizList,
   serverNow = null,
+  simulatedPrize = null,
   styles,
   v2Result,
 }: QuizResultsPanelProps) {
@@ -62,7 +69,7 @@ export function QuizResultsPanel({
     serverClockOffsetMs: offsetMs,
   });
   const shouldLoadLeaderboard =
-    (lifecycle === 'final' || lifecycle === 'pending_results') &&
+    lifecycle === 'final' &&
     v2Result?.availability !== 'unavailable' &&
     Boolean(eventId && expectedUserId);
   const { leaderboard, leaderboardError, participantCount } =
@@ -76,7 +83,7 @@ export function QuizResultsPanel({
   const currentPlayer =
     leaderboard?.currentPlayer ??
     leaderboard?.entries.find((entry) => entry.isCurrentCustomer);
-  const finishTime = formatFinishTime(currentPlayer?.submittedAt);
+  const finishTime = formatFinishTime(currentPlayer?.submittedAt ?? serverNow);
   if (lifecycle !== 'idle') {
     const canReturnToQuizList = Boolean(
       onReturnToQuizList &&
@@ -132,11 +139,16 @@ export function QuizResultsPanel({
               </View>
             ) : null}
             {lifecycle === 'pending_results' ? (
-              <Text style={styles.leaderboardCountdownLabel}>
-                {eventTimer.hasEnded
-                  ? 'The quiz has closed and final results are being prepared.'
-                  : 'The leaderboard will appear when the quiz ends in'}
-              </Text>
+              eventTimer.hasEnded ? (
+                <ActivityIndicator
+                  accessibilityLabel="Opening final standings"
+                  color={styles.finalStandingsTitle.color}
+                />
+              ) : (
+                <Text style={styles.leaderboardCountdownLabel}>
+                  The leaderboard will appear when the quiz ends in
+                </Text>
+              )
             ) : null}
             {lifecycle === 'pending_results' && !eventTimer.hasEnded ? (
               <Text
@@ -145,28 +157,6 @@ export function QuizResultsPanel({
               >
                 {formatCountdown(eventTimer.remainingSeconds)}
               </Text>
-            ) : null}
-            {lifecycle === 'pending_results' ? (
-              currentPlayer ? (
-                <View
-                  accessibilityLabel={`Your score: ${currentPlayer.score} points`}
-                  style={styles.scoreSummary}
-                >
-                  <Text style={styles.scoreLabel}>Your score</Text>
-                  <Text style={styles.scoreValue}>{currentPlayer.score}</Text>
-                  <Text style={styles.scoreLabel}>points recorded</Text>
-                </View>
-              ) : leaderboardError ? (
-                <Text style={styles.eventMeta}>
-                  Your score is recorded. Final results are still being
-                  prepared.
-                </Text>
-              ) : (
-                <ActivityIndicator
-                  accessibilityLabel="Loading your score"
-                  color={styles.finalStandingsTitle.color}
-                />
-              )
             ) : null}
             {lifecycle === 'final' && shouldLoadLeaderboard ? (
               <QuizResultsStandings
@@ -179,6 +169,11 @@ export function QuizResultsPanel({
             {v2Result?.availability === 'final' && v2Result.prizeClaim ? (
               <QuizPrizeClaimPanel
                 prizeClaim={v2Result.prizeClaim}
+                styles={styles}
+              />
+            ) : v2Result?.availability === 'final' && simulatedPrize ? (
+              <QuizTestPrizeSimulationPanel
+                prize={simulatedPrize}
                 styles={styles}
               />
             ) : null}
