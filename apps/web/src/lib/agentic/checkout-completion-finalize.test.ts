@@ -605,7 +605,7 @@ describe('finalizeAgenticCheckoutPayment', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
+    expect(productsChain.select).toHaveBeenCalledWith('id, slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
