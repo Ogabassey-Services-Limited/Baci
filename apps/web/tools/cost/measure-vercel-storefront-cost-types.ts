@@ -47,7 +47,7 @@ export type StorefrontDbTraceMetrics = Readonly<{
     >
   >;
   dbCalls: number;
-  dbCallsPerRequest: number | null;
+  dbCallsPerRequest: number;
   dbTimeoutRate: number | null;
   dbTimeouts: number;
   rows: number;

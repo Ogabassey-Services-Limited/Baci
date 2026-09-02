@@ -139,8 +139,7 @@ export async function summarizeStorefrontDbTraces(
   return {
     byCohort: withRates,
     dbCalls,
-    dbCallsPerRequest:
-      rows.length === 0 ? null : roundMetric(dbCalls / rows.length),
+    dbCallsPerRequest: roundMetric(dbCalls / rows.length),
     dbTimeoutRate: dbCalls === 0 ? null : roundMetric(dbTimeouts / dbCalls),
     dbTimeouts,
     rows: rows.length,

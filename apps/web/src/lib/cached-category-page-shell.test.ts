@@ -11,6 +11,10 @@ describe('cached category page shell helpers', () => {
     );
   });
 
+  it('keeps malformed percent encoding deterministic without throwing', () => {
+    expect(getCategoryFallbackName('phones%')).toBe('Phones%');
+  });
+
   it('recognizes only PostgREST no-row errors as an expected absence', () => {
     expect(isPostgrestNoRowsError({ code: 'PGRST116' })).toBe(true);
     expect(isPostgrestNoRowsError({ code: '57014' })).toBe(false);

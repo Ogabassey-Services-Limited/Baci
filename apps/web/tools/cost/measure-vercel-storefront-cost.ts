@@ -1,19 +1,16 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import {
-  type CacheProbeMetrics,
   type CostWindowMeasurement,
-  MAX_INPUT_BYTES,
-  MAX_INPUT_ROWS,
   type MetricName,
   SERVICE_METRICS,
   type StorefrontCostMeasurement,
   type WindowOptions,
 } from './measure-vercel-storefront-cost-types';
+import { readBoundedJsonl } from './read-bounded-jsonl';
+import { summarizeCacheProbe } from './summarize-cache-probe';
 import { summarizeStorefrontDbTraces } from './summarize-storefront-db-traces';
 
 const PROJECT_TAG = 'ProjectId';
-const CACHE_HIT_STATUSES = new Set(['HIT', 'PRERENDER', 'STALE']);
 type FocusRow = Record<string, unknown>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -58,60 +55,6 @@ function readProjectId(row: FocusRow) {
   if (!isRecord(row.Tags)) return undefined;
   const value = row.Tags[PROJECT_TAG];
   return typeof value === 'string' ? value : undefined;
-}
-
-function percentile(values: readonly number[], fraction: number) {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)];
-}
-
-async function readBoundedJsonl(path: string, label: string) {
-  const bytes = await readFile(path);
-  if (bytes.byteLength > MAX_INPUT_BYTES)
-    throw new Error(`${label} exceeds the ${MAX_INPUT_BYTES}-byte bound`);
-  const lines = bytes.toString('utf8').split(/\r?\n/);
-  const rows: unknown[] = [];
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    if (rows.length >= MAX_INPUT_ROWS)
-      throw new Error(`${label} exceeds the ${MAX_INPUT_ROWS}-row bound`);
-    try {
-      rows.push(JSON.parse(line));
-    } catch {
-      throw new Error(`${label} contains invalid JSON`);
-    }
-  }
-  return { bytes, rows };
-}
-
-async function summarizeCacheProbe(path: string): Promise<CacheProbeMetrics> {
-  const { bytes, rows } = await readBoundedJsonl(path, 'cache probe');
-  let cacheStatusRows = 0;
-  let cacheHitRows = 0;
-  const ttfbValues: number[] = [];
-  for (const candidate of rows) {
-    if (!isRecord(candidate))
-      throw new Error('cache probe row is not an object');
-    if (typeof candidate.cacheStatus === 'string') {
-      cacheStatusRows += 1;
-      if (CACHE_HIT_STATUSES.has(candidate.cacheStatus.trim().toUpperCase())) {
-        cacheHitRows += 1;
-      }
-    }
-    if (candidate.ttfbMs !== null && candidate.ttfbMs !== undefined)
-      ttfbValues.push(finiteNonnegative(candidate.ttfbMs, 'ttfbMs'));
-  }
-  return {
-    cacheStatusRows,
-    cacheHitRows,
-    cacheHitRatio:
-      cacheStatusRows === 0 ? null : cacheHitRows / cacheStatusRows,
-    p50TtfbMs: percentile(ttfbValues, 0.5),
-    p95TtfbMs: percentile(ttfbValues, 0.95),
-    rows: rows.length,
-    sourceSha256: sha256(bytes),
-  };
 }
 
 async function summarizeBillingWindow(
@@ -221,13 +164,8 @@ function compareWindows(
     afterValues.dbCalls = after.dbTrace.dbCalls;
     values.dbTimeouts = before.dbTrace.dbTimeouts;
     afterValues.dbTimeouts = after.dbTrace.dbTimeouts;
-    if (
-      before.dbTrace.dbCallsPerRequest !== null &&
-      after.dbTrace.dbCallsPerRequest !== null
-    ) {
-      values.dbCallsPerRequest = before.dbTrace.dbCallsPerRequest;
-      afterValues.dbCallsPerRequest = after.dbTrace.dbCallsPerRequest;
-    }
+    values.dbCallsPerRequest = before.dbTrace.dbCallsPerRequest;
+    afterValues.dbCallsPerRequest = after.dbTrace.dbCallsPerRequest;
   }
   if (before.cacheProbe && after.cacheProbe) {
     values.cacheStatusRows = before.cacheProbe.cacheStatusRows;
