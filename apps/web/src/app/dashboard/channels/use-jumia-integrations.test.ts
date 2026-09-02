@@ -293,6 +293,7 @@ describe('connectJumiaShops', () => {
   it('returns error from response body on failure', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
+      headers: new Headers(),
       json: () => Promise.resolve({ error: 'Invalid token' }),
     } as Response);
 

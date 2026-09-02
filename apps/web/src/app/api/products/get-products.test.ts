@@ -100,4 +100,68 @@ describe('getProducts', () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
   });
+
+  it('includes products whose variant SKU matches the search', async () => {
+    const variantQuery = {
+      select: vi.fn(() => variantQuery),
+      eq: vi.fn(() => variantQuery),
+      ilike: vi.fn(() => variantQuery),
+      range: vi.fn().mockResolvedValue({
+        data: [{ product_id: '00000000-0000-4000-8000-000000000001' }],
+        error: null,
+      }),
+    };
+    const productQuery = {
+      select: vi.fn(() => productQuery),
+      eq: vi.fn(() => productQuery),
+      order: vi.fn(() => productQuery),
+      or: vi.fn(() => productQuery),
+      range: mocks.range,
+    };
+    mocks.getProductListContext.mockResolvedValue({
+      merchantId: 'merchant-1',
+      query: {
+        page: 1,
+        limit: 20,
+        search: 'PHONE-BLACK',
+        migration: 'All',
+        status: 'All',
+        stock: 'All',
+        ids: undefined,
+      },
+      supabase: {
+        from: vi.fn((table: string) =>
+          table === 'product_variants' ? variantQuery : productQuery
+        ),
+        rpc: mocks.rpc,
+      },
+    });
+    mocks.range.mockResolvedValue({
+      data: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          name: 'Phone',
+          description: null,
+          price: '499.99',
+          stock_quantity: 4,
+          manage_stock: true,
+          images: [],
+          variants: [{ id: 'variant-1', sku: 'PHONE-BLACK' }],
+          category: 'Electronics',
+          sku: null,
+        },
+      ],
+      error: null,
+      count: 1,
+    });
+
+    const response = await getProducts(
+      new NextRequest('http://localhost:3000/api/products?search=PHONE-BLACK')
+    );
+
+    expect(response.status).toBe(200);
+    expect(productQuery.or).toHaveBeenCalledWith(
+      expect.stringContaining('id.in.(00000000-0000-4000-8000-000000000001)')
+    );
+  });
 });

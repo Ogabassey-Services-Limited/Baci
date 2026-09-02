@@ -16,6 +16,7 @@ const commonEnv = {
   QUIZ_PHASE: '1a',
   QUIZ_PRODUCTION_APPROVED: 'false',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  SUPABASE_JUMIA_CREDENTIAL_KEY: 'jumia-credential-key',
   ZEPTOMAIL_TOKEN: 'zeptomail-token',
 };
 

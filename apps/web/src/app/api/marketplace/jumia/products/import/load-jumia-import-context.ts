@@ -1,5 +1,6 @@
 import { getAllProducts } from '@/lib/jumia/catalog';
 import type { JumiaClient } from '@/lib/jumia/client';
+import { verifyJumiaSingleMarketplaceScope } from '@/lib/jumia/verify-jumia-single-marketplace-scope';
 import { logger } from '@/lib/logger';
 
 type LoadJumiaImportContextArgs = {
@@ -57,36 +58,27 @@ export async function loadJumiaImportContext({
       marketplaceKey !== 'oauth' &&
       marketplaceKey !== 'default';
     if (isMarketplaceScoped) {
-      if (typeof jumia.getShops !== 'function') {
-        return {
-          ok: false,
-          error: 'Unable to verify the Jumia marketplace scope',
-          status: 502,
-        };
-      }
-      let shops: Awaited<ReturnType<JumiaClient['getShops']>>;
-      try {
-        shops = await jumia.getShops();
-      } catch (err) {
-        logger.warn({
-          message: 'Unable to verify Jumia business-client catalog scope',
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-        return {
-          ok: false,
-          error: 'Unable to verify the Jumia marketplace scope',
-          status: 502,
-        };
-      }
-      const shop = shops.find((candidate) => candidate.id === jumia.shopId);
-      const activeClients = shop?.businessClients.filter(
-        (client) => client.status === 'active'
-      );
-      if (activeClients?.length !== 1) {
+      const scope = await verifyJumiaSingleMarketplaceScope(jumia);
+      if (!scope.ok) {
+        if (scope.reason === 'provider_unavailable') {
+          return {
+            ok: false,
+            error: 'Unable to verify the Jumia marketplace scope',
+            status: 502,
+          };
+        }
+        if (scope.reason === 'multiple_active_marketplaces') {
+          return {
+            ok: false,
+            error:
+              'Jumia catalog import is unavailable when a shop has multiple active marketplaces',
+            status: 409,
+          };
+        }
         return {
           ok: false,
           error:
-            'Jumia catalog import is unavailable when a shop has multiple active marketplaces',
+            'Jumia catalog import is unavailable because the selected marketplace is not active for this shop',
           status: 409,
         };
       }

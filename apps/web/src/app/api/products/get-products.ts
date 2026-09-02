@@ -12,6 +12,7 @@ import {
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { getProductListContext } from './get-product-list-context';
+import { loadVariantProductIds } from './load-variant-product-ids';
 import { extractProductListVariantAttributes } from './product-list-variant-attributes';
 
 export async function getProducts(request: NextRequest) {
@@ -31,6 +32,22 @@ export async function getProducts(request: NextRequest) {
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
     const offset = (page - 1) * limit;
     const shouldPaginateInDatabase = !ids && stock === 'All';
+    let variantProductIds: string[] = [];
+    if (search.trim() && !ids) {
+      try {
+        variantProductIds = await loadVariantProductIds(
+          supabase,
+          merchantId,
+          search
+        );
+      } catch (error) {
+        console.error('Error searching product variants:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch products' },
+          { status: 500 }
+        );
+      }
+    }
 
     let query = supabase
       .from('products')
@@ -50,9 +67,14 @@ export async function getProducts(request: NextRequest) {
       }
       if (search.trim()) {
         const sanitizedPattern = sanitizeLikePattern(search);
-        query = query.or(
-          `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%`
-        );
+        const searchFilters = [
+          `name.ilike.%${sanitizedPattern}%`,
+          `sku.ilike.%${sanitizedPattern}%`,
+        ];
+        if (variantProductIds.length > 0) {
+          searchFilters.push(`id.in.(${variantProductIds.join(',')})`);
+        }
+        query = query.or(searchFilters.join(','));
       }
       if (shouldPaginateInDatabase)
         query = query.range(offset, offset + limit - 1);

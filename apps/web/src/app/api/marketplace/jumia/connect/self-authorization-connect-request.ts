@@ -193,14 +193,25 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         { status: 409 }
       );
     }
-    const storedCredentials = jumiaAuthorizationCrypto.decrypt(
-      discoveryClaim.credentialCiphertext,
-      encryptionKey,
-      jumiaAuthorizationCrypto.buildAuthorizationContext(
+    let storedCredentials: ReturnType<typeof jumiaAuthorizationCrypto.decrypt>;
+    try {
+      storedCredentials = jumiaAuthorizationCrypto.decrypt(
+        discoveryClaim.credentialCiphertext,
+        encryptionKey,
+        jumiaAuthorizationCrypto.buildAuthorizationContext(
+          merchantId,
+          clientKeyHash
+        )
+      );
+    } catch (error) {
+      await releaseJumiaDiscoveryClaim({
+        discoveryId: body.discoveryId,
         merchantId,
-        clientKeyHash
-      )
-    );
+        claimToken: discoveryClaim.claimToken,
+        supabase,
+      });
+      throw error;
+    }
     const expectedRotationVersionRef: { current?: number } = {};
     const recoveryDiscoveryIdRef: { current?: string } = {};
     try {

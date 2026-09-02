@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { jumiaAuthorizationCrypto } from '@/lib/jumia/authorization-crypto';
 import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
@@ -425,6 +426,38 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       expect.objectContaining({ refreshToken: 'refresh-1' }),
       expect.any(Object)
     );
+    expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        claimToken: 'claim-1',
+      })
+    );
+  });
+
+  it('releases a discovery claim when its credentials cannot be decrypted', async () => {
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValueOnce({
+      claimToken: 'claim-1',
+      credentialCiphertext: 'ciphertext',
+    });
+    vi.mocked(jumiaAuthorizationCrypto.decrypt).mockImplementationOnce(() => {
+      throw new Error('invalid discovery ciphertext');
+    });
+
+    await expect(
+      handleJumiaSelfAuthorizationConnectRequest({
+        body: {
+          connectionType: 'self_authorization',
+          discoveryId: '00000000-0000-4000-8000-000000000099',
+          clientId: 'client-1',
+          selectedShopIds: ['shop-1'],
+        },
+        encryptionKey: 'a'.repeat(44),
+        merchantId: '00000000-0000-4000-8000-000000000001',
+        supabase: buildSupabase(),
+      })
+    ).rejects.toThrow('invalid discovery ciphertext');
+
     expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({

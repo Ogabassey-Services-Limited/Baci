@@ -8,7 +8,6 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
-import { JumiaClient } from '@/lib/jumia/client';
 import {
   exchangeJumiaCode,
   getJumiaRedirectUri,
@@ -23,6 +22,7 @@ import {
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
 import { buildJumiaOAuthIntegrationRows } from './build-jumia-oauth-integration-rows';
+import { discoverJumiaOAuthShops } from './discover-jumia-oauth-shops';
 import {
   claimJumiaOAuthHandoffTicket,
   finalizeJumiaOAuthHandoffTicket,
@@ -173,49 +173,14 @@ export async function POST(request: NextRequest) {
         : 3600;
     const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
-    // Discover Jumia shops
-    const tempClient = new JumiaClient({
-      integrationId: 'temp',
-      merchantId,
-      shopId: 'oauth',
-      marketplaceKey: 'oauth',
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || '',
-      tokenExpiresAt,
-      supabase: auth.supabase,
-    });
-
-    let discoveredShops: Awaited<ReturnType<typeof tempClient.getShops>>;
-    try {
-      discoveredShops = await tempClient.getShops();
-    } catch (shopError) {
-      console.error(
-        '[Jumia Exchange] Failed to fetch shops, using fallback:',
-        shopError
-      );
-      discoveredShops = [];
-    }
-
-    // Fallback shop if none discovered
-    let isFallbackShop = false;
-    if (discoveredShops.length === 0) {
-      isFallbackShop = true;
-      discoveredShops.push({
-        id: 'oauth',
-        name: 'Jumia Shop',
-        email: '',
-        businessClients: [
-          {
-            name: 'Jumia Nigeria',
-            code: 'jumia_ng',
-            countryCode: 'NG',
-            countryName: 'Nigeria',
-            status: 'active',
-            shortCode: 'NG',
-          },
-        ],
+    const { shops: discoveredShops, isFallbackShop } =
+      await discoverJumiaOAuthShops({
+        merchantId,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token || '',
+        tokenExpiresAt,
+        supabase: auth.supabase,
       });
-    }
 
     const existingActiveShopIds = new Set(
       (existingIntegrations ?? [])

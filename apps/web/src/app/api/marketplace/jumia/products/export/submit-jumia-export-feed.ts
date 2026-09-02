@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { JumiaClient } from '@/lib/jumia/client';
 import { createProduct } from '@/lib/jumia/feeds';
 import { JumiaApiError } from '@/lib/jumia/helpers';
+import { verifyJumiaSingleMarketplaceScope } from '@/lib/jumia/verify-jumia-single-marketplace-scope';
 import { logger } from '@/lib/logger';
 import {
   finalizeJumiaExportReservation,
@@ -102,6 +103,35 @@ export async function submitJumiaExportFeed(args: {
     if ((activeIntegrations ?? []).length === 1) {
       // This shop has one active destination, so shopId identifies it
       // unambiguously despite the create-feed API lacking a selector.
+      const providerScope = await verifyJumiaSingleMarketplaceScope(jumia);
+      if (!providerScope.ok) {
+        await releaseUnscopedReservation({
+          supabase,
+          merchantId,
+          productId,
+          shopId,
+          marketplaceKey,
+          exportVariations,
+        });
+        if (providerScope.reason === 'provider_unavailable') {
+          return {
+            ok: false,
+            status: 502,
+            body: {
+              error:
+                'Unable to verify the selected Jumia marketplace. Try again.',
+            },
+          };
+        }
+        return {
+          ok: false,
+          status: 400,
+          body: {
+            error:
+              'Jumia product creation cannot target a selected marketplace because the provider create-feed contract has no business-client selector. Use a single-marketplace integration or wait for provider support.',
+          },
+        };
+      }
     } else {
       await releaseUnscopedReservation({
         supabase,

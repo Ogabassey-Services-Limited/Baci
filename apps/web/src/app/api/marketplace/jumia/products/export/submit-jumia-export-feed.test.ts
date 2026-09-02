@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { JumiaApiError } from '@/lib/jumia/helpers';
+import { verifyJumiaSingleMarketplaceScope } from '@/lib/jumia/verify-jumia-single-marketplace-scope';
 import { submitJumiaExportFeed } from './submit-jumia-export-feed';
 
 vi.mock('@/lib/jumia/feeds', () => ({
@@ -15,6 +16,9 @@ vi.mock('./mark-ambiguous-jumia-export', () => ({
 }));
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
+}));
+vi.mock('@/lib/jumia/verify-jumia-single-marketplace-scope', () => ({
+  verifyJumiaSingleMarketplaceScope: vi.fn(),
 }));
 
 describe('submitJumiaExportFeed', () => {
@@ -42,6 +46,9 @@ describe('submitJumiaExportFeed', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(verifyJumiaSingleMarketplaceScope).mockResolvedValue({
+      ok: true,
+    });
   });
 
   it('releases the reservation after a definitive Jumia rejection', async () => {
@@ -224,6 +231,35 @@ describe('submitJumiaExportFeed', () => {
 
     expect(result).toEqual({ ok: true, feedId: 'feed-single' });
     expect(createProduct).toHaveBeenCalled();
+  });
+
+  it('rejects a single local integration when the provider marketplace does not match', async () => {
+    const { createProduct } = await import('@/lib/jumia/feeds');
+    const { releaseJumiaExportReservation } = await import(
+      './export-product-reservation'
+    );
+    vi.mocked(verifyJumiaSingleMarketplaceScope).mockResolvedValue({
+      ok: false,
+      reason: 'marketplace_mismatch',
+    });
+    vi.mocked(releaseJumiaExportReservation).mockResolvedValue(true);
+
+    const result = await submitJumiaExportFeed({
+      jumia: {} as never,
+      supabase: createScopeSupabase(1) as never,
+      merchantId: 'merchant-1',
+      productId: 'product-1',
+      shopId: 'shop-1',
+      marketplaceKey: 'NG-RETAIL',
+      exportName: 'Phone',
+      brand: { code: 1, name: 'Generic' },
+      category: { code: 2 },
+      exportVariations: [{ sellerSku: 'SKU-1', price: 100, currency: 'NGN' }],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(createProduct).not.toHaveBeenCalled();
+    expect(releaseJumiaExportReservation).toHaveBeenCalled();
   });
 
   it('releases the reservation when marketplace scope cannot be verified', async () => {

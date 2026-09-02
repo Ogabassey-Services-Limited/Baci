@@ -10,12 +10,19 @@ vi.mock('@/lib/jumia/catalog', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
+vi.mock('@/lib/jumia/verify-jumia-single-marketplace-scope', () => ({
+  verifyJumiaSingleMarketplaceScope: vi.fn(),
+}));
 
+import { verifyJumiaSingleMarketplaceScope } from '@/lib/jumia/verify-jumia-single-marketplace-scope';
 import { loadJumiaImportContext } from './load-jumia-import-context';
 
 describe('loadJumiaImportContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(verifyJumiaSingleMarketplaceScope).mockResolvedValue({
+      ok: true,
+    });
   });
 
   it('loads the integration and leaves the fallback shop filter unset', async () => {
@@ -63,16 +70,11 @@ describe('loadJumiaImportContext', () => {
     const jumia = {
       shopId: 'shop-1',
       marketplaceKey: 'NG-RETAIL',
-      getShops: vi.fn().mockResolvedValue([
-        {
-          id: 'shop-1',
-          businessClients: [
-            { status: 'active', code: 'NG-RETAIL' },
-            { status: 'active', code: 'NG-EXPRESS' },
-          ],
-        },
-      ]),
     };
+    vi.mocked(verifyJumiaSingleMarketplaceScope).mockResolvedValue({
+      ok: false,
+      reason: 'multiple_active_marketplaces',
+    });
 
     const result = await loadJumiaImportContext({
       createJumiaClient: vi.fn().mockResolvedValue(jumia),
@@ -91,12 +93,6 @@ describe('loadJumiaImportContext', () => {
     const jumia = {
       shopId: 'shop-1',
       marketplaceKey: 'NG-RETAIL',
-      getShops: vi.fn().mockResolvedValue([
-        {
-          id: 'shop-1',
-          businessClients: [{ status: 'active', code: 'NG-RETAIL' }],
-        },
-      ]),
     };
     mockGetAllProducts.mockResolvedValue([]);
 
@@ -109,5 +105,25 @@ describe('loadJumiaImportContext', () => {
       status: 'active',
       shopId: 'shop-1',
     });
+  });
+
+  it('fails closed when the selected marketplace does not match the provider', async () => {
+    const jumia = { shopId: 'shop-1', marketplaceKey: 'NG-RETAIL' };
+    vi.mocked(verifyJumiaSingleMarketplaceScope).mockResolvedValue({
+      ok: false,
+      reason: 'marketplace_mismatch',
+    });
+
+    const result = await loadJumiaImportContext({
+      createJumiaClient: vi.fn().mockResolvedValue(jumia),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'Jumia catalog import is unavailable because the selected marketplace is not active for this shop',
+      status: 409,
+    });
+    expect(mockGetAllProducts).not.toHaveBeenCalled();
   });
 });

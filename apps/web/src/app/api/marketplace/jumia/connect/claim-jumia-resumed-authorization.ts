@@ -4,6 +4,7 @@ import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authoriza
 import {
   acquireJumiaAuthorizationRefreshLease,
   type JumiaAuthorizationRefreshState,
+  releaseJumiaAuthorizationRefreshLease,
 } from '@/lib/jumia/jumia-authorization-refresh-lease';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
 import type { JumiaSelfAuthorizationCredentials } from '@/schemas/jumia/self-authorization';
@@ -82,29 +83,48 @@ export async function claimJumiaResumedAuthorization(args: {
       continue;
     }
 
-    const currentAuthorization = await loadJumiaAuthorizationGrant(
-      args.supabase,
-      state.authorizationId,
-      args.merchantId
-    );
-    const decrypted = jumiaAuthorizationCrypto.decrypt(
-      currentAuthorization.credential_ciphertext,
-      args.encryptionKey,
-      jumiaAuthorizationCrypto.buildAuthorizationContext(
-        args.merchantId,
-        currentAuthorization.client_key_hash
-      )
-    );
+    try {
+      const currentAuthorization = await loadJumiaAuthorizationGrant(
+        args.supabase,
+        state.authorizationId,
+        args.merchantId
+      );
+      const decrypted = jumiaAuthorizationCrypto.decrypt(
+        currentAuthorization.credential_ciphertext,
+        args.encryptionKey,
+        jumiaAuthorizationCrypto.buildAuthorizationContext(
+          args.merchantId,
+          currentAuthorization.client_key_hash
+        )
+      );
 
-    return {
-      credentials: {
-        clientId: decrypted.clientId,
-        refreshToken: decrypted.refreshToken,
-      },
-      authorizationId: state.authorizationId,
-      authorizationRotationVersion: state.authorizationRotationVersion ?? 1,
-      leaseToken: lease.leaseToken,
-    };
+      return {
+        credentials: {
+          clientId: decrypted.clientId,
+          refreshToken: decrypted.refreshToken,
+        },
+        authorizationId: state.authorizationId,
+        authorizationRotationVersion: state.authorizationRotationVersion ?? 1,
+        leaseToken: lease.leaseToken,
+      };
+    } catch (error) {
+      try {
+        await releaseJumiaAuthorizationRefreshLease({
+          authorizationId: state.authorizationId,
+          merchantId: args.merchantId,
+          leaseToken: lease.leaseToken,
+          supabase: args.supabase,
+        });
+      } catch (releaseError) {
+        console.error(
+          '[Jumia Connect] Failed to release refresh lease after credential load failure',
+          releaseError instanceof Error
+            ? releaseError.message
+            : String(releaseError)
+        );
+      }
+      throw error;
+    }
   }
 
   throw new Error('Jumia authorization refresh is still in progress');

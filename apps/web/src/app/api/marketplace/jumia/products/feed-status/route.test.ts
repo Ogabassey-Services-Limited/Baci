@@ -472,17 +472,21 @@ describe('Jumia feed status route', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       updated: 0,
-      failed: 2,
-      pending: 0,
+      failed: 0,
+      pending: 2,
+      manualResolutionRequired: [
+        { mappingId: 'mapping-1', sellerSku: null },
+        { mappingId: 'mapping-2', sellerSku: null },
+      ],
     });
     expect(update).not.toHaveBeenCalledWith(
       expect.objectContaining({ sync_status: 'synced' })
     );
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        sync_status: 'error',
-        sync_error:
-          'Jumia completed this product feed without returning this item; manual resolution is required',
+        sync_status: 'pending',
+        sync_error: 'ambiguous_submission_requires_manual_resolution',
+        last_feed_id: null,
       })
     );
     expect(update).toHaveBeenCalledWith(

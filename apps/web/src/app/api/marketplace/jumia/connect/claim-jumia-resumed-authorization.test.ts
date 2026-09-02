@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { findJumiaAuthorizationMetadata } from '@/lib/jumia/find-jumia-authorization-metadata';
-import { acquireJumiaAuthorizationRefreshLease } from '@/lib/jumia/jumia-authorization-refresh-lease';
+import {
+  acquireJumiaAuthorizationRefreshLease,
+  releaseJumiaAuthorizationRefreshLease,
+} from '@/lib/jumia/jumia-authorization-refresh-lease';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
 import {
   claimJumiaResumedAuthorization,
@@ -9,6 +12,7 @@ import {
 
 vi.mock('@/lib/jumia/jumia-authorization-refresh-lease', () => ({
   acquireJumiaAuthorizationRefreshLease: vi.fn(),
+  releaseJumiaAuthorizationRefreshLease: vi.fn(),
 }));
 vi.mock('@/lib/jumia/find-jumia-authorization-metadata', () => ({
   findJumiaAuthorizationMetadata: vi.fn(),
@@ -74,6 +78,7 @@ describe('claimJumiaResumedAuthorization', () => {
     vi.mocked(acquireJumiaAuthorizationRefreshLease).mockResolvedValue({
       leaseToken: 'lease-1',
     });
+    vi.mocked(releaseJumiaAuthorizationRefreshLease).mockResolvedValue(true);
     vi.mocked(loadJumiaAuthorizationGrant).mockResolvedValue({
       credential_ciphertext: 'ciphertext',
       token_expires_at: '2026-08-31T12:00:00.000Z',
@@ -193,5 +198,40 @@ describe('claimJumiaResumedAuthorization', () => {
 
     expect(result?.authorizationRotationVersion).toBe(2);
     expect(acquireJumiaAuthorizationRefreshLease).toHaveBeenCalledTimes(2);
+  });
+
+  it('releases the lease when loading the shared grant fails', async () => {
+    vi.mocked(findJumiaAuthorizationMetadata).mockResolvedValue([
+      {
+        id: 'auth-1',
+        token_expires_at: '2026-08-31T12:00:00.000Z',
+        refresh_token_expires_at: '2026-09-30T12:00:00.000Z',
+        rotation_version: 1,
+      },
+    ]);
+    const loadError = new Error('grant unavailable');
+    vi.mocked(loadJumiaAuthorizationGrant).mockRejectedValue(loadError);
+
+    await expect(
+      claimJumiaResumedAuthorization({
+        clientKeyHash: 'hash-1',
+        encryptionKey: 'key',
+        merchantId: 'merchant-1',
+        supabase: buildSupabase({
+          integration: {
+            id: 'integration-1',
+            connection_method: 'self_authorization',
+            jumia_authorization_id: 'auth-1',
+          },
+        }),
+      })
+    ).rejects.toBe(loadError);
+
+    expect(releaseJumiaAuthorizationRefreshLease).toHaveBeenCalledWith({
+      authorizationId: 'auth-1',
+      merchantId: 'merchant-1',
+      leaseToken: 'lease-1',
+      supabase: expect.anything(),
+    });
   });
 });

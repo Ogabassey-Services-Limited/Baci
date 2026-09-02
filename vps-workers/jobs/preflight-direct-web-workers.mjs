@@ -15,6 +15,7 @@ const REQUIRED_ENV = [
   'QUIZ_PHASE',
   'QUIZ_PRODUCTION_APPROVED',
   'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_JUMIA_CREDENTIAL_KEY',
   'ZEPTOMAIL_TOKEN',
 ];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);

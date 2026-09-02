@@ -45,4 +45,39 @@ describe('jumiaFeedReconciliation', () => {
       )
     ).rejects.toThrow('Failed to mark rejected Jumia feed mapping');
   });
+
+  it('keeps unmatched terminal-feed mappings pending for manual resolution', async () => {
+    const update = vi.fn();
+    const builder = {
+      update,
+      eq: vi.fn(),
+    };
+    builder.update.mockReturnValue(builder);
+    builder.eq.mockReturnValueOnce(builder).mockResolvedValueOnce({
+      error: null,
+    });
+    const supabase = { from: vi.fn(() => builder) };
+
+    await expect(
+      jumiaFeedReconciliation.markMappingsAsPendingForManualResolution(
+        supabase as never,
+        'merchant-1',
+        [
+          {
+            id: 'mapping-1',
+            last_feed_id: 'feed-1',
+            jumia_seller_sku: 'SKU-1',
+            last_synced_at: null,
+          },
+        ],
+        'manual resolution required'
+      )
+    ).resolves.toBe(1);
+    expect(update).toHaveBeenCalledWith({
+      sync_status: 'pending',
+      sync_error: 'manual resolution required',
+      last_feed_id: null,
+      last_synced_at: expect.any(String),
+    });
+  });
 });

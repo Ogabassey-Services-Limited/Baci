@@ -72,8 +72,7 @@ export function createServiceClient(
       ? process.env.SUPABASE_ADS_CREDENTIAL_KEY ||
         process.env.SUPABASE_SERVICE_ROLE_KEY
       : sentinel === 'jumia-credentials'
-        ? process.env.SUPABASE_JUMIA_CREDENTIAL_KEY ||
-          process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? process.env.SUPABASE_JUMIA_CREDENTIAL_KEY
         : process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {
@@ -87,7 +86,7 @@ export function createServiceClient(
       sentinel === 'ads-credentials'
         ? 'SUPABASE_ADS_CREDENTIAL_KEY or SUPABASE_SERVICE_ROLE_KEY is missing. This is required for Ads credential handlers.'
         : sentinel === 'jumia-credentials'
-          ? 'SUPABASE_JUMIA_CREDENTIAL_KEY or SUPABASE_SERVICE_ROLE_KEY is missing. This is required for Jumia credential handlers.'
+          ? 'SUPABASE_JUMIA_CREDENTIAL_KEY is missing. This is required for Jumia credential handlers.'
           : 'SUPABASE_SERVICE_ROLE_KEY is missing. This is required for webhook handlers.'
     );
   }

@@ -9,7 +9,6 @@ const clientRoutes = [
   'apps/web/src/app/api/marketplace/jumia/actions/route.ts',
   'apps/web/src/app/api/marketplace/jumia/brands/route.ts',
   'apps/web/src/app/api/marketplace/jumia/categories/route.ts',
-  'apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts',
   'apps/web/src/app/api/marketplace/jumia/consignment/route.ts',
   'apps/web/src/app/api/marketplace/jumia/orders/[id]/items/route.ts',
   'apps/web/src/app/api/marketplace/jumia/orders/route.ts',
@@ -23,6 +22,11 @@ const clientRoutes = [
 
 export const eventPipelineJumiaServicePaths = [
   ...clientRoutes.map((route) => [route, ...clientPath]),
+  [
+    'apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts',
+    'apps/web/src/app/api/marketplace/jumia/connect/exchange/discover-jumia-oauth-shops.ts',
+    ...clientPath,
+  ],
   [
     'apps/web/src/app/api/marketplace/jumia/callback/route.ts',
     'apps/web/src/app/api/marketplace/jumia/callback/handler.ts',

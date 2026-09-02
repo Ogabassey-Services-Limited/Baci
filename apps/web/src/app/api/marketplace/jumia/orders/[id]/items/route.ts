@@ -58,7 +58,7 @@ export async function GET(
     }
 
     const access = await getUserAccess(auth.supabase);
-    if (!access || !hasPermission(access, 'integrations', 'manage')) {
+    if (!access || !hasPermission(access, 'integrations', 'view')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const merchantId = access.merchantId;

@@ -145,11 +145,17 @@ describe('service Supabase client factory', () => {
     );
   });
 
-  it('fails closed when neither Jumia nor compatibility credentials are configured', () => {
+  it('does not fall back to the generic service-role key for Jumia credentials', () => {
+    expect(() => createServiceClient('jumia-credentials')).toThrow(
+      'SUPABASE_JUMIA_CREDENTIAL_KEY is missing'
+    );
+  });
+
+  it('fails closed when the dedicated Jumia credential key is missing', () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     expect(() => createServiceClient('jumia-credentials')).toThrow(
-      'SUPABASE_JUMIA_CREDENTIAL_KEY or SUPABASE_SERVICE_ROLE_KEY is missing'
+      'SUPABASE_JUMIA_CREDENTIAL_KEY is missing'
     );
   });
 });

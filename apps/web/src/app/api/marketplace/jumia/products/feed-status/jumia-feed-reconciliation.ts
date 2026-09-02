@@ -33,6 +33,38 @@ async function markMappingsAsFeedError(
   return marked;
 }
 
+async function markMappingsAsPendingForManualResolution(
+  supabase: SupabaseClient,
+  merchantId: string,
+  mappings: PendingFeedMapping[],
+  message: string
+): Promise<number> {
+  let marked = 0;
+  for (const mapping of mappings) {
+    const { error } = await supabase
+      .from('jumia_product_mappings')
+      .update({
+        sync_status: 'pending',
+        sync_error: message,
+        last_feed_id: null,
+        last_synced_at: new Date().toISOString(),
+      })
+      .eq('id', mapping.id)
+      .eq('merchant_id', merchantId);
+    if (!error) {
+      marked++;
+      continue;
+    }
+    logger.error({
+      message: 'Failed to preserve unmatched Jumia feed mapping',
+      error,
+      mapping_id: mapping.id,
+    });
+    throw new Error('Failed to preserve unmatched Jumia feed mapping');
+  }
+  return marked;
+}
+
 function findMappingForFeedItem(
   mappingsForFeed: PendingFeedMapping[],
   sellerSku: string,
@@ -57,4 +89,5 @@ function findMappingForFeedItem(
 export const jumiaFeedReconciliation = {
   findMappingForFeedItem,
   markMappingsAsFeedError,
+  markMappingsAsPendingForManualResolution,
 };

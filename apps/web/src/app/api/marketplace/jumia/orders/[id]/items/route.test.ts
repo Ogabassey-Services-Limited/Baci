@@ -78,7 +78,7 @@ describe('GET /api/marketplace/jumia/orders/[id]/items', () => {
     expect(mockGetOrderItems).not.toHaveBeenCalled();
   });
 
-  it('returns order items for callers with integration management access', async () => {
+  it('returns order items for callers with integration view access', async () => {
     const response = await GET(makeRequest(), {
       params: Promise.resolve({ id: 'order-1' }),
     });
@@ -92,7 +92,20 @@ describe('GET /api/marketplace/jumia/orders/[id]/items', () => {
     expect(mockHasPermission).toHaveBeenCalledWith(
       expect.anything(),
       'integrations',
-      'manage'
+      'view'
     );
+  });
+
+  it('allows a view-only staff member to read order items', async () => {
+    mockHasPermission.mockImplementation(
+      (_access: unknown, _resource: string, action: string) => action === 'view'
+    );
+
+    const response = await GET(makeRequest(), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGetOrderItems).toHaveBeenCalled();
   });
 });
