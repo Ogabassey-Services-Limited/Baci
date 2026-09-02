@@ -41,9 +41,9 @@ running_container_archive_matches() {
       }
       $type =~ /^[0-6]$/ or exit 2; $type eq "0" || $member_size == 0 or exit 2;
       my $member = safe_path($pax && exists($pax->{path}) ? $pax->{path} : length($prefix) ? "$prefix/$name" : $name); defined $member or exit 2;
-      $link = $pax->{linkpath} if $pax && exists $pax->{linkpath}; $pax = undef;
+      my $pax_match = $pax && grep { $_ =~ $marker || $pax->{$_} =~ $marker } keys %$pax; $link = $pax->{linkpath} if $pax && exists $pax->{linkpath}; $pax = undef;
       exists $seen{$member} && exit 2; $seen{$member} = 1;
-      $found = 1 if $member =~ $marker || $link =~ $marker;
+      $found = 1 if $member =~ $marker || $link =~ $marker || $pax_match;
       if ($type eq "0") {
         defined(sysseek($fh, $data, 0)) or exit 2; my $carry = q{}; my $left = $member_size;
         while ($left) { my $want = $left > 65536 ? 65536 : $left; my $chunk = read_exact($fh, $want); defined $chunk or exit 2; my $value = $carry . $chunk; $found = 1 if $value =~ $marker; $carry = length($value) > 7 ? substr($value, -7) : $value; $left -= $want }

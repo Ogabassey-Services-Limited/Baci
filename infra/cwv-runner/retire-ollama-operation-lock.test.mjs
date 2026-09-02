@@ -17,6 +17,10 @@ test('acquires one operation lock before both production scan and apply', async 
   );
   assert.match(source, /--scan\) root; retirement_prepare; scan/);
   assert.match(source, /--apply\) root; retirement_prepare; apply/);
+  assert.match(
+    source,
+    /--recovery-scan\)[^)]*recovery helper missing[^;]*; root; retirement_lock; recovery_scan/
+  );
   assert.match(source, /flock=\/usr\/bin\/flock/);
   assert.match(lockFunction, /lock_dir=\/run\/lock\/baci-cwv/);
   assert.match(lockFunction, /mkdir "\$lock_dir"\) \|\| \[ -d "\$lock_dir" \]/);
@@ -52,7 +56,7 @@ test('initializes cleanup-protected storage before helper loading and locking', 
   }
 });
 
-test('refuses a scan while apply holds the reviewed receipt lock', async (t) => {
+test('refuses scans and recovery scans while apply holds the operation lock', async (t) => {
   if (process.platform !== 'linux') {
     t.skip('the production flock contract executes on Linux');
     return;
@@ -63,6 +67,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
   const ready = join(directory, 'apply-ready');
   const release = join(directory, 'apply-release');
   const scanMarker = join(directory, 'scan-ran');
+  const recoveryMarker = join(directory, 'recovery-ran');
   const environment = {
     ...process.env,
     RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -123,6 +128,23 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
         /another retirement operation owns the lock/.test(error.stderr)
     );
     await assert.rejects(readFile(scanMarker));
+    await assert.rejects(
+      execFileAsync(
+        'sh',
+        [
+          '-c',
+          `. "$1"; RECOVERY_MARKER=$2; root() { :; }; recovery_scan() { : >"$RECOVERY_MARKER"; }; main --recovery-scan`,
+          `${script.pathname}.source`,
+          script.pathname,
+          recoveryMarker,
+        ],
+        { env: environment }
+      ),
+      (error) =>
+        error.code === 75 &&
+        /another retirement operation owns the lock/.test(error.stderr)
+    );
+    await assert.rejects(readFile(recoveryMarker));
   } finally {
     await writeFile(release, '');
     await Promise.race([

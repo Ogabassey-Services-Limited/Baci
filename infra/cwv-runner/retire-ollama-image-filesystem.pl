@@ -124,7 +124,7 @@ sub parse_tar {
       $offset = $data + $padded; next;
     }
     phase($outer ? 'outer-type' : 'layer-type'); fail() unless $type =~ /^[0-6]$/;
-    my %meta = (%global, %pending); %pending = (); my $path_override = exists $meta{path}; $name = $meta{path} if $path_override; $link = $meta{linkpath} if exists $meta{linkpath};
+    my %meta = (%global, %pending); %pending = (); my $metadata_match = !$outer && grep { $_ =~ $MARKER || $meta{$_} =~ $MARKER } keys %meta; my $path_override = exists $meta{path}; $name = $meta{path} if $path_override; $link = $meta{linkpath} if exists $meta{linkpath};
     phase($outer ? 'outer-path' : 'layer-path-syntax');
     my $raw_member_path = $path_override ? $name : length($prefix) ? "$prefix/$name" : $name; my $member_path = path($raw_member_path); fail() if !length($member_path) && $type ne '5';
     phase($outer ? 'outer-link' : 'layer-link');
@@ -138,7 +138,7 @@ sub parse_tar {
       fail() unless $type eq '5' && $names{$member_path}{type} eq '5' || $type eq '0' && $names{$member_path}{type} eq '0';
     }
     $names{$member_path} = { raw => $raw_member_path, type => $type };
-    push @entries, { path => $member_path, start => $start + $data, size => $size, type => $type, link => $link };
+    push @entries, { path => $member_path, start => $start + $data, size => $size, type => $type, link => $link, metadata_match => $metadata_match };
     $offset = $data + $padded;
   }
   phase($outer ? 'outer-tar-end' : 'layer-tar-end'); fail();
@@ -240,7 +240,7 @@ sub apply_layer {
   for my $item (@whiteouts) {
     my ($entry, $value) = @$item; next if $value;
     my $directory = $entry->{type} eq '5'; remove_path($state, $prefixes, $tree, $entry->{path}, !$directory);
-    phase('layer-whiteout'); my $direct = $entry->{path} =~ $MARKER ? 1 : 0;
+    phase('layer-whiteout'); my $direct = $entry->{path} =~ $MARKER || $entry->{metadata_match} ? 1 : 0;
     if ($entry->{type} eq '0') { phase($COUNT_DIAGNOSTIC ? 'layer-marker-skip' : 'layer-marker-read'); $direct ||= marker_bytes($source->{fh}, $entry->{start}, $entry->{size}) unless $COUNT_DIAGNOSTIC }
     my $link = $entry->{link};
     if ($entry->{type} eq '1') {
