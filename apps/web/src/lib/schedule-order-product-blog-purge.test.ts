@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnrichProductPurgeEntries = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
-const mockExpireProductBlogCache = vi.fn();
+const mockExpireProductBlogCacheReliable = vi.fn().mockResolvedValue(true);
 
 vi.mock('@/lib/authoritative-product-purge-enrichment', () => ({
   enrichProductPurgeEntries: (...args: unknown[]) =>
@@ -12,9 +12,9 @@ vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
 }));
-vi.mock('@/lib/expire-product-blog-cache', () => ({
-  expireProductBlogCache: (...args: unknown[]) =>
-    mockExpireProductBlogCache(...args),
+vi.mock('@/lib/expire-product-blog-cache-reliable', () => ({
+  expireProductBlogCacheReliable: (...args: unknown[]) =>
+    mockExpireProductBlogCacheReliable(...args),
 }));
 
 import { scheduleOrderProductBlogPurge } from './schedule-order-product-blog-purge';
@@ -69,7 +69,9 @@ describe('scheduleOrderProductBlogPurge', () => {
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
       { blogPostSlugs: ['iphone-guide'] }
     );
-    expect(mockExpireProductBlogCache).toHaveBeenCalledWith('merchant-1');
+    expect(mockExpireProductBlogCacheReliable).toHaveBeenCalledWith(
+      'merchant-1'
+    );
   });
 
   it('resolves the merchant slug before purging when the caller has no slug', async () => {

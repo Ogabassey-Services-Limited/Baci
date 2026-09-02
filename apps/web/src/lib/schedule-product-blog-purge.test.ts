@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLookup = vi.fn();
 const mockSchedule = vi.fn();
-const mockExpire = vi.fn();
+const mockExpire = vi.fn().mockResolvedValue(true);
 
 vi.mock('@/lib/get-published-blog-post-slugs-for-products', () => ({
   getPublishedBlogPostSlugsForProducts: (...args: unknown[]) =>
@@ -11,8 +11,8 @@ vi.mock('@/lib/get-published-blog-post-slugs-for-products', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) => mockSchedule(...args),
 }));
-vi.mock('@/lib/expire-product-blog-cache', () => ({
-  expireProductBlogCache: (...args: unknown[]) => mockExpire(...args),
+vi.mock('@/lib/expire-product-blog-cache-reliable', () => ({
+  expireProductBlogCacheReliable: (...args: unknown[]) => mockExpire(...args),
 }));
 
 import { scheduleProductBlogPurge } from './schedule-product-blog-purge';

@@ -70,10 +70,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     productSlugs,
     products,
     purgeWholeStorefront,
+    expireProductBlogCache: shouldExpireProductBlogCache,
   } = parsed.data;
 
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
-  revalidateProducts(merchantId);
+  if (shouldExpireProductBlogCache) {
+    // Standalone workers use this narrow mode to refresh the related-product
+    // enrichment without churning every product/index/feed cache for the
+    // merchant. The helper is intentionally called in this request context.
+    expireProductBlogCache(merchantId);
+  } else {
+    revalidateProducts(merchantId);
+  }
 
   // The internal Bearer secret authorizes this endpoint, but `merchantSlug` is
   // still only caller-supplied routing data. Resolve the canonical slug from

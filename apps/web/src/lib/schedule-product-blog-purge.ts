@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
+import { expireProductBlogCacheReliable } from '@/lib/expire-product-blog-cache-reliable';
 import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
@@ -50,7 +50,7 @@ export async function scheduleProductBlogPurge({
     }
 
     // Invalidate the Next data before the outer CDN purge can trigger a refill.
-    expireProductBlogCache(merchantId);
+    await expireProductBlogCacheReliable(merchantId);
 
     const normalizedCategorySlugs = (categorySlugs ?? []).filter(
       (categorySlug): categorySlug is string =>

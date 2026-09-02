@@ -6,9 +6,9 @@ import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
  * Article enrichment embeds product availability, so stale-while-revalidate
  * could otherwise refill a purged document with the pre-mutation snapshot.
  */
-export function expireProductBlogCache(merchantId: string): void {
+export function expireProductBlogCache(merchantId: string): boolean {
   const normalizedMerchantId = normalizeMerchantId(merchantId);
-  if (!normalizedMerchantId) return;
+  if (!normalizedMerchantId) return false;
 
   // Blog enrichment is keyed by the merchant's product tag. Avoid expiring
   // the route-critical blog core (which also carries the merchant identity
@@ -18,8 +18,10 @@ export function expireProductBlogCache(merchantId: string): void {
   // path instead.
   try {
     revalidateTag(`products-${normalizedMerchantId}`, { expire: 0 });
+    return true;
   } catch {
     // Cache invalidation is best effort; callers still enqueue the durable
     // edge purge and the normal cache TTL provides a recovery path.
+    return false;
   }
 }

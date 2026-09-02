@@ -187,7 +187,6 @@ describe('POST /api/orders/[id]/cancelled', () => {
       success: true,
     });
   });
-
   it('avoids product and feed cache churn for unlimited-inventory items', async () => {
     const { productsIn, supabase } = createSupabase();
     productsIn.mockResolvedValue({
