@@ -32,11 +32,13 @@ export interface QuizWaitingRoomState {
 
 export function useQuizWaitingRoom({
   event: initialEvent,
+  onEventsUpdated,
   onExit,
   onStart,
   refresh,
 }: {
   event: QuizEvent;
+  onEventsUpdated?: (events: QuizEvent[]) => void;
   onExit: () => void;
   onStart: (eventId: string, termsAccepted: true) => void;
   refresh: RefreshEvents;
@@ -55,6 +57,7 @@ export function useQuizWaitingRoom({
   const eventRef = useRef(initialEvent);
   const offsetRef = useRef(offsetMs);
   const refreshRef = useRef(refresh);
+  const onEventsUpdatedRef = useRef(onEventsUpdated);
   const onExitRef = useRef(onExit);
   const onStartRef = useRef(onStart);
   const refreshRequestIdRef = useRef(0);
@@ -69,6 +72,7 @@ export function useQuizWaitingRoom({
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   refreshRef.current = refresh;
+  onEventsUpdatedRef.current = onEventsUpdated;
   onExitRef.current = onExit;
   onStartRef.current = onStart;
 
@@ -109,6 +113,7 @@ export function useQuizWaitingRoom({
         inFlightRequestRef.current !== requestId
       )
         return;
+      onEventsUpdatedRef.current?.(events);
       const nextEvent = events.find(
         (candidate) => candidate.id === eventRef.current.id
       );

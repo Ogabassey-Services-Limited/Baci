@@ -14,6 +14,7 @@ import {
 interface QuizWaitingRoomProps {
   event: QuizEvent;
   locale?: string;
+  onEventsUpdated?: (events: QuizEvent[]) => void;
   onExit: () => void;
   onStart: (eventId: string, termsAccepted: true) => void;
   refresh: () => Promise<QuizEvent[]>;
@@ -22,6 +23,7 @@ interface QuizWaitingRoomProps {
 export function QuizWaitingRoom({
   event,
   locale,
+  onEventsUpdated,
   onExit,
   onStart,
   refresh,
@@ -31,6 +33,7 @@ export function QuizWaitingRoom({
   const userId = useAuthStore((state) => state.user?.id ?? null);
   const waitingRoom: QuizWaitingRoomState = useQuizWaitingRoom({
     event,
+    onEventsUpdated,
     onExit,
     onStart,
     refresh,

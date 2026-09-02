@@ -18,6 +18,7 @@ interface QuizEventsListProps {
   isStarting: boolean;
   isSignedIn?: boolean;
   locale?: string;
+  onEventsUpdated?: (events: QuizEvent[]) => void;
   onRefresh?: () => Promise<void>;
   onStart: (eventId: string, termsAccepted?: true) => void;
   onSignIn?: () => void;
@@ -38,6 +39,7 @@ export function QuizEventsList({
   isStarting,
   isSignedIn = true,
   locale,
+  onEventsUpdated,
   onRefresh,
   onStart,
   onSignIn,
@@ -59,6 +61,7 @@ export function QuizEventsList({
       <QuizWaitingRoom
         event={waitingEvent}
         locale={locale}
+        onEventsUpdated={onEventsUpdated}
         onExit={() => setWaitingEvent(null)}
         onStart={(eventId, termsAccepted) => {
           setWaitingEvent(null);

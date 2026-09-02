@@ -6,9 +6,11 @@ export function formatQuizStandingTime(
   }
 
   const safeSeconds = Math.max(0, totalTimeSeconds);
-  if (safeSeconds < 60) return `${safeSeconds.toFixed(2)}s`;
+  const roundedHundredths = Math.round(safeSeconds * 100);
+  if (roundedHundredths < 60 * 100)
+    return `${(roundedHundredths / 100).toFixed(2)}s`;
 
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds - minutes * 60;
-  return `${minutes}:${seconds.toFixed(2).padStart(5, '0')}`;
+  const minutes = Math.floor(roundedHundredths / (60 * 100));
+  const secondsHundredths = roundedHundredths % (60 * 100);
+  return `${minutes}:${(secondsHundredths / 100).toFixed(2).padStart(5, '0')}`;
 }

@@ -36,7 +36,6 @@ import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
-const QUIZ_COPY = { actionFailed: 'Quiz action failed' } as const;
 export function QuizScreen({
   integrityTier = 'basic',
   locale,
@@ -134,7 +133,7 @@ export function QuizScreen({
       loadEvents(loadPublicLobby).catch((error) => {
         log.warn('Failed to load quiz events', error);
         if (mounted) {
-          setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
+          setError(getQuizErrorMessage(error, 'Quiz action failed'));
         }
       });
     }
@@ -232,6 +231,9 @@ export function QuizScreen({
           isSignedIn={authUserId !== null}
           locale={locale}
           onStart={requestStart}
+          onEventsUpdated={(nextEvents) =>
+            useQuizStore.setState({ events: nextEvents })
+          }
           onSignIn={onSignIn}
           resumeEventId={v2Attempt?.eventId}
           serverNow={v2Attempt?.serverNow}

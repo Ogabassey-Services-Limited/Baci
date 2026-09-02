@@ -66,9 +66,11 @@ describe('useQuizWaitingRoom', () => {
         }),
       ]);
     const onStart = jest.fn();
+    const onEventsUpdated = jest.fn();
     const { result } = renderHook(() =>
       useQuizWaitingRoom({
         event: event({ serverNow: '2026-08-23T11:59:59.000Z' }),
+        onEventsUpdated,
         onExit: jest.fn(),
         onStart,
         refresh,
@@ -87,6 +89,12 @@ describe('useQuizWaitingRoom', () => {
       await Promise.resolve();
     });
     expect(onStart).toHaveBeenCalledWith('event-1', true);
+    expect(onEventsUpdated).toHaveBeenCalledWith([
+      expect.objectContaining({ status: 'active' }),
+    ]);
+    expect(onEventsUpdated.mock.invocationCallOrder[0]).toBeLessThan(
+      onStart.mock.invocationCallOrder[0]
+    );
     expect(result.current.event.status).toBe('active');
     await act(async () => {
       jest.advanceTimersByTime(2_000);
