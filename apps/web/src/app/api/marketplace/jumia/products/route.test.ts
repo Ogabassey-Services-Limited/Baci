@@ -5,8 +5,8 @@ const mockGetUser = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 const mockProductSingle = vi.fn();
+const mockIntegrationSingle = vi.fn();
 const mockMappingsOrder = vi.fn();
-const mockForIntegration = vi.fn();
 
 const mockSupabase = {
   auth: { getUser: mockGetUser },
@@ -38,6 +38,17 @@ const mockSupabase = {
       };
     }
 
+    if (table === 'marketplace_integrations') {
+      const integrationQuery = {
+        eq: vi.fn(),
+        single: mockIntegrationSingle,
+      };
+      integrationQuery.eq.mockReturnValue(integrationQuery);
+      return {
+        select: () => integrationQuery,
+      };
+    }
+
     return {};
   }),
 };
@@ -50,21 +61,6 @@ vi.mock('@/lib/api-auth', () => ({
   getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
-vi.mock('@/lib/jumia/client', () => ({
-  JumiaClient: {
-    forIntegration: (...args: unknown[]) => mockForIntegration(...args),
-  },
-}));
-vi.mock('@/lib/jumia/helpers', () => ({
-  JumiaApiError: class JumiaApiError extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  },
-}));
-
 const INTEGRATION_ID = '00000000-0000-4000-8000-000000000099';
 const PRODUCT_ID = '00000000-0000-4000-8000-000000000002';
 const MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
@@ -94,9 +90,9 @@ describe('GET /api/marketplace/jumia/products', () => {
       data: { merchant_id: MERCHANT_ID },
       error: null,
     });
-    mockForIntegration.mockResolvedValue({
-      shopId: 'shop-1',
-      marketplaceKey: 'NG',
+    mockIntegrationSingle.mockResolvedValue({
+      data: { shop_id: 'shop-1', marketplace_key: 'NG' },
+      error: null,
     });
   });
 
@@ -126,7 +122,7 @@ describe('GET /api/marketplace/jumia/products', () => {
     expect(mockProductSingle).not.toHaveBeenCalled();
   });
 
-  it('allows view-only staff to read integration-scoped mappings', async () => {
+  it('allows view-only staff to read mappings without refreshing credentials', async () => {
     mockHasPermission.mockImplementation(
       (_access: unknown, _resource: unknown, action: unknown) =>
         action === 'view'
@@ -141,9 +137,11 @@ describe('GET /api/marketplace/jumia/products', () => {
     expect(await response.json()).toEqual({ mapping: null, mappings: [] });
   });
 
-  it('returns 404 when integration lookup fails with JumiaApiError 404', async () => {
-    const { JumiaApiError } = await import('@/lib/jumia/helpers');
-    mockForIntegration.mockRejectedValue(new JumiaApiError(404, 'missing'));
+  it('returns 404 when the Jumia integration is not found', async () => {
+    mockIntegrationSingle.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST116', message: 'missing' },
+    });
 
     const response = await GET(
       makeRequest({ productId: PRODUCT_ID, integrationId: INTEGRATION_ID })
@@ -155,8 +153,11 @@ describe('GET /api/marketplace/jumia/products', () => {
     });
   });
 
-  it('returns 500 when integration lookup throws a non-JumiaApiError', async () => {
-    mockForIntegration.mockRejectedValue(new Error('network down'));
+  it('returns 500 when the integration lookup fails', async () => {
+    mockIntegrationSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'network down' },
+    });
 
     const response = await GET(
       makeRequest({ productId: PRODUCT_ID, integrationId: INTEGRATION_ID })
@@ -250,10 +251,6 @@ describe('GET /api/marketplace/jumia/products', () => {
     expect(response.status).toBe(200);
     expect(body.mapping.jumia_sku).toBe('SKU-MAIN');
     expect(body.mappings).toHaveLength(2);
-    expect(mockForIntegration).toHaveBeenCalledWith(
-      mockSupabase,
-      MERCHANT_ID,
-      INTEGRATION_ID
-    );
+    expect(mockIntegrationSingle).toHaveBeenCalled();
   });
 });

@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getUserAccess, hasPermission } from '@/lib/api-auth';
-import { JumiaClient } from '@/lib/jumia/client';
-import { JumiaApiError } from '@/lib/jumia/helpers';
 import {
   loadIntegrationScopedMappings,
   pickPrimaryProductMapping,
@@ -52,21 +50,34 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    let client: JumiaClient;
-    try {
-      client = await JumiaClient.forIntegration(
-        supabase,
-        product.merchant_id,
-        integrationId
-      );
-    } catch (err: unknown) {
-      if (err instanceof JumiaApiError && err.status === 404) {
+    const { data: integration, error: integrationError } = await supabase
+      .from('marketplace_integrations')
+      .select('shop_id, marketplace_key')
+      .eq('id', integrationId)
+      .eq('merchant_id', product.merchant_id)
+      .eq('platform', 'jumia')
+      .eq('is_active', true)
+      .single();
+
+    if (integrationError) {
+      if (integrationError.code === 'PGRST116') {
         return NextResponse.json(
           { error: `Jumia integration not found: ${integrationId}` },
           { status: 404 }
         );
       }
-      throw err;
+      console.error('Error fetching Jumia integration:', integrationError);
+      return NextResponse.json(
+        { error: 'Failed to fetch Jumia integration' },
+        { status: 500 }
+      );
+    }
+
+    if (!integration) {
+      return NextResponse.json(
+        { error: `Jumia integration not found: ${integrationId}` },
+        { status: 404 }
+      );
     }
 
     const { mappings, error: mappingError } =
@@ -74,8 +85,8 @@ export async function GET(request: Request) {
         supabase,
         merchantId: product.merchant_id,
         productId,
-        shopId: client.shopId,
-        marketplaceKey: client.marketplaceKey,
+        shopId: integration.shop_id || 'oauth',
+        marketplaceKey: integration.marketplace_key,
       });
 
     if (mappingError) {
