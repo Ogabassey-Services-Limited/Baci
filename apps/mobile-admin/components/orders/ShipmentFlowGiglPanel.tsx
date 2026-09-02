@@ -146,7 +146,7 @@ export function ShipmentFlowGiglPanel({
 
       {quote && wallet && !wallet.canBook && !fundingAccount ? (
         <ActionButton
-          disabled={state === 'funding'}
+          disabled={state === 'funding' || state === 'funding_pending'}
           label="Fund wallet"
           onPress={onFundWallet}
         />

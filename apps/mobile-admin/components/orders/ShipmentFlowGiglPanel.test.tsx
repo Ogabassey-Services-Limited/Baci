@@ -118,4 +118,13 @@ describe('ShipmentFlowGiglPanel', () => {
       true
     );
   });
+
+  it('keeps funding consent disabled while DVA provisioning is pending', () => {
+    render(<ShipmentFlowGiglPanel {...base} state="funding_pending" />);
+    const fundWallet = screen.getByRole('button', { name: 'Fund wallet' });
+
+    expect(fundWallet).toHaveProperty('disabled', true);
+    fireEvent.click(fundWallet);
+    expect(actions.onFundWallet).not.toHaveBeenCalled();
+  });
 });
