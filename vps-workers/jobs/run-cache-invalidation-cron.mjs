@@ -1,5 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config } from 'dotenv';
 import {
   CACHE_INVALIDATION_DEAD_LETTER_CODE,
   runWebCron,
@@ -7,7 +9,12 @@ import {
 
 const PATH = '/api/cron/drain-cache-invalidations';
 const MIN_INTERVAL_MS = 2 * 60_000;
-const MAX_INTERVAL_MS = 30 * 60_000;
+// Keep discovery bounded by the existing two-minute cron while no durable
+// queue wake signal is available. Backoff would strand newly enqueued work.
+
+export function loadWorkerEnv(loader = config) {
+  loader({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
+}
 
 function parseState(raw) {
   try {
@@ -45,10 +52,6 @@ export async function runCacheInvalidationCron({
     env.CACHE_INVALIDATION_STATE_FILE ||
     '/tmp/baci-cache-invalidations-state.json';
   const state = parseState(await read(stateFile, 'utf8').catch(() => ''));
-  if (now < state.nextAllowedAt) {
-    return { skipped: true, nextAllowedAt: state.nextAllowedAt };
-  }
-
   let result;
   try {
     result = await run({
@@ -59,8 +62,7 @@ export async function runCacheInvalidationCron({
     });
   } catch (error) {
     // Preserve a short retry cadence for alerts/transient failures.
-    const terminalAlert = error?.cacheDeadLetter === true;
-    const retryMs = terminalAlert ? MAX_INTERVAL_MS : MIN_INTERVAL_MS;
+    const retryMs = MIN_INTERVAL_MS;
     const nextState = { nextAllowedAt: now + retryMs, intervalMs: retryMs };
     await persistState({
       makeDirectory,
@@ -84,7 +86,7 @@ export async function runCacheInvalidationCron({
   const newlyObservedDeadLetters =
     deadLettersPresent && state.deadLettersPresent !== true;
   if (newlyObservedDeadLetters) {
-    const intervalMs = claimed > 0 ? MIN_INTERVAL_MS : MAX_INTERVAL_MS;
+    const intervalMs = MIN_INTERVAL_MS;
     logger.warn(
       JSON.stringify({
         event: CACHE_INVALIDATION_DEAD_LETTER_CODE,
@@ -112,13 +114,7 @@ export async function runCacheInvalidationCron({
       nextAllowedAt: nextState.nextAllowedAt,
     };
   }
-  const intervalMs =
-    claimed > 0
-      ? MIN_INTERVAL_MS
-      : Math.min(
-          MAX_INTERVAL_MS,
-          Math.max(MIN_INTERVAL_MS, state.intervalMs * 2)
-        );
+  const intervalMs = MIN_INTERVAL_MS;
   const nextState = { nextAllowedAt: now + intervalMs, intervalMs };
   nextState.deadLettersPresent = deadLettersPresent;
   await persistState({
@@ -137,5 +133,6 @@ export async function runCacheInvalidationCron({
 }
 
 if (process.argv[1]?.endsWith('run-cache-invalidation-cron.mjs')) {
+  loadWorkerEnv();
   await runCacheInvalidationCron();
 }

@@ -63,20 +63,19 @@ Config reads fall from `k` to `1`, a reduction of `1 - 1/k`. At Vercel's listed
 to roughly **2.52 million reads**. The maximum removable charge is therefore
 $7.56, not a forecast; instance churn and distinct mappings reduce the saving.
 
-### Adaptive invalidation drain
+### Reliable invalidation drain
 
-The VPS cron still wakes under `flock` every two minutes, but a durable local
-state file prevents an HTTP call to Vercel before the next allowed window.
-Empty sweeps back off through **4, 8, 16, then 30 minutes**; claimed work resets
-the interval to two minutes. A known terminal dead-letter response records one
-structured warning for that attempt and waits 30 minutes. Unknown 503s and
-other failures retain the short retry cadence and fail visibly.
+The VPS cron wakes under `flock` every two minutes and keeps that discovery
+bound until a durable queue wake signal exists. Skipping empty sweeps for up to
+30 minutes would also delay work enqueued immediately after a sweep. The local
+state file therefore tracks dead-letter transitions without suppressing the
+next two-minute call: the same terminal condition is not reported as a new
+alert on every sweep, while new invalidations are still discovered promptly.
 
-An always-empty worker previously made up to **30 Vercel Function calls/hour**.
-The first hour after a cold state makes about five calls; steady state makes
-about **two/hour**, a **15x reduction (93.3%)** in worker invocations. This is
-not a 93.3% reduction in the whole Vercel bill, and active work intentionally
-returns to the two-minute cadence.
+This change does **not** reduce the worker's maximum 30 Vercel Function
+calls/hour. Its cost benefit is limited to eliminating repeated 503/error work;
+removing the empty invocations requires a separately proven queue-triggered
+wake path. Do not attribute a 15x or 93.3% worker-invocation saving to this PR.
 
 ### Bounded degraded reads
 
@@ -99,7 +98,7 @@ authentication is unhealthy. Before merge/deploy:
    probe.
 3. Requeue only the known `cloudflare_http_401` dead-letter rows after the
    credential verifies; do not reset unrelated outbox failures.
-4. Install the adaptive VPS wrapper from the exact reviewed commit and pass the
+4. Install the VPS wrapper from the exact reviewed commit and pass the
    drain-readiness check before the production deploy.
 5. Deploy through the repository's prebuilt production workflow and verify the
    exact source SHA, live cache headers, successful targeted purge, and cleared

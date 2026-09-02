@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runCacheInvalidationCron } from './run-cache-invalidation-cron.mjs';
+import { fileURLToPath } from 'node:url';
+import {
+  loadWorkerEnv,
+  runCacheInvalidationCron,
+} from './run-cache-invalidation-cron.mjs';
 
 function harness(initial = '') {
   let content = initial;
@@ -27,7 +32,18 @@ function harness(initial = '') {
 }
 
 describe('adaptive cache invalidation scheduler', () => {
-  it('backs off empty sweeps and skips Vercel until the next window', async () => {
+  it('loads only the worker-local dotenv file for direct execution', () => {
+    let options;
+    loadWorkerEnv((received) => {
+      options = received;
+    });
+
+    assert.deepEqual(options, {
+      path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env'),
+    });
+  });
+
+  it('keeps empty-sweep discovery at the two-minute polling bound', async () => {
     const h = harness();
     let calls = 0;
     const run = () => {
@@ -43,7 +59,7 @@ describe('adaptive cache invalidation scheduler', () => {
       makeDirectory: h.mkdir,
       move: h.move,
     });
-    const skipped = await runCacheInvalidationCron({
+    const second = await runCacheInvalidationCron({
       env: { CACHE_INVALIDATION_STATE_FILE: '/tmp/state' },
       now: first.nextAllowedAt - 1,
       run,
@@ -52,9 +68,9 @@ describe('adaptive cache invalidation scheduler', () => {
       makeDirectory: h.mkdir,
       move: h.move,
     });
-    assert.equal(calls, 1);
-    assert.equal(skipped.skipped, true);
-    assert.equal(h.state.intervalMs, 240_000);
+    assert.equal(calls, 2);
+    assert.equal(second.intervalMs, 120_000);
+    assert.equal(h.state.intervalMs, 120_000);
     assert.match(h.lastMove.from, /\/tmp\/state\.\d+\.tmp$/);
     assert.equal(h.lastMove.to, '/tmp/state');
   });
@@ -75,7 +91,7 @@ describe('adaptive cache invalidation scheduler', () => {
     assert.equal(result.intervalMs, 120_000);
   });
 
-  it('emits one structured terminal signal for a 30-minute dead-letter attempt', async () => {
+  it('emits one structured terminal signal while retaining two-minute discovery', async () => {
     const h = harness();
     const warnings = [];
     const result = await runCacheInvalidationCron({
@@ -96,16 +112,16 @@ describe('adaptive cache invalidation scheduler', () => {
       logger: { warn: (line) => warnings.push(line) },
     });
     assert.equal(result.deadLetter, true);
-    assert.equal(result.intervalMs, 1_800_000);
+    assert.equal(result.intervalMs, 120_000);
     assert.deepEqual(h.state, {
-      nextAllowedAt: 1_805_000,
-      intervalMs: 1_800_000,
+      nextAllowedAt: 125_000,
+      intervalMs: 120_000,
       deadLettersPresent: true,
     });
     assert.deepEqual(JSON.parse(warnings[0]), {
       event: 'cache_invalidation_dead_letter',
-      intervalMs: 1_800_000,
-      nextAllowedAt: 1_805_000,
+      intervalMs: 120_000,
+      nextAllowedAt: 125_000,
     });
     assert.equal(warnings.length, 1);
   });

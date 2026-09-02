@@ -254,11 +254,12 @@ process. No API keys, passwords, or tokens should be stored in repo files.
 The two-minute `drain-cache-invalidations` sweep uses only the existing
 `BACI_WEB_BASE_URL` and `CRON_SECRET` web-cron boundary. The Next route claims
 transactional cache targets and enforces Next → Vercel → Cloudflare ordering.
-Its two-minute `flock` schedule runs through an adaptive wrapper: empty sweeps
-back off to a 30-minute Vercel-call interval, claimed work resets to two
-minutes, and a known dead letter emits one structured warning per 30-minute
-attempt. The wrapper persists cadence in `state/cache-invalidations.json`; this
-cache drainer never receives Supabase service-role or Cloudflare
+Its `flock` schedule retains a two-minute discovery bound until a durable queue
+wake signal exists. A known dead-letter state is persisted in
+`state/cache-invalidations.json`, so repeated sweeps do not report the same
+condition as a new alert while newly enqueued work is still discovered within
+two minutes. The executable loads `vps-workers/.env` before invoking the web
+cron. This cache drainer never receives Supabase service-role or Cloudflare
 credentials.
 
 `/api/ai-jobs/worker` is intentionally retained only for short legacy web-safe
