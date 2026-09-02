@@ -17,7 +17,27 @@ import { PDP_SEMANTIC_INVENTORY_LIMIT } from './pdp-semantic-inventory-limit';
 import type { ProductSemanticCandidate } from './product-semantic-types';
 
 const PDP_SEMANTIC_INVENTORY_TIMEOUT_MS = 3_000;
-const PDP_SEMANTIC_TOTAL_TIMEOUT_MS = 5_000;
+export const PDP_SEMANTIC_TOTAL_TIMEOUT_MS = 5_000;
+
+type BoundedInventoryQuery = {
+  order: (
+    column: string,
+    options: { ascending: boolean }
+  ) => BoundedInventoryQuery;
+  limit: (count: number) => unknown;
+};
+
+function boundInventoryQuery(query: BoundedInventoryQuery) {
+  return query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .limit(
+      PDP_SEMANTIC_INVENTORY_LIMIT
+    ) as unknown as StorefrontSingleAttemptQuery<{
+    data: ProductSeoRow[] | null;
+    error: unknown;
+  }>;
+}
 
 function compareInventoryRows(left: ProductSeoRow, right: ProductSeoRow) {
   const leftCreatedAt = left.created_at ?? '';
@@ -127,30 +147,17 @@ async function getCachedPdpSemanticInventoryForSafeCategory(
     const deadline = createStorefrontReadDeadline(
       PDP_SEMANTIC_INVENTORY_TIMEOUT_MS
     );
-    const directQuery = supabase
+    const directQueryBase = supabase
       .from('products')
       .select(getProductSeoSelect(false))
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .in('category_id', ids)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .limit(
-        PDP_SEMANTIC_INVENTORY_LIMIT
-      ) as unknown as StorefrontSingleAttemptQuery<{
-      data: ProductSeoRow[] | null;
-      error: unknown;
-    }>;
-    const joinedQuery = query
-      .in('product_categories.category_id', ids)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .limit(
-        PDP_SEMANTIC_INVENTORY_LIMIT
-      ) as unknown as StorefrontSingleAttemptQuery<{
-      data: ProductSeoRow[] | null;
-      error: unknown;
-    }>;
+      .order('created_at', { ascending: false });
+    const directQuery = boundInventoryQuery(directQueryBase);
+    const joinedQuery = boundInventoryQuery(
+      query.in('product_categories.category_id', ids)
+    );
     try {
       const [direct, joined] = await Promise.race([
         Promise.all(
@@ -182,15 +189,7 @@ async function getCachedPdpSemanticInventoryForSafeCategory(
     );
   }
 
-  const boundedQuery = query
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: true })
-    .limit(
-      PDP_SEMANTIC_INVENTORY_LIMIT
-    ) as unknown as StorefrontSingleAttemptQuery<{
-    data: ProductSeoRow[] | null;
-    error: unknown;
-  }>;
+  const boundedQuery = boundInventoryQuery(query);
   const deadline = createStorefrontReadDeadline(
     PDP_SEMANTIC_INVENTORY_TIMEOUT_MS
   );

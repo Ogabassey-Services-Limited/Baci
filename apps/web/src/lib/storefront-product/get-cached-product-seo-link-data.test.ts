@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data';
+import {
+  getCachedProductSeoLinkData,
+  type ProductSeoLinkDataInput,
+} from './get-cached-product-seo-link-data';
 import { storefrontPdpSemanticReadCooldown } from './storefront-pdp-semantic-read-cooldown-singleton';
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +19,7 @@ vi.mock('./get-cached-pdp-product-guide-posts', () => ({
 vi.mock('./get-cached-pdp-semantic-inventory', () => ({
   getCachedPdpSemanticInventory: (...args: unknown[]) =>
     mocks.getCachedPdpSemanticInventory(...args),
+  PDP_SEMANTIC_TOTAL_TIMEOUT_MS: 5_000,
 }));
 
 vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
@@ -59,6 +63,21 @@ const clusterGuidePosts = [
   },
 ];
 
+const defaultInput: ProductSeoLinkDataInput = {
+  blogEnabled: true,
+  categorySlug: 'laptops',
+  merchantId: 'merchant-1',
+  productBrand: 'Lenovo',
+  productId: 'prod-1',
+  productName: 'Lenovo Legion 5',
+  productSlug: 'legion-5',
+  storeSlug: 'ogabassey',
+};
+
+function loadSeoLinkData(overrides: Partial<ProductSeoLinkDataInput> = {}) {
+  return getCachedProductSeoLinkData({ ...defaultInput, ...overrides });
+}
+
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,16 +88,7 @@ describe('getCachedProductSeoLinkData', () => {
   });
 
   it('reuses category inventory and independently merges linked guide priority', async () => {
-    const result = await getCachedProductSeoLinkData(
-      'merchant-1',
-      'laptops',
-      'ogabassey',
-      'prod-1',
-      'legion-5',
-      'Lenovo Legion 5',
-      'Lenovo',
-      true
-    );
+    const result = await loadSeoLinkData();
 
     expect(result).toEqual({
       inventory,
@@ -107,18 +117,7 @@ describe('getCachedProductSeoLinkData', () => {
   });
 
   it('does not query guide data when the merchant blog is disabled', async () => {
-    await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        false
-      )
-    ).resolves.toEqual({
+    await expect(loadSeoLinkData({ blogEnabled: false })).resolves.toEqual({
       inventory,
       guidePosts: [],
       priorityGuidePostSlugs: [],
@@ -133,31 +132,46 @@ describe('getCachedProductSeoLinkData', () => {
       new DOMException('inventory timed out', 'TimeoutError')
     );
 
+    await expect(loadSeoLinkData({ blogEnabled: false })).rejects.toMatchObject(
+      { name: 'TimeoutError' }
+    );
     await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        false
-      )
-    ).rejects.toMatchObject({ name: 'TimeoutError' });
-    await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        false
-      )
+      loadSeoLinkData({ blogEnabled: false })
     ).resolves.toMatchObject({ inventory: [] });
     expect(mocks.getCachedPdpSemanticInventory).toHaveBeenCalledTimes(1);
+  });
+
+  it('queries inventory for a different merchant and category after another scope times out', async () => {
+    mocks.getCachedPdpSemanticInventory.mockRejectedValueOnce(
+      new DOMException('inventory timed out', 'TimeoutError')
+    );
+
+    await expect(loadSeoLinkData({ blogEnabled: false })).rejects.toMatchObject(
+      { name: 'TimeoutError' }
+    );
+    await expect(
+      loadSeoLinkData({
+        blogEnabled: false,
+        categorySlug: 'phones',
+        merchantId: 'merchant-2',
+      })
+    ).resolves.toMatchObject({ inventory });
+
+    expect(mocks.getCachedPdpSemanticInventory).toHaveBeenCalledTimes(2);
+    expect(mocks.getCachedPdpSemanticInventory).toHaveBeenLastCalledWith(
+      'merchant-2',
+      'phones',
+      'ogabassey'
+    );
+  });
+
+  it('skips cluster guide reads for unsupported route categories', async () => {
+    await expect(
+      loadSeoLinkData({ categorySlug: 'unsupported-category' })
+    ).resolves.toMatchObject({ guidePosts: productGuidePosts });
+
+    expect(mocks.getPublishedClusterPosts).not.toHaveBeenCalled();
+    expect(mocks.getCachedPdpProductGuidePosts).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the PDP optional model usable when a guide read times out', async () => {
@@ -171,18 +185,7 @@ describe('getCachedProductSeoLinkData', () => {
       // Suppress expected optional guide fallback warnings.
     });
 
-    await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        true
-      )
-    ).resolves.toEqual({
+    await expect(loadSeoLinkData()).resolves.toEqual({
       inventory,
       guidePosts: [],
       priorityGuidePostSlugs: [],
@@ -200,18 +203,7 @@ describe('getCachedProductSeoLinkData', () => {
       },
     ]);
 
-    await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        true
-      )
-    ).resolves.toEqual({
+    await expect(loadSeoLinkData()).resolves.toEqual({
       inventory,
       guidePosts: productGuidePosts,
       priorityGuidePostSlugs: ['lenovo-legion-guide'],
@@ -223,18 +215,7 @@ describe('getCachedProductSeoLinkData', () => {
       new Error('inventory timeout')
     );
 
-    await expect(
-      getCachedProductSeoLinkData(
-        'merchant-1',
-        'laptops',
-        'ogabassey',
-        'prod-1',
-        'legion-5',
-        'Lenovo Legion 5',
-        'Lenovo',
-        true
-      )
-    ).rejects.toThrow('inventory timeout');
+    await expect(loadSeoLinkData()).rejects.toThrow('inventory timeout');
 
     expect(mocks.getPublishedClusterPosts).not.toHaveBeenCalled();
     expect(mocks.getCachedPdpProductGuidePosts).not.toHaveBeenCalled();

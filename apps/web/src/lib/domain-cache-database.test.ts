@@ -120,4 +120,50 @@ describe('domain cache database fallbacks', () => {
 
     await expect(fetchCustomDomain(client, 'shop')).resolves.toBeNull();
   });
+
+  it('treats a nullable primary flag as non-primary for a lone active domain', async () => {
+    const query = createQuery({
+      data: {
+        id: 'merchant-1',
+        domains: [
+          {
+            domain: 'nullable-primary.example.com',
+            is_primary: null,
+            status: 'active',
+            domain_type: 'custom',
+          },
+        ],
+      },
+      error: null,
+    });
+    const client = { from: vi.fn(() => query) } as unknown as SupabaseClient;
+
+    await expect(fetchCustomDomain(client, 'shop')).resolves.toBe(
+      'nullable-primary.example.com'
+    );
+  });
+
+  it('ignores malformed joined domain rows without throwing', async () => {
+    const query = createQuery({
+      data: {
+        id: 'merchant-1',
+        domains: [
+          null,
+          { domain: 'missing-fields.example.com', status: 'active' },
+          {
+            domain: 'valid.example.com',
+            is_primary: true,
+            status: 'active',
+            domain_type: 'custom',
+          },
+        ],
+      },
+      error: null,
+    });
+    const client = { from: vi.fn(() => query) } as unknown as SupabaseClient;
+
+    await expect(fetchCustomDomain(client, 'shop')).resolves.toBe(
+      'valid.example.com'
+    );
+  });
 });

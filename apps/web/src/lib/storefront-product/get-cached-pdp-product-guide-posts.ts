@@ -3,6 +3,7 @@ import { createStorefrontReadDeadline } from '@/lib/create-storefront-read-deadl
 import { prepareStorefrontSingleAttemptQuery } from '@/lib/prepare-storefront-single-attempt-query';
 import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
+import { isPublishedClusterPost } from '@/lib/storefront-content/is-published-cluster-post';
 
 const PDP_PRODUCT_GUIDE_LIMIT = 8;
 const PDP_PRODUCT_GUIDE_TIMEOUT_MS = 3_000;
@@ -13,23 +14,6 @@ interface LinkedBlogPostRow {
   blog_posts: LinkedBlogPost | LinkedBlogPost[] | null;
 }
 
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string';
-}
-
-function isNullableStringArray(value: unknown): value is string[] | null {
-  return (
-    value === null ||
-    (Array.isArray(value) && value.every((item) => typeof item === 'string'))
-  );
-}
-
-function isNullableFiniteNumber(value: unknown): value is number | null {
-  return (
-    value === null || (typeof value === 'number' && Number.isFinite(value))
-  );
-}
-
 function normalizeLinkedPost(
   row: LinkedBlogPostRow
 ): PublishedClusterPost | null {
@@ -38,21 +22,9 @@ function normalizeLinkedPost(
     : row.blog_posts;
   if (!post) return null;
 
-  const slug = typeof post.slug === 'string' ? post.slug.trim() : '';
-  const title = typeof post.title === 'string' ? post.title.trim() : '';
-  if (
-    !slug ||
-    !title ||
-    !isNullableString(post.excerpt) ||
-    !isNullableString(post.category) ||
-    !isNullableStringArray(post.tags) ||
-    !isNullableStringArray(post.keywords) ||
-    !isNullableString(post.featured_image_url) ||
-    !isNullableString(post.published_at) ||
-    !isNullableFiniteNumber(post.reading_time_minutes)
-  ) {
-    return null;
-  }
+  if (!isPublishedClusterPost(post)) return null;
+  const slug = post.slug.trim();
+  const title = post.title.trim();
 
   return {
     category: post.category,
@@ -75,7 +47,17 @@ function normalizeLinkedPost(
  * hang under crawler load. A bounded indexed read plus local cache avoids both
  * the old combined-RPC timeout and a new remote-cache write on every PDP.
  */
-export async function getCachedPdpProductGuidePosts(
+export function getCachedPdpProductGuidePosts(
+  merchantId: string,
+  productId: string
+): Promise<PublishedClusterPost[]> {
+  if (typeof productId !== 'string' || productId.trim() === '') {
+    return Promise.resolve([]);
+  }
+  return getCachedPdpProductGuidePostsForValidProduct(merchantId, productId);
+}
+
+async function getCachedPdpProductGuidePostsForValidProduct(
   merchantId: string,
   productId: string
 ): Promise<PublishedClusterPost[]> {
@@ -91,8 +73,6 @@ export async function getCachedPdpProductGuidePosts(
   } catch {
     // Unit tests do not run with Next cacheComponents enabled.
   }
-
-  if (!productId) return [];
 
   const query = getPublicSupabaseClient()
     .from('blog_post_products')

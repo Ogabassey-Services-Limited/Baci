@@ -79,4 +79,18 @@ describe('findRelatedProducts', () => {
     );
     expect(result.map(({ id }) => id)).toEqual(['zero', 'paid']);
   });
+
+  it('uses id as a deterministic tie-break when score and name match', () => {
+    const current = product('current', { category: 'phones' });
+    const result = findRelatedProducts(
+      current,
+      [
+        product('z-id', { name: 'Same', category: 'phones' }),
+        product('a-id', { name: 'Same', category: 'phones' }),
+      ],
+      3
+    );
+
+    expect(result.map(({ id }) => id)).toEqual(['a-id', 'z-id']);
+  });
 });

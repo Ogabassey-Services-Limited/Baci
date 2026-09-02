@@ -20,7 +20,8 @@ drain_count="$(
   printf '%s\n' "$installed_crontab" | awk -v remote_dir="$remote_dir" '
     $1 == "*/2" && $2 == "*" && $3 == "*" && $4 == "*" && $5 == "*" &&
     index($0, "flock -n " remote_dir "/locks/cache-invalidations.lock") &&
-    index($0, remote_dir "/jobs/run-cache-invalidation-cron.mjs") &&
+    (runner_pos = index($0, remote_dir "/jobs/run-cache-invalidation-cron.mjs")) &&
+    substr($0, runner_pos + length(remote_dir "/jobs/run-cache-invalidation-cron.mjs") + 1, 1) ~ /^[[:space:]\047"]$/ &&
     index($0, "CACHE_INVALIDATION_STATE_FILE=" remote_dir "/state/cache-invalidations.json") &&
     index($0, ">> " remote_dir "/logs/cache-invalidations.log 2>&1") {
       count += 1

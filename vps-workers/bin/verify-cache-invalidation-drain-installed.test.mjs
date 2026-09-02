@@ -96,4 +96,19 @@ describe('cache-invalidation drain rollout readiness', () => {
       /Expected exactly one active two-minute cache-invalidation drain; found 2/
     );
   });
+
+  it('rejects a suffixed disabled runner path', () => {
+    const result = runVerifier(
+      drainEntry().replace(
+        'run-cache-invalidation-cron.mjs',
+        'run-cache-invalidation-cron.mjs.disabled'
+      )
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /Expected exactly one active two-minute cache-invalidation drain; found 0/
+    );
+  });
 });

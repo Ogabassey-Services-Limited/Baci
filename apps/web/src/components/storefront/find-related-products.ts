@@ -43,7 +43,10 @@ export function findRelatedProducts(
 
   scored.sort((left, right) => {
     if (right.score !== left.score) return right.score - left.score;
-    return compareCodepoints(left.product.name, right.product.name);
+    return (
+      compareCodepoints(left.product.name, right.product.name) ||
+      compareCodepoints(left.product.id, right.product.id)
+    );
   });
   const withScore = scored.filter(({ score }) => score > 0);
   if (withScore.length > 0) {

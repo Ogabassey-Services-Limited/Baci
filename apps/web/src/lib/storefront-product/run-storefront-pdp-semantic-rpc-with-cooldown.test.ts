@@ -21,6 +21,21 @@ it('returns a successful bounded RPC response without entering cooldown', async 
   );
 });
 
+it('returns fallback without constructing a query while cooling down', async () => {
+  storefrontPdpSemanticReadCooldown.markFailure('factory-scope');
+  const createQuery = vi.fn(() => Promise.resolve({ value: 'live' }));
+
+  await expect(
+    runStorefrontPdpSemanticRpcWithCooldown(
+      createQuery,
+      { deadlineMs: 1000, traceThresholdMs: 100 },
+      'factory-scope',
+      () => ({ value: 'fallback' })
+    )
+  ).resolves.toMatchObject({ response: { value: 'fallback' } });
+  expect(createQuery).not.toHaveBeenCalled();
+});
+
 it('rethrows non-timeout failures without entering cooldown', async () => {
   await expect(
     runStorefrontPdpSemanticRpcWithCooldown(
@@ -49,4 +64,7 @@ it('marks the shared scope when the bounded RPC times out', async () => {
   expect(storefrontPdpSemanticReadCooldown.isCoolingDown('wrapper-test')).toBe(
     true
   );
+  expect(
+    storefrontPdpSemanticReadCooldown.isCoolingDown('unrelated-scope')
+  ).toBe(false);
 });

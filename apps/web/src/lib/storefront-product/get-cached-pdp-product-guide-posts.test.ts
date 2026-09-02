@@ -125,6 +125,17 @@ describe('getCachedPdpProductGuidePosts', () => {
       getCachedPdpProductGuidePosts('merchant-1', '')
     ).resolves.toEqual([]);
     expect(mocks.getPublicSupabaseClient).not.toHaveBeenCalled();
+    expect(mocks.cacheLife).not.toHaveBeenCalled();
+    expect(mocks.cacheTag).not.toHaveBeenCalled();
+  });
+
+  it('does not derive a cache key for a whitespace-only product identifier', async () => {
+    await expect(
+      getCachedPdpProductGuidePosts('merchant-1', '   ')
+    ).resolves.toEqual([]);
+    expect(mocks.getPublicSupabaseClient).not.toHaveBeenCalled();
+    expect(mocks.cacheLife).not.toHaveBeenCalled();
+    expect(mocks.cacheTag).not.toHaveBeenCalled();
   });
 
   it('throws transient failures so the caller can degrade guides without caching them', async () => {

@@ -1,5 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+interface MerchantDomainRow {
+  domain: string;
+  is_primary: boolean | null;
+  status: string;
+  domain_type: string;
+}
+
+function isMerchantDomainRow(value: unknown): value is MerchantDomainRow {
+  if (!value || typeof value !== 'object') return false;
+  const domain = Reflect.get(value, 'domain');
+  const isPrimary = Reflect.get(value, 'is_primary');
+  const status = Reflect.get(value, 'status');
+  const domainType = Reflect.get(value, 'domain_type');
+  return (
+    typeof domain === 'string' &&
+    (typeof isPrimary === 'boolean' || isPrimary === null) &&
+    typeof status === 'string' &&
+    typeof domainType === 'string'
+  );
+}
+
 export async function fetchSlugForDomain(
   supabase: SupabaseClient,
   domain: string
@@ -60,9 +81,7 @@ export async function fetchCustomDomain(
 
     const rawDomains = Reflect.get(merchant, 'domains');
     const domains = Array.isArray(rawDomains)
-      ? rawDomains.filter(
-          (domain) => Boolean(domain) && typeof domain === 'object'
-        )
+      ? rawDomains.filter(isMerchantDomainRow)
       : [];
     const activeCustomDomains =
       domains?.filter(
@@ -76,9 +95,9 @@ export async function fetchCustomDomain(
       (domain) => domain.is_primary
     );
 
-    if (primaryDomain) return primaryDomain.domain as string;
+    if (primaryDomain) return primaryDomain.domain;
     return activeCustomDomains.length === 1
-      ? (activeCustomDomains[0].domain as string)
+      ? activeCustomDomains[0].domain
       : null;
   } catch {
     return null;
