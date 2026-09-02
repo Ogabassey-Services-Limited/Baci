@@ -102,19 +102,11 @@ describe('getProducts', () => {
   });
 
   it('includes products whose variant SKU matches the search', async () => {
-    const variantQuery = {
-      select: vi.fn(() => variantQuery),
-      eq: vi.fn(() => variantQuery),
-      ilike: vi.fn(() => variantQuery),
-      range: vi.fn().mockResolvedValue({
-        data: [{ product_id: '00000000-0000-4000-8000-000000000001' }],
-        error: null,
-      }),
-    };
     const productQuery = {
       select: vi.fn(() => productQuery),
       eq: vi.fn(() => productQuery),
       order: vi.fn(() => productQuery),
+      ilike: vi.fn(() => productQuery),
       or: vi.fn(() => productQuery),
       range: mocks.range,
     };
@@ -130,9 +122,7 @@ describe('getProducts', () => {
         ids: undefined,
       },
       supabase: {
-        from: vi.fn((table: string) =>
-          table === 'product_variants' ? variantQuery : productQuery
-        ),
+        from: vi.fn(() => productQuery),
         rpc: mocks.rpc,
       },
     });
@@ -160,8 +150,18 @@ describe('getProducts', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(productQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'variant_search:product_variants!product_variants_product_id_fkey()'
+      ),
+      { count: 'exact' }
+    );
+    expect(productQuery.ilike).toHaveBeenCalledWith(
+      'variant_search.sku',
+      '%PHONE-BLACK%'
+    );
     expect(productQuery.or).toHaveBeenCalledWith(
-      expect.stringContaining('id.in.(00000000-0000-4000-8000-000000000001)')
+      'name.ilike.%PHONE-BLACK%,sku.ilike.%PHONE-BLACK%,variant_search.not.is.null'
     );
   });
 });

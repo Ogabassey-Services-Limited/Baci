@@ -72,6 +72,7 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
 
     expect(persistRotatedJumiaCredentials).toHaveBeenCalled();
     expect(persistRotatedJumiaCredentialsWithLease).not.toHaveBeenCalled();
+    expect(claimJumiaResumedAuthorization).not.toHaveBeenCalled();
     expect(onCredentialsRotated).toHaveBeenCalledWith({
       credentialCiphertext: 'ordinary-ciphertext',
       expectedRotationVersion: 2,
@@ -133,13 +134,10 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
     });
   });
 
-  it('claims the existing authorization but validates newly submitted credentials for initial reauthorization', async () => {
-    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue({
-      credentials: { clientId: 'client-1', refreshToken: 'fresh-refresh' },
-      authorizationId: 'auth-1',
-      authorizationRotationVersion: 4,
-      leaseToken: 'lease-2',
-    });
+  it('bypasses an unreadable stored grant for explicit reauthorization', async () => {
+    vi.mocked(claimJumiaResumedAuthorization).mockRejectedValue(
+      new Error('stored grant could not be decrypted')
+    );
     vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
       async (submitted) => {
         expect(submitted).toEqual(credentials);
@@ -156,15 +154,8 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
       supabase: {} as never,
     });
 
-    expect(claimJumiaResumedAuthorization).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clientKeyHash: 'hash-1',
-        merchantId: 'merchant-1',
-      })
-    );
-    expect(releaseJumiaAuthorizationRefreshLease).toHaveBeenCalledWith(
-      expect.objectContaining({ leaseToken: 'lease-2' })
-    );
+    expect(claimJumiaResumedAuthorization).not.toHaveBeenCalled();
+    expect(persistRotatedJumiaCredentialsWithLease).not.toHaveBeenCalled();
   });
 
   it('releases a resumed refresh lease when validation fails before rotation', async () => {
@@ -180,6 +171,7 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
     await expect(
       validateJumiaSelfAuthorizationForConnect({
         clientKeyHash: 'hash-1',
+        discoveryId: 'discovery-1',
         encryptionKey: 'key',
         merchantId: 'merchant-1',
         onCredentialsRotated: vi.fn(),

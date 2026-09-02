@@ -22,12 +22,14 @@ export async function validateJumiaSelfAuthorizationForConnect(args: {
   submittedCredentials: JumiaSelfAuthorizationCredentials;
   supabase: SupabaseClient;
 }): Promise<ValidatedSelfAuthorization> {
-  const authorizationLease = await claimJumiaResumedAuthorization({
-    clientKeyHash: args.clientKeyHash,
-    encryptionKey: args.encryptionKey,
-    merchantId: args.merchantId,
-    supabase: args.supabase,
-  });
+  const authorizationLease = args.discoveryId
+    ? await claimJumiaResumedAuthorization({
+        clientKeyHash: args.clientKeyHash,
+        encryptionKey: args.encryptionKey,
+        merchantId: args.merchantId,
+        supabase: args.supabase,
+      })
+    : null;
   // A fresh, explicit credential submission is a reauthorization attempt and
   // must not be replaced by an expired stored grant. Resumed discoveries have
   // already committed to the stored authorization, so they use the leased

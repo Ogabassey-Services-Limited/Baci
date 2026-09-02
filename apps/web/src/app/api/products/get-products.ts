@@ -12,7 +12,6 @@ import {
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { getProductListContext } from './get-product-list-context';
-import { loadVariantProductIds } from './load-variant-product-ids';
 import { extractProductListVariantAttributes } from './product-list-variant-attributes';
 
 export async function getProducts(request: NextRequest) {
@@ -32,26 +31,15 @@ export async function getProducts(request: NextRequest) {
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
     const offset = (page - 1) * limit;
     const shouldPaginateInDatabase = !ids && stock === 'All';
-    let variantProductIds: string[] = [];
-    if (search.trim() && !ids) {
-      try {
-        variantProductIds = await loadVariantProductIds(
-          supabase,
-          merchantId,
-          search
-        );
-      } catch (error) {
-        console.error('Error searching product variants:', error);
-        return NextResponse.json(
-          { error: 'Failed to fetch products' },
-          { status: 500 }
-        );
-      }
-    }
+    const productSelect = search.trim()
+      ? `${PRODUCT_WITH_VARIANTS_QUERY}, variant_search:product_variants!product_variants_product_id_fkey()`
+      : PRODUCT_WITH_VARIANTS_QUERY;
 
     let query = supabase
       .from('products')
-      .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
+      .select(productSelect as typeof PRODUCT_WITH_VARIANTS_QUERY, {
+        count: 'exact',
+      })
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
     if (ids) {
@@ -70,11 +58,11 @@ export async function getProducts(request: NextRequest) {
         const searchFilters = [
           `name.ilike.%${sanitizedPattern}%`,
           `sku.ilike.%${sanitizedPattern}%`,
+          'variant_search.not.is.null',
         ];
-        if (variantProductIds.length > 0) {
-          searchFilters.push(`id.in.(${variantProductIds.join(',')})`);
-        }
-        query = query.or(searchFilters.join(','));
+        query = query
+          .ilike('variant_search.sku', `%${sanitizedPattern}%`)
+          .or(searchFilters.join(','));
       }
       if (shouldPaginateInDatabase)
         query = query.range(offset, offset + limit - 1);
