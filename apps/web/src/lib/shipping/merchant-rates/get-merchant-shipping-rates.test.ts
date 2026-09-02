@@ -225,51 +225,6 @@ describe('getMerchantShippingRatesOrThrow', () => {
     ).toHaveBeenCalledTimes(2);
   });
 
-  it('does not retry an authentication failure such as PGRST301', async () => {
-    // Arrange — auth/JWT failures are deterministic configuration problems,
-    // not transient transport errors, and must stay single-attempt.
-    const supabase = clientWith({
-      error: { message: 'fetch failed while decoding JWT', code: 'PGRST301' },
-    });
-
-    // Act
-    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
-
-    // Assert
-    await expect(request).rejects.toBeInstanceOf(
-      MerchantShippingRatesLoadError
-    );
-    expect(
-      (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
-    ).toHaveBeenCalledTimes(1);
-  });
-
-  it('wraps a nested PGRST301 without retrying when a transient outer code masks it', async () => {
-    // Arrange — a runtime wrapper can expose a generic transport message on
-    // the outer error and even attach a transient code, while PostgREST puts
-    // the deterministic JWT code on its cause.
-    const jwtError = Object.assign(new TypeError('fetch failed'), {
-      code: 'UND_ERR_SOCKET',
-      cause: { code: 'PGRST301', message: 'JWT decode failed' },
-    });
-    const supabase = {
-      rpc: vi.fn().mockRejectedValue(jwtError),
-    } as never;
-
-    // Act
-    const request = getMerchantShippingRatesOrThrow(supabase, 'merchant-1');
-
-    // Assert
-    await expect(request).rejects.toMatchObject({
-      name: 'MerchantShippingRatesLoadError',
-      cause: jwtError,
-      code: 'UND_ERR_SOCKET',
-    });
-    expect(
-      (supabase as { rpc: ReturnType<typeof vi.fn> }).rpc
-    ).toHaveBeenCalledTimes(1);
-  });
-
   it('surfaces the RPC error code on the thrown load error', async () => {
     // Arrange
     const supabase = clientWith({

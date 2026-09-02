@@ -19,6 +19,7 @@ const RETRYABLE_RPC_ERROR_CODES = new Set([
 
 const RETRYABLE_RPC_ERROR_PATTERN =
   /(?:fetch failed|network error|service unavailable|bad gateway|gateway timeout|socket(?:error| hang up)?|other side closed|eai_again|econnreset|etimedout|epipe|und_err_socket|timeout(?:error)?|timed out)/i;
+const JWT_RPC_ERROR_PATTERN = /\bPGRST301\b/i;
 
 /**
  * Thrown by {@link getMerchantShippingRatesOrThrow} when the storefront RPC
@@ -87,14 +88,18 @@ function isRetryableRpcError(error: unknown): boolean {
   const codes = extractErrorCodes(error).map((code) =>
     code.trim().toUpperCase()
   );
+  const errorText = extractErrorText(error);
   // A JWT failure is deterministic even when a wrapper gives it a generic
-  // transport-looking message or transient outer code. Never turn the
-  // production auth boundary into a retry loop.
-  if (codes.includes('PGRST301')) return false;
+  // transport-looking message or transient outer code. PostgREST's client
+  // can flatten a fetch rejection into an empty code with PGRST301 in details,
+  // so inspect the normalized text before considering transport retries.
+  if (codes.includes('PGRST301') || JWT_RPC_ERROR_PATTERN.test(errorText)) {
+    return false;
+  }
   const code = codes[0];
   return Boolean(
     (code && RETRYABLE_RPC_ERROR_CODES.has(code)) ||
-      RETRYABLE_RPC_ERROR_PATTERN.test(extractErrorText(error))
+      RETRYABLE_RPC_ERROR_PATTERN.test(errorText)
   );
 }
 
