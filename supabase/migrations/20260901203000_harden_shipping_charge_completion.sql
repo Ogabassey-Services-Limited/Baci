@@ -38,6 +38,7 @@ BEGIN
     WHERE s.id = p_shipment_id
       AND s.merchant_id = v_charge.merchant_id
       AND s.order_id = v_charge.order_id
+      AND s.shipping_quote_id = v_charge.shipping_quote_id
       AND s.provider = 'GIGL'
     FOR SHARE;
     IF NOT FOUND THEN

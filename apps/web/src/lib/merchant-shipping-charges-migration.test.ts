@@ -131,6 +131,7 @@ describe('merchant shipping charge migration contract', () => {
       "IF v_charge.status = 'provider_submitting' THEN",
       's.merchant_id = v_charge.merchant_id',
       's.order_id = v_charge.order_id',
+      's.shipping_quote_id = v_charge.shipping_quote_id',
       "s.provider = 'GIGL'",
       "RAISE EXCEPTION 'shipment_binding_mismatch'",
     ]) {
@@ -142,20 +143,27 @@ describe('merchant shipping charge migration contract', () => {
   });
 
   it('models completion rejection for an unrelated shipment', () => {
-    const charge = { merchantId: 'merchant-a', orderId: 'order-a' };
+    const charge = {
+      merchantId: 'merchant-a',
+      orderId: 'order-a',
+      shippingQuoteId: 'quote-a',
+    };
     const shipmentMatches = (shipment: {
       merchantId: string;
       orderId: string;
+      shippingQuoteId: string;
       provider: string;
     }) =>
       shipment.merchantId === charge.merchantId &&
       shipment.orderId === charge.orderId &&
+      shipment.shippingQuoteId === charge.shippingQuoteId &&
       shipment.provider === 'GIGL';
 
     expect(
       shipmentMatches({
         merchantId: 'merchant-b',
         orderId: 'order-a',
+        shippingQuoteId: 'quote-a',
         provider: 'GIGL',
       })
     ).toBe(false);
@@ -163,6 +171,7 @@ describe('merchant shipping charge migration contract', () => {
       shipmentMatches({
         merchantId: 'merchant-a',
         orderId: 'order-b',
+        shippingQuoteId: 'quote-a',
         provider: 'GIGL',
       })
     ).toBe(false);
@@ -170,6 +179,15 @@ describe('merchant shipping charge migration contract', () => {
       shipmentMatches({
         merchantId: 'merchant-a',
         orderId: 'order-a',
+        shippingQuoteId: 'quote-b',
+        provider: 'GIGL',
+      })
+    ).toBe(false);
+    expect(
+      shipmentMatches({
+        merchantId: 'merchant-a',
+        orderId: 'order-a',
+        shippingQuoteId: 'quote-a',
         provider: 'TOPSHIP',
       })
     ).toBe(false);
@@ -177,6 +195,7 @@ describe('merchant shipping charge migration contract', () => {
       shipmentMatches({
         merchantId: 'merchant-a',
         orderId: 'order-a',
+        shippingQuoteId: 'quote-a',
         provider: 'GIGL',
       })
     ).toBe(true);
