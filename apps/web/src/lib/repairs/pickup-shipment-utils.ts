@@ -18,12 +18,14 @@ export interface RepairPickupSource {
 /** Why a courier pickup could not be booked automatically. */
 export type PickupFailureReason =
   | 'not_found'
+  | 'payment_required'
   | 'terminal_status'
   | 'already_booked'
   | 'booking_in_progress'
   | 'missing_pickup_address'
   | 'repair_center_unconfigured'
   | 'gigl_unavailable'
+  | 'quote_increased'
   | 'booking_failed'
   | 'shipment_save_failed';
 
@@ -55,6 +57,10 @@ const FAILURE_COPY: Record<
     message: 'Repair booking not found.',
     canRetryManually: false,
   },
+  payment_required: {
+    message: 'The customer must pay the pickup fee before courier booking.',
+    canRetryManually: false,
+  },
   terminal_status: {
     message:
       'This repair is completed, cancelled, or rejected — a courier pickup cannot be arranged.',
@@ -83,6 +89,11 @@ const FAILURE_COPY: Record<
     message:
       "GIG Logistics pickup isn't available for this address right now. Ask the customer to drop the device at a GIGL service centre or arrange pickup manually.",
     canRetryManually: true,
+  },
+  quote_increased: {
+    message:
+      'The current GIG Logistics pickup rate is higher than the amount paid. Please review the new rate before booking.',
+    canRetryManually: false,
   },
   booking_failed: {
     message:

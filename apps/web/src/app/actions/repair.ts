@@ -39,6 +39,14 @@ export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
 ): Promise<CreateRepairResult> {
+  if (data.serviceType === 'pickup') {
+    return {
+      success: false,
+      code: 'unavailable',
+      error: 'Courier pickup must be paid before booking.',
+    };
+  }
+
   // Shared core: app-layer rate limit + Zod validation + booking RPC (which
   // re-validates the merchant/active quote and snapshots the price server-side).
   const result = await createRepairBooking(data, merchantId);
@@ -131,25 +139,7 @@ export async function calculateRepairShipping(
   }
 
   try {
-    // 1. Free local pickup when the customer is in the repair center's state.
-    const centerState = repairCenter.state.trim().toLowerCase();
-    const centerCity = repairCenter.city.trim().toLowerCase();
-    const isLocal =
-      placeDetails.state.trim().toLowerCase() === centerState ||
-      placeDetails.formattedAddress.toLowerCase().includes(centerState) ||
-      (centerCity.length > 0 &&
-        placeDetails.city.trim().toLowerCase() === centerCity);
-
-    if (isLocal) {
-      return {
-        isFree: true,
-        price: 0,
-        formattedPrice: 'Free',
-        message: 'Free local pickup available!',
-      };
-    }
-
-    // 2. Calculate GIGL doorstep collection (customer -> repair center).
+    // Calculate GIGL doorstep collection (customer -> repair center).
     const quotes = await shippingService.getProviderQuotes(
       REPAIR_PICKUP_PROVIDER,
       {

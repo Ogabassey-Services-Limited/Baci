@@ -233,7 +233,11 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
-  it('offers free local pickup when the customer is in the repair center state', async () => {
+  it('quotes GIGL pickup even when the customer is in the repair center state', async () => {
+    mocks.getQuotes.mockResolvedValueOnce([
+      { price: 2500, isStationPickup: false },
+    ]);
+
     const result = await calculateRepairShipping(
       {
         ...validPlace,
@@ -245,12 +249,12 @@ describe('calculateRepairShipping', () => {
     );
 
     expect(result).toEqual({
-      isFree: true,
-      price: 0,
-      formattedPrice: 'Free',
-      message: 'Free local pickup available!',
+      isFree: false,
+      price: 2500,
+      formattedPrice: '₦2,500',
+      message: 'Estimated pickup fee: ₦2,500',
     });
-    expect(mocks.getQuotes).not.toHaveBeenCalled();
+    expect(mocks.getQuotes).toHaveBeenCalledOnce();
   });
 
   it('quotes GIGL doorstep collection for out-of-state addresses', async () => {

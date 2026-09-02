@@ -7,6 +7,7 @@ import {
   pickupFailure,
 } from '@/lib/repairs/pickup-shipment-utils';
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
+import { reconcileLinkedRepairPickup } from '@/lib/repairs/reconcile-linked-repair-pickup';
 import { releaseRejectedRepairPickupReservation } from '@/lib/repairs/release-rejected-repair-pickup-reservation';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
@@ -22,12 +23,6 @@ import type {
   ShipmentBookingResult,
 } from '@/lib/shipping/types';
 
-/**
- * Merchant-triggered courier pickup for a repair (reverse logistics).
- * Direction: customer pickup address = sender, private repair-center address =
- * receiver. A pending shipment is linked before GIGL is contacted so ambiguous
- * failures cannot permit a second charge.
- */
 export async function bookRepairPickup(
   supabase: SupabaseClient,
   merchantId: string,
@@ -36,7 +31,7 @@ export async function bookRepairPickup(
   const { data: repairData, error: repairError } = await supabase
     .from('repairs')
     .select(
-      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, shipment_id, quoted_price, status'
+      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, pickup_fee, pickup_payment_status, shipment_id, quoted_price, status'
     )
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
@@ -47,25 +42,41 @@ export async function bookRepairPickup(
     return pickupFailure('not_found');
   }
 
-  // A completed/cancelled/rejected repair must not trigger a paid courier pickup.
   if (isRepairStatus(repair.status) && isTerminalRepairStatus(repair.status)) {
     return pickupFailure('terminal_status');
   }
 
   if (repair.shipment_id) {
-    return pickupFailure('already_booked');
+    if (
+      repair.pickup_payment_status === 'booked' ||
+      (await reconcileLinkedRepairPickup(
+        supabase,
+        merchantId,
+        repairId,
+        repair.shipment_id
+      ))
+    ) {
+      return pickupFailure('already_booked');
+    }
+    return pickupFailure('shipment_save_failed');
   }
 
+  const paidPickupFee = Number(repair.pickup_fee);
+  if (
+    !['paid', 'retrying'].includes(repair.pickup_payment_status ?? '') ||
+    !Number.isFinite(paidPickupFee) ||
+    paidPickupFee <= 0
+  ) {
+    return pickupFailure('payment_required');
+  }
   const sender = buildPickupSender(repair);
   if (!sender) {
     return pickupFailure('missing_pickup_address');
   }
-
   const receiver = await getRepairCenterAddress(merchantId);
   if (!receiver) {
     return pickupFailure('repair_center_unconfigured');
   }
-
   const items = buildPickupItems(repair);
   let quoteResult: Awaited<ReturnType<typeof quoteRepairPickup>>;
   try {
@@ -79,10 +90,13 @@ export async function bookRepairPickup(
     console.error('Repair pickup quote failed:', error);
     return pickupFailure('gigl_unavailable');
   }
-
   const { quote, request: quoteRequest } = quoteResult;
   if (!quote) {
     return pickupFailure('gigl_unavailable');
+  }
+
+  if (Math.round(quote.price * 100) > Math.round(paidPickupFee * 100)) {
+    return pickupFailure('quote_increased');
   }
 
   const { data: quoteRowData, error: quoteInsertError } = await supabase
@@ -182,10 +196,6 @@ export async function bookRepairPickup(
     .eq('merchant_id', merchantId)
     .eq('pickup_booking_lock_token', claim.lockToken)
     .is('shipment_id', null)
-    // Belt-and-braces: also refuse to link (and therefore refuse the paid
-    // bookShipment below) if the repair reached a terminal status in the tiny
-    // window after the claim. The claim guard fails closed too; this covers the
-    // claim -> link -> bookShipment gap.
     .not('status', 'in', '(completed,cancelled,rejected)')
     .select('id');
 
@@ -224,7 +234,6 @@ export async function bookRepairPickup(
       }
     }
 
-    // The linked pending shipment prevents an ambiguous retry from duplicating.
     console.error('Repair pickup booking could not be confirmed:', error);
     return pickupFailure('shipment_save_failed');
   }
@@ -261,6 +270,7 @@ export async function bookRepairPickup(
   const { error: clearLockError } = await supabase
     .from('repairs')
     .update({
+      pickup_payment_status: 'booked',
       pickup_booking_lock_token: null,
       pickup_booking_started_at: null,
     })
@@ -270,8 +280,6 @@ export async function bookRepairPickup(
     .eq('pickup_booking_lock_token', claim.lockToken);
 
   if (clearLockError) {
-    // The shipment is safely linked. A stale lock cannot re-open booking while
-    // shipment_id remains set, so do not turn a successful booking into a failure.
     console.error(
       'Failed to clear repair pickup booking lock:',
       clearLockError
@@ -285,7 +293,6 @@ export async function bookRepairPickup(
     .eq('merchant_id', merchantId);
 
   if (quoteUsedError) {
-    // Non-fatal bookkeeping after the shipment is safely linked.
     console.error('Failed to mark repair pickup quote used:', quoteUsedError);
   }
 

@@ -51,11 +51,36 @@ describe('bookRepairPickup', () => {
     expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
   });
 
+  it('does not quote or book GIGL before the customer payment is confirmed', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: {
+            ...repairRow,
+            pickup_fee: null,
+            pickup_payment_status: null,
+          },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'payment_required' });
+    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
   it('returns already_booked when a shipment is already linked', async () => {
     const supabase = makeSupabase(
       happyResponses({
         'repairs.select': {
-          data: { ...repairRow, shipment_id: 'ship-existing' },
+          data: {
+            ...repairRow,
+            pickup_payment_status: 'booked',
+            shipment_id: 'ship-existing',
+          },
           error: null,
         },
       })
@@ -64,6 +89,65 @@ describe('bookRepairPickup', () => {
     const result = await bookRepairPickup(supabase, merchantId, repairId);
 
     expect(result).toMatchObject({ ok: false, reason: 'already_booked' });
+  });
+
+  it('flags a linked pending reservation for review instead of claiming it was booked', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: { ...repairRow, shipment_id: 'ship-pending' },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'shipment_save_failed',
+    });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('recovers repair finalization after the provider shipment was saved', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: { ...repairRow, shipment_id: 'ship-booked' },
+          error: null,
+        },
+        'shipments.select': {
+          data: {
+            id: 'ship-booked',
+            provider_shipment_id: 'provider-1',
+            tracking_number: '1349000000',
+          },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'already_booked' });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('retries a paid pickup after a transient booking failure', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: { ...repairRow, pickup_payment_status: 'retrying' },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
+    expect(mocks.bookShipment).toHaveBeenCalledOnce();
   });
 
   it('refuses to book a pickup for a terminal (completed) repair', async () => {
@@ -125,6 +209,18 @@ describe('bookRepairPickup', () => {
       reason: 'gigl_unavailable',
       canRetryManually: true,
     });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('does not book when the current GIGL rate exceeds the paid pickup fee', async () => {
+    mocks.getProviderQuotes.mockResolvedValueOnce([
+      { ...sampleQuote, price: 3600 },
+    ]);
+    const supabase = makeSupabase(happyResponses());
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'quote_increased' });
     expect(mocks.bookShipment).not.toHaveBeenCalled();
   });
 

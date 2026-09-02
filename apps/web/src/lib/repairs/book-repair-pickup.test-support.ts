@@ -31,6 +31,8 @@ export const repairRow = {
   device_model: 'iPhone 15',
   pickup_address: '12 Aba Road, Port Harcourt, Rivers',
   shipment_id: null,
+  pickup_fee: 3500,
+  pickup_payment_status: 'paid',
   quoted_price: 45_000,
   status: 'confirmed',
 };
@@ -150,6 +152,7 @@ export function happyResponses(overrides: Partial<Responses> = {}): Responses {
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
+    'shipments.select': { data: null, error: null },
     'shipments.update': { data: { id: 'ship-1' }, error: null },
     ...overrides,
   };

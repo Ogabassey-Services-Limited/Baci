@@ -252,4 +252,14 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260901220400_atomic_rejected_repair_pickup_release.sql',
     sha256: 'a2564ae0e2e8a9e6c18c40bb663c537b66c9ea9e1a04650aa3a75bb53ec55ba4',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902054000_paid_repair_pickup_fulfillment.sql',
+    sha256: '463de825f1f49bfda0dd0c80750ebeef3a56081dd42cde906f32cabb29760fa1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260902054100_index_repair_pickup_transactions.sql',
+    sha256: '8132d6b3999d05fef55cefacbd4227e4ee0a927e3a21d3cd987b03b6d460ffb5',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
