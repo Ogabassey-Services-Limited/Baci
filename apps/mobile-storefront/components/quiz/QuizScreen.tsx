@@ -130,7 +130,8 @@ export function QuizScreen({
   useEffect(() => {
     let mounted = true;
     if (status === 'idle') {
-      loadEvents(fetchQuizEvents).catch((error) => {
+      const loadPublicLobby = authUserId ? fetchQuizEvents : async () => [];
+      loadEvents(loadPublicLobby).catch((error) => {
         log.warn('Failed to load quiz events', error);
         if (mounted) {
           setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
@@ -140,7 +141,7 @@ export function QuizScreen({
     return () => {
       mounted = false;
     };
-  }, [loadEvents, setError, status]);
+  }, [authUserId, loadEvents, setError, status]);
   const { adsPrewarmFailed, dobGate, requestStart, usernameGate } =
     useQuizStartFlow({
       events,
@@ -226,6 +227,7 @@ export function QuizScreen({
       {!error && shouldShowEventList(status) ? (
         <QuizEventsList
           events={events}
+          fetchEvents={authUserId ? fetchQuizEvents : undefined}
           isStarting={status === 'starting'}
           isSignedIn={authUserId !== null}
           locale={locale}

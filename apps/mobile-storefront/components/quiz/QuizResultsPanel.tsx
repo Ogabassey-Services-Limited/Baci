@@ -42,6 +42,7 @@ interface QuizResultsPanelProps {
   allowPendingResultsExit?: boolean;
   onReturnToQuizList?: () => void;
   serverNow?: string | null;
+  submittedAt?: string | null;
   simulatedPrize?: QuizPrizeProduct | null;
   styles: QuizStyles;
   v2Result: QuizV2Result | null;
@@ -56,6 +57,7 @@ export function QuizResultsPanel({
   allowPendingResultsExit = false,
   onReturnToQuizList,
   serverNow = null,
+  submittedAt = null,
   simulatedPrize = null,
   styles,
   v2Result,
@@ -83,7 +85,9 @@ export function QuizResultsPanel({
   const currentPlayer =
     leaderboard?.currentPlayer ??
     leaderboard?.entries.find((entry) => entry.isCurrentCustomer);
-  const finishTime = formatFinishTime(currentPlayer?.submittedAt ?? serverNow);
+  const finishTime = formatFinishTime(
+    currentPlayer?.submittedAt ?? submittedAt ?? serverNow
+  );
   if (lifecycle !== 'idle') {
     const canReturnToQuizList = Boolean(
       onReturnToQuizList &&

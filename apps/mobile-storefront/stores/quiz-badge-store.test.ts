@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { mergeQuizBadgeMaps, useQuizBadgeStore } from './quiz-badge-store';
+import { mergeQuizBadgeMaps } from './quiz-badge-map';
+import { useQuizBadgeStore } from './quiz-badge-store';
 
 describe('quiz badge persistence', () => {
   beforeEach(() => {

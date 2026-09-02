@@ -99,6 +99,7 @@ export function CheckoutScreenView({
   } = savedAddressState;
   const { handleBack } = useCheckoutNavigation({
     isOrderInFlight,
+    isPrizeSimulation: Boolean(prizeSimulation),
     setStep,
     step,
   });
@@ -194,7 +195,6 @@ export function CheckoutScreenView({
           isDark={isDark}
         />
         <CheckoutHeader colors={colors} onBack={handleBack} />
-
         <AppKeyboardContainer
           style={[styles.contentShell, { backgroundColor: 'transparent' }]}
         >

@@ -111,7 +111,19 @@ export function useQuizRewardedBadge({
     };
   }, [identityKey]);
 
-  const dismiss = () => setDismissed(true);
+  const dismiss = () => {
+    const session = sessionRef.current;
+    if (session) {
+      session.settled = true;
+      session.cleanups.forEach((unsubscribe) => {
+        unsubscribe();
+      });
+      session.cleanups = [];
+      sessionRef.current = null;
+    }
+    setIsWatching(false);
+    setDismissed(true);
+  };
 
   const watchAd = () => {
     if (!available || !userId || !adState.rewardedUnitId || isWatching) return;

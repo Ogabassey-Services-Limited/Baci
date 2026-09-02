@@ -239,7 +239,7 @@ describe('QuizScreen', () => {
     );
 
     const signInButton = await screen.findByRole('button', {
-      name: 'Sign in to play Daily Prize Quiz',
+      name: 'Sign in to play',
     });
     fireEvent.press(signInButton);
 

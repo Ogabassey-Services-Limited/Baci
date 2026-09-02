@@ -1,13 +1,10 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
+import { mergeQuizBadgeMaps } from './quiz-badge-map';
+import type { QuizBadge } from './quiz-badge-store-types';
 
-export interface QuizBadge {
-  eventId: string;
-  eventTitle: string;
-  label: 'SuperQuiz badge';
-  unlockedAt: number;
-}
+export type { QuizBadge, QuizBadgeMap } from './quiz-badge-store-types';
 
 interface QuizBadgeState {
   badgesByUser: Record<string, Record<string, QuizBadge>>;
@@ -19,26 +16,6 @@ interface QuizBadgeState {
     eventTitle: string,
     unlockedAt?: number
   ) => void;
-}
-
-export type QuizBadgeMap = Record<string, Record<string, QuizBadge>>;
-
-export function mergeQuizBadgeMaps(
-  current: QuizBadgeMap,
-  persisted: QuizBadgeMap
-): QuizBadgeMap {
-  const merged: QuizBadgeMap = { ...current };
-  for (const [userId, persistedBadges] of Object.entries(persisted)) {
-    merged[userId] = { ...merged[userId] };
-    for (const [eventId, persistedBadge] of Object.entries(persistedBadges)) {
-      const currentBadge = merged[userId][eventId];
-      merged[userId][eventId] =
-        currentBadge && currentBadge.unlockedAt >= persistedBadge.unlockedAt
-          ? currentBadge
-          : persistedBadge;
-    }
-  }
-  return merged;
 }
 
 export const useQuizBadgeStore = create<QuizBadgeState>()(

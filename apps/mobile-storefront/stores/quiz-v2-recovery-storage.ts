@@ -38,6 +38,8 @@ export function createQuizAttemptPersistence(access: QuizV2StoreAccess) {
         generation: access.getGeneration(),
         pendingLockedOptionId: lockedOptionId,
         startRequestId: state.startRequestId,
+        submittedAt:
+          attempt.status === 'in_progress' ? null : attempt.serverNow,
         userId: state.recoveryUserId,
       })
     );
@@ -57,6 +59,7 @@ export function saveQuizStartRequest(
       generation,
       pendingLockedOptionId: null,
       startRequestId,
+      submittedAt: null,
       userId: context.userId,
     })
   );

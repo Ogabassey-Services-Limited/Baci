@@ -6,6 +6,7 @@ import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 
 const LIVE_REFRESH_INTERVAL_MS = 5_000;
+const FINAL_RETRY_INTERVAL_MS = 5_000;
 
 interface UseQuizResultsLeaderboardInput {
   enabled: boolean;
@@ -58,9 +59,12 @@ export function useQuizResultsLeaderboard({
     const load = async () => {
       if (!active || !appIsActive || loadInFlight) return;
       loadInFlight = true;
+      // A transient finalization failure must not strand the result screen.
+      // Keep a bounded retry loop until the immutable published board arrives;
+      // once it succeeds the success path disables further polling.
       let retryDelayMs: number | null = isLive
         ? LIVE_REFRESH_INTERVAL_MS
-        : null;
+        : FINAL_RETRY_INTERVAL_MS;
       try {
         const result = isLive
           ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })

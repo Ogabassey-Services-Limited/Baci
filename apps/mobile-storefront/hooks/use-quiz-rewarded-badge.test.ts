@@ -166,6 +166,25 @@ describe('useQuizRewardedBadge', () => {
     expect(result.current.roomBlocked).toBe(false);
   });
 
+  it('does not show a rewarded ad if it finishes loading after dismissal', () => {
+    const { result } = renderHook(() =>
+      useQuizRewardedBadge({
+        eventId: 'event-1',
+        eventTitle: 'Today Quiz',
+        remainingSeconds: 120,
+        status: 'scheduled',
+        userId: 'user-1',
+      })
+    );
+
+    act(() => result.current.watchAd());
+    act(() => result.current.dismiss());
+    act(() => listeners.get(RewardedAdEventType.LOADED)?.());
+
+    expect(mockAd.show).not.toHaveBeenCalled();
+    expect(result.current.isWatching).toBe(false);
+  });
+
   it('ignores a queued reward after the account or event identity changes', () => {
     const { result, rerender, unmount } = renderHook(
       (props: GateProps) => useQuizRewardedBadge(props),

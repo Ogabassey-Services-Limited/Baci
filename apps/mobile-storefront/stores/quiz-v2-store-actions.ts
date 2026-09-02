@@ -1,11 +1,11 @@
 // biome-ignore format: Compact import keeps this coordinator within the module budget.
-import type { QuizV2Attempt } from '@/services/quiz-types';
 import {
   initialQuizV2State,
   loadQuizRecoveryEnvelope,
   type QuizV2StoreActions,
   type V2StartContext,
 } from './quiz-recovery-envelope';
+import { createQuizV2AttemptApplier } from './quiz-v2-attempt-applier';
 import { createQuizV2ExpiryAction } from './quiz-v2-expiry-action';
 import { createQuizV2RecoveryResponseApplier } from './quiz-v2-recovery-actions';
 import {
@@ -34,43 +34,7 @@ export function createQuizV2StoreActions({
   // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
   const access = { get, getGeneration, getMessage, set };
   const persist = createQuizAttemptPersistence(access);
-  const apply = async (attempt: QuizV2Attempt) => {
-    if (attempt.status === 'in_progress') {
-      set({
-        status: 'question',
-        v2Attempt: attempt,
-        v2LifecycleStatus: 'in_progress',
-        lockedOptionId: null,
-        terminalContext: null,
-        expiryRetryable: false,
-        error: null,
-      });
-      await persist(attempt, null).catch(() => undefined);
-      return;
-    }
-    set({
-      status: 'result',
-      v2Attempt: null,
-      v2LifecycleStatus:
-        attempt.status === 'event_cancelled'
-          ? 'event_cancelled'
-          : 'pending_results',
-      terminalContext: createQuizTerminalContext(
-        attempt.attemptId,
-        attempt.eventId,
-        attempt.eventEndsAt,
-        attempt.serverNow
-      ),
-      lockedOptionId: null,
-      expiryRetryable: false,
-      error: null,
-    });
-    await persist(attempt, null).catch(() => undefined);
-    if (attempt.status === 'event_cancelled')
-      await clearRecoveredQuizAttempt(access, attempt.eventId).catch(
-        () => undefined
-      );
-  };
+  const apply = createQuizV2AttemptApplier({ access, persist });
   const applyRecoveryResponse = createQuizV2RecoveryResponseApplier({
     access,
     apply,
@@ -191,7 +155,8 @@ export function createQuizV2StoreActions({
                     terminalAttemptId,
                     eventId,
                     terminalEventEndsAt,
-                    terminalServerNow
+                    terminalServerNow,
+                    envelope?.submittedAt ?? null
                   )
                 : null
               : null,

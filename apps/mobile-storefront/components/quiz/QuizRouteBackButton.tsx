@@ -6,6 +6,7 @@ import { useQuizStore } from '@/stores/quiz-store';
 export function QuizRouteBackButton({ color }: { color: string }) {
   const router = useRouter();
   const status = useQuizStore((state) => state.status);
+  const dismissRecovery = useQuizStore((state) => state.dismissRecovery);
   const reset = useQuizStore((state) => state.reset);
 
   return (
@@ -15,6 +16,7 @@ export function QuizRouteBackButton({ color }: { color: string }) {
       hitSlop={12}
       onPress={() => {
         if (status === 'result') {
+          void dismissRecovery();
           reset();
           return;
         }

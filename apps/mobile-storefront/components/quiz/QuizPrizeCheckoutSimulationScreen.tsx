@@ -6,6 +6,7 @@ import { CheckoutScreenView } from '@/components/checkout/CheckoutScreenView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import type { QuizPrizeProduct } from '@/services/quiz-types';
+import { useQuizStore } from '@/stores/quiz-store';
 
 interface QuizPrizeCheckoutSimulationScreenProps {
   prize: QuizPrizeProduct;
@@ -16,6 +17,8 @@ export function QuizPrizeCheckoutSimulationScreen({
 }: QuizPrizeCheckoutSimulationScreenProps) {
   const [isComplete, setIsComplete] = useState(false);
   const colors = Colors[useColorScheme() ?? 'light'];
+  const dismissRecovery = useQuizStore((state) => state.dismissRecovery);
+  const resetQuiz = useQuizStore((state) => state.reset);
 
   if (isComplete) {
     return (
@@ -36,7 +39,11 @@ export function QuizPrizeCheckoutSimulationScreen({
         <Pressable
           accessibilityLabel="Back to quizzes"
           accessibilityRole="button"
-          onPress={() => router.replace('/quiz')}
+          onPress={() => {
+            void dismissRecovery();
+            resetQuiz();
+            router.replace('/quiz');
+          }}
           style={styles.button}
         >
           <Text style={styles.buttonText}>Back to quizzes</Text>

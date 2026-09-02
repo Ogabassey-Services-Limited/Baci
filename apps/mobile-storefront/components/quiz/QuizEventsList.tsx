@@ -1,6 +1,6 @@
 import { QUIZ_DEFAULT_TIME_PER_QUESTION_SECONDS } from '@baci/shared/constants';
 import { useEffect, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { QuizEvent } from '@/services/quiz-types';
 import { GadgetPatternBackground } from '../storefront/GadgetPatternBackground';
@@ -96,11 +96,24 @@ export function QuizEventsList({
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>
-              No quiz events available.
+              {isSignedIn
+                ? 'No quiz events available.'
+                : 'Sign in to see available quizzes.'}
             </Text>
             <Text style={styles.emptyStateText}>
-              Check back soon for the next chance to play.
+              {isSignedIn
+                ? 'Check back soon for the next chance to play.'
+                : 'Create an account or sign in to join the next SuperQuiz.'}
             </Text>
+            {!isSignedIn && onSignIn ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign in to play"
+                onPress={onSignIn}
+              >
+                <Text style={styles.emptyStateText}>Sign in to play</Text>
+              </Pressable>
+            ) : null}
           </View>
         }
         ListHeaderComponent={<QuizMissionHero />}
