@@ -41,7 +41,7 @@ export async function resolveAdminGiglEligibility(
   const currency = merchant
     ? resolveMerchantCurrencyConfig(merchant).code
     : null;
-  if (!merchant || currency !== 'NGN' || (country && country !== 'NG')) {
+  if (!merchant || country !== 'NG' || currency !== 'NGN') {
     return {
       ok: false,
       status: 422,

@@ -55,6 +55,21 @@ describe('Admin GIGL merchant eligibility', () => {
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
+  it.each([
+    null,
+    '',
+    '   ',
+  ])('rejects a missing or blank country value %j even when payout currency is NGN', async (country) => {
+    setup({ merchant: { country, payout_currency: 'NGN' } });
+    const response = await subject({ receiver });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      code: 'GIGL_MERCHANT_INELIGIBLE',
+    });
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
   it('fails closed when GIGL is not enabled for the merchant', async () => {
     setup({ featureSettings: { shipping_providers: ['topship'] } });
     const response = await subject({ receiver });

@@ -21,10 +21,6 @@ const merchantState = vi.hoisted(() => ({
   current: null as unknown,
 }));
 
-const giglEligibilityState = vi.hoisted(() => ({
-  current: { isEligible: true },
-}));
-
 const giglShippingState = vi.hoisted(() => ({
   calls: [] as unknown[],
 }));
@@ -50,7 +46,16 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 vi.mock('@/hooks/useGiglAdminShippingEligibility', () => ({
-  useGiglAdminShippingEligibility: () => giglEligibilityState.current,
+  useGiglAdminShippingEligibility: (
+    merchant: {
+      country?: string | null;
+      payout_currency?: string | null;
+    } | null
+  ) => ({
+    isEligible:
+      merchant?.country?.toUpperCase() === 'NG' &&
+      merchant?.payout_currency?.toUpperCase() === 'NGN',
+  }),
 }));
 
 vi.mock('@/hooks/useOrders', () => ({
@@ -200,7 +205,6 @@ describe('useOrderDetailsController', () => {
     auditEventsState.current = { data: [], isError: false, isLoading: false };
     orderState.current = undefined;
     merchantState.current = null;
-    giglEligibilityState.current = { isEligible: true };
     giglShippingState.calls = [];
     shipmentUiState.current = {
       shipmentFlowStep: 'details',
@@ -356,7 +360,6 @@ describe('useOrderDetailsController', () => {
       country: 'GH',
       payout_currency: 'NGN',
     };
-    giglEligibilityState.current = { isEligible: false };
     shipmentUiState.current = {
       shipmentFlowStep: 'method',
       showShipmentFlow: true,
@@ -374,7 +377,6 @@ describe('useOrderDetailsController', () => {
       country: 'NG',
       payout_currency: 'NGN',
     };
-    giglEligibilityState.current = { isEligible: true };
     shipmentUiState.current = {
       shipmentFlowStep: 'method',
       showShipmentFlow: true,
