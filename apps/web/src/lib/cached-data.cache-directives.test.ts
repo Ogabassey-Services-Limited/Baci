@@ -194,6 +194,7 @@ describe('cached-data cache directives', () => {
     expect(source).not.toContain("'use cache: remote';");
     expect(source).toContain("cacheLife('storefront-page');");
     expect(source).toContain('cacheTag(');
+    expect(source).not.toContain('_storeSlug');
   });
 
   it('keeps high-cardinality public product reads off the remote cache handler', () => {

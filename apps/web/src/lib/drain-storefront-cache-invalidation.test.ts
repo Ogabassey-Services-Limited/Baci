@@ -74,6 +74,66 @@ describe('drainStorefrontCacheInvalidation', () => {
     });
   });
 
+  it('coalesces concurrent duplicate events without retaining settled provider results', async () => {
+    let releaseVercel!: (value: { ok: true; reason: 'deleted' }) => void;
+    mocks.vercel.mockReturnValue(
+      new Promise((resolve) => {
+        releaseVercel = resolve;
+      })
+    );
+    const first = drainStorefrontCacheInvalidation(claim);
+    const second = drainStorefrontCacheInvalidation({
+      ...claim,
+      related_identifiers: [...claim.related_identifiers, 'ogabassey'],
+    });
+    await Promise.resolve();
+    expect(mocks.vercel).toHaveBeenCalledTimes(1);
+    releaseVercel({ ok: true, reason: 'deleted' });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { ok: true },
+      { ok: true },
+    ]);
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(1);
+
+    await expect(drainStorefrontCacheInvalidation(claim)).resolves.toEqual({
+      ok: true,
+    });
+    expect(mocks.vercel).toHaveBeenCalledTimes(2);
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares mixed provider failure outcomes while preserving retry visibility', async () => {
+    let releaseVercel!: (value: { ok: true; reason: 'deleted' }) => void;
+    mocks.vercel.mockReturnValue(
+      new Promise((resolve) => {
+        releaseVercel = resolve;
+      })
+    );
+    const first = drainStorefrontCacheInvalidation(claim);
+    const second = drainStorefrontCacheInvalidation(claim);
+    await Promise.resolve();
+    expect(mocks.vercel).toHaveBeenCalledTimes(1);
+    mocks.cloudflare.mockResolvedValue({
+      ok: false,
+      errorCode: 'cloudflare_http_429',
+      retryAfterSeconds: 120,
+    });
+    releaseVercel({ ok: true, reason: 'deleted' });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      {
+        errorCode: 'cloudflare_http_429',
+        ok: false,
+        retryAfterSeconds: 120,
+      },
+      {
+        errorCode: 'cloudflare_http_429',
+        ok: false,
+        retryAfterSeconds: 120,
+      },
+    ]);
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(1);
+  });
+
   it('completes a non-policy storefront without calling Cloudflare', async () => {
     const nonPolicyClaim = {
       ...claim,

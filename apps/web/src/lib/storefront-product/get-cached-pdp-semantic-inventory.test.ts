@@ -75,6 +75,10 @@ describe('getCachedPdpSemanticInventory', () => {
     mocks.getCachedCompareCategoryShell.mockResolvedValue(categoryShell);
   });
 
+  it('bugfix: excludes the unused store slug before entering the cached inventory', () => {
+    expect(getCachedPdpSemanticInventory.length).toBe(2);
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -134,7 +138,7 @@ describe('getCachedPdpSemanticInventory', () => {
     });
 
     await expect(
-      getCachedPdpSemanticInventory('merchant-1', 'laptops', 'ogabassey')
+      getCachedPdpSemanticInventory('merchant-1', 'laptops')
     ).resolves.toEqual([
       expect.objectContaining({ slug: 'lenovo-legion-5' }),
       expect.objectContaining({ slug: 'asus-rog' }),
@@ -181,7 +185,7 @@ describe('getCachedPdpSemanticInventory', () => {
     });
 
     await expect(
-      getCachedPdpSemanticInventory('merchant-1', 'audio', 'ogabassey')
+      getCachedPdpSemanticInventory('merchant-1', 'audio')
     ).resolves.toEqual([]);
 
     expect(query.or).toHaveBeenCalledWith(
@@ -208,7 +212,7 @@ describe('getCachedPdpSemanticInventory', () => {
     });
 
     await expect(
-      getCachedPdpSemanticInventory('merchant-1', 'laptops', 'ogabassey')
+      getCachedPdpSemanticInventory('merchant-1', 'laptops')
     ).rejects.toMatchObject({ message: 'statement timeout' });
   });
 
@@ -226,11 +230,7 @@ describe('getCachedPdpSemanticInventory', () => {
           .mockReturnValueOnce(directQuery),
       });
 
-      const pending = getCachedPdpSemanticInventory(
-        'merchant-1',
-        'laptops',
-        'ogabassey'
-      );
+      const pending = getCachedPdpSemanticInventory('merchant-1', 'laptops');
       const assertion = expect(pending).rejects.toMatchObject({
         name: 'TimeoutError',
       });
@@ -254,7 +254,7 @@ describe('getCachedPdpSemanticInventory', () => {
     });
 
     await expect(
-      getCachedPdpSemanticInventory('merchant-1', 'new-arrivals', 'ogabassey')
+      getCachedPdpSemanticInventory('merchant-1', 'new-arrivals')
     ).resolves.toEqual([]);
     expect(mocks.getPublicSupabaseClient).not.toHaveBeenCalled();
   });
@@ -266,8 +266,7 @@ describe('getCachedPdpSemanticInventory', () => {
     await expect(
       getCachedPdpSemanticInventory(
         'merchant-1',
-        `${'category '.repeat(40)}suffix`,
-        'ogabassey'
+        `${'category '.repeat(40)}suffix`
       )
     ).resolves.toEqual([]);
 

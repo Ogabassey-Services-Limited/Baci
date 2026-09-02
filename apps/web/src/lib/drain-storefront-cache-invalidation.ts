@@ -5,6 +5,7 @@ import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publicatio
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { revalidateCategories } from '@/lib/revalidate-categories';
+import { SingleFlight } from '@/lib/single-flight';
 import { buildStorefrontPublicationCacheTags } from '@/lib/storefront-publication-cache-tags';
 import { buildStorefrontPublicationPurgeHostnames } from '@/lib/storefront-publication-purge-hostnames';
 import { strictCloudflareHostnamePurge } from '@/lib/strict-cloudflare-hostname-purge';
@@ -13,6 +14,17 @@ import type { CacheInvalidationClaim } from '@/schemas/cache-invalidation-claim'
 
 const SAFE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DEFAULT_VERCEL_TIMEOUT_MS = 5000;
+type VercelPurgeResult =
+  | Awaited<ReturnType<typeof purgeVercelStorefrontPublicationCache>>
+  | { ok: false; reason: 'timeout' };
+
+// Coalesce only concurrent provider calls. Settled results are never retained,
+// so retries, generation fencing, and stale-provider responses remain visible
+// to the durable outbox on the next drain attempt.
+const vercelPurgeSingleFlight = new SingleFlight<VercelPurgeResult>();
+const cloudflarePurgeSingleFlight = new SingleFlight<
+  Awaited<ReturnType<typeof strictCloudflareHostnamePurge>>
+>();
 
 export type CacheInvalidationDrainResult =
   | { ok: true }
@@ -35,26 +47,34 @@ function targetIdentity(claim: CacheInvalidationClaim) {
   };
 }
 
-async function purgeVercelWithTimeout(
+function uniqueStable(values: readonly string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function purgeVercelWithTimeout(
   tags: readonly string[],
   timeoutMs: number,
   mode: 'delete' | 'invalidate' = 'delete'
 ) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
-    timer = setTimeout(
-      () => resolve({ ok: false, reason: 'timeout' }),
-      timeoutMs
-    );
+  const uniqueTags = uniqueStable(tags);
+  const key = `${mode}:${timeoutMs}:${[...uniqueTags].sort().join('|')}`;
+  return vercelPurgeSingleFlight.run(key, async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
+      timer = setTimeout(
+        () => resolve({ ok: false, reason: 'timeout' }),
+        timeoutMs
+      );
+    });
+    try {
+      return await Promise.race([
+        purgeVercelStorefrontPublicationCache(uniqueTags, { mode }),
+        timeout,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   });
-  try {
-    return await Promise.race([
-      purgeVercelStorefrontPublicationCache(tags, { mode }),
-      timeout,
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 /** Ordered cache propagation. A later stage is unreachable after any failure. */
@@ -147,5 +167,9 @@ export async function drainStorefrontCacheInvalidation(
   }
 
   if (identity.hostnames.length === 0) return { ok: true };
-  return strictCloudflareHostnamePurge(identity.hostnames);
+  const hostnames = uniqueStable(identity.hostnames);
+  const key = [...hostnames].sort().join('|');
+  return cloudflarePurgeSingleFlight.run(key, () =>
+    strictCloudflareHostnamePurge(hostnames)
+  );
 }

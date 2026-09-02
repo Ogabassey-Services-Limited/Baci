@@ -1723,8 +1723,7 @@ function getCategoryFallbackName(categorySlug: string): string {
  */
 export async function getCachedCategoryPageShellData(
   merchantId: string,
-  categorySlug: string,
-  _storeSlug: string
+  categorySlug: string
 ): Promise<CachedCategoryPageShellData> {
   'use cache';
   cacheLife('storefront-page');
@@ -1862,15 +1861,10 @@ export async function getCachedCategoryPageShellData(
 
 async function getCategoryPageShellData(
   merchantId: string,
-  categorySlug: string,
-  storeSlug: string
+  categorySlug: string
 ): Promise<CachedCategoryPageShellData> {
   try {
-    return await getCachedCategoryPageShellData(
-      merchantId,
-      categorySlug,
-      storeSlug
-    );
+    return await getCachedCategoryPageShellData(merchantId, categorySlug);
   } catch (error) {
     console.error('Category shell query error:', error);
     const fallbackName = getCategoryFallbackName(categorySlug);
@@ -2426,15 +2420,11 @@ const getCachedCategoryPageProducts = cache(
 export async function getCachedCategoryPageData(
   merchantId: string,
   categorySlug: string,
-  storeSlug: string,
+  _storeSlug: string,
   productOffset?: number,
   productLimit?: number
 ): Promise<CachedCategoryPageData> {
-  const shell = await getCategoryPageShellData(
-    merchantId,
-    categorySlug,
-    storeSlug
-  );
+  const shell = await getCategoryPageShellData(merchantId, categorySlug);
   const productResult = await getCachedCategoryPageProducts(
     merchantId,
     shell.productScope,

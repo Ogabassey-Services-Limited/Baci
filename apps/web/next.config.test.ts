@@ -638,4 +638,31 @@ describe('next.config OgaBassey resource headers', () => {
 
     expect(heroAssetHeaders).toBeUndefined();
   });
+
+  it('sets immutable caching only for Next hashed static assets', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    const assetRule = headers.find(
+      (entry) => entry.source === '/_next/static/:path*'
+    );
+
+    expect(assetRule?.headers).toContainEqual({
+      key: 'Cache-Control',
+      value: 'public, max-age=31536000, immutable',
+    });
+    expect(
+      headers.some(
+        (entry) =>
+          entry.source === '/api/:path*' &&
+          entry.headers.some((header) => header.key === 'Cache-Control')
+      )
+    ).toBe(false);
+    expect(
+      headers.some(
+        (entry) =>
+          entry.source === '/:path*' &&
+          entry.headers.some((header) => header.key === 'Cache-Control')
+      )
+    ).toBe(false);
+  });
 });

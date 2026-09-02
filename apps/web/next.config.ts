@@ -25,6 +25,7 @@ import {
 const HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN =
   '.*\\.(?:avif|css|eot|gif|ico|jpe?g|js|json|map|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$';
 const HTML_DOCUMENT_ROUTE_SOURCE = `/((?!api(?:/|$)|_next(?:/|$)|${HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN}).*)`;
+const IMMUTABLE_NEXT_STATIC_ASSET_SOURCE = '/_next/static/:path*';
 const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   'rsc',
@@ -661,6 +662,18 @@ const nextConfig: NextConfig = {
             // Exclude static/API paths, but allow dotted custom-domain rewrite
             // segments like /ogabassey.com/products to receive the HTML Vary.
             value: STOREFRONT_METADATA_VARY_HEADER_VALUE,
+          },
+        ],
+      },
+      {
+        // Next emits content-hashed build assets under this namespace. Keep
+        // this rule narrower than dotted-path matching so HTML/API/auth routes
+        // can never receive an immutable browser cache policy.
+        source: IMMUTABLE_NEXT_STATIC_ASSET_SOURCE,
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
