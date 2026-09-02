@@ -29,6 +29,18 @@ describe('wallet shipping hardening migrations', () => {
     expect(hardening).toContain(
       'provider_customer_code=EXCLUDED.provider_customer_code'
     );
+    expect(hardening).toContain(
+      'v_attestation public.shipping_quote_attestations%ROWTYPE'
+    );
+    expect(hardening).toContain(
+      "v_order.shipping_funding_source IS DISTINCT FROM 'merchant_wallet'"
+    );
+    expect(hardening).toContain(
+      'v_attestation.quote_request IS DISTINCT FROM v_quote.quote_request'
+    );
+    expect(hardening).toContain(
+      '(v_existing.id IS NULL AND v_quote.expires_at <= now())'
+    );
   });
   it('fails closed for every non-refunded charge status', () => {
     expect(hardening).toContain("c.status IS DISTINCT FROM 'refunded'");

@@ -25,6 +25,7 @@ describe('shouldReleaseBookingLock', () => {
     for (const code of [
       'QUOTE_REFRESH_PERSIST_FAILED',
       'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+      'MERCHANT_WALLET_INSUFFICIENT',
       'QUOTE_PRICE_CHANGED',
       'MERCHANT_LOOKUP_FAILED',
       'MERCHANT_ORIGIN_MISSING',
