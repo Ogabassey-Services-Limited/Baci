@@ -33,4 +33,14 @@ describe('active shipping charge quote replacement guard', () => {
       })
     ).toBe(false);
   });
+
+  it.each(['booked', 'unknown'])('fails closed for %s status', (status) => {
+    expect(
+      blocksShippingQuoteReplacement({
+        previousQuoteId: 'old',
+        nextQuoteId: 'new',
+        chargeStatuses: [status],
+      })
+    ).toBe(true);
+  });
 });
