@@ -28,7 +28,7 @@ describe('verified Paystack merchant-wallet assignment events', () => {
       (await persistMerchantWalletAssignmentEvent(supabase(), {})).kind
     ).toBe('review');
   });
-  it('reviews unknown source metadata', async () => {
+  it('ignores unknown source metadata', async () => {
     expect(
       (
         await persistMerchantWalletAssignmentEvent(
@@ -42,7 +42,7 @@ describe('verified Paystack merchant-wallet assignment events', () => {
           })
         )
       ).kind
-    ).toBe('review');
+    ).toBe('ignored');
   });
   it('reviews absent request correlation', async () => {
     expect(

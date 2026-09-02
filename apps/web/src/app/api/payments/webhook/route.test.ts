@@ -6441,6 +6441,33 @@ describe('POST /api/payments/webhook', () => {
       code: 'MERCHANT_WALLET_ASSIGNMENT_REVIEW',
     });
   });
+
+  it('acknowledges a signed assignment with unrelated metadata source', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'ignored',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'order_dva',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ message: 'Event ignored' });
+  });
 });
 
 describe('GET /api/payments/webhook', () => {

@@ -111,6 +111,17 @@ describe('verified merchant-wallet DVA credit', () => {
     });
     expect(s.rpc).not.toHaveBeenCalled();
   });
+  it('falls back to the current time when paid_at is invalid before alias checks', async () => {
+    const s = client([{ merchant_id: 'm' }]);
+    const before = Date.now();
+    await confirmPaystackMerchantWalletDva(
+      input(s, { paystackResponse: { paid_at: 'not-a-date' } })
+    );
+    const aliasCall = alias.mock.calls.at(-1)?.[0] as { asOf: Date };
+    expect(aliasCall.asOf).toBeInstanceOf(Date);
+    expect(aliasCall.asOf.getTime()).toBeGreaterThanOrEqual(before);
+    expect(Number.isNaN(aliasCall.asOf.getTime())).toBe(false);
+  });
   it('credits exact active account and returns balance', async () => {
     const s = client([{ merchant_id: 'm' }]);
     const result = await confirmPaystackMerchantWalletDva(input(s));
