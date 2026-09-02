@@ -95,4 +95,31 @@ describe('getTrackedCustomerCancellationProducts', () => {
     // Assert
     expect(result).toEqual([{ id: 'managed', slug: 'managed-phone' }]);
   });
+
+  it('preserves every candidate when the product policy read fails after restocking', async () => {
+    // Arrange
+    const supabase = createSupabase({
+      productResult: {
+        data: null,
+        error: { message: 'product query unavailable' },
+      },
+    });
+
+    // Act
+    const result = await getTrackedCustomerCancellationProducts({
+      merchantId: 'merchant-1',
+      orderItems: [
+        { product_id: 'managed', variant_id: 'variant-1' },
+        { product_id: 'serialized', variant_id: 'variant-2' },
+      ],
+      productIds: ['managed', 'serialized', 'managed'],
+      supabase,
+    });
+
+    // Assert
+    expect(result).toEqual([
+      { id: 'managed', slug: null },
+      { id: 'serialized', slug: null },
+    ]);
+  });
 });

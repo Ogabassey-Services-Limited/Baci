@@ -55,4 +55,18 @@ describe('getProductPriceRange inherited variant pricing', () => {
       hasRange: false,
     });
   });
+
+  it('does not advertise an inherited variant price when the managed parent is empty', () => {
+    const range = getProductPriceRange({
+      name: 'Galaxy S25',
+      has_variants: true,
+      price: 150000,
+      manage_stock: true,
+      stock: 0,
+      stock_quantity: 0,
+      variants: [{ price_override: null, stock_quantity: null }],
+    });
+
+    expect(range).toBeNull();
+  });
 });

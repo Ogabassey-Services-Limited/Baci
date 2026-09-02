@@ -51,7 +51,12 @@ export async function getTrackedCustomerCancellationProducts({
       merchantId,
       error,
     });
-    return [];
+    // The cancellation RPC has already committed the restock. Preserve every
+    // validated candidate so the caller still performs merchant-wide and
+    // article invalidation even when the follow-up policy projection is down.
+    return Array.from(
+      new Set(productIds.map((productId) => productId.trim()).filter(Boolean))
+    ).map((id) => ({ id, slug: null }));
   }
 
   const productsNeedingVariantLookup = new Set(

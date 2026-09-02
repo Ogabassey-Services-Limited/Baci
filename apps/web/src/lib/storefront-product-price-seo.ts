@@ -1,3 +1,4 @@
+import { getEffectiveStock } from './product-stock';
 import {
   appendCountryContext,
   getCountryShoppingContext,
@@ -94,9 +95,18 @@ function hasAdvertisableChildStock(
     return true;
   }
 
-  return stockQuantity === undefined || stockQuantity === null
-    ? true
-    : stockQuantity > 0;
+  if (stockQuantity === undefined) {
+    return true;
+  }
+
+  if (stockQuantity === null) {
+    const parentStock = product.stock_quantity ?? product.stock;
+    return parentStock === undefined || parentStock === null
+      ? true
+      : getEffectiveStock(product) > 0;
+  }
+
+  return stockQuantity > 0;
 }
 
 export function getProductPriceRange(

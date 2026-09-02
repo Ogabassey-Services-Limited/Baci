@@ -16,10 +16,6 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
 import { addStorefrontOrderLineOrdinals } from '@/lib/checkout/add-storefront-order-line-ordinals';
 import { buildTransactionDiscountAdTracking } from '@/lib/checkout/build-transaction-discount-ad-tracking';
 import {
@@ -37,6 +33,7 @@ import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airpo
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
 import { persistReplayedDeliveryMetadata } from '@/lib/checkout/persist-replayed-delivery-metadata';
+import { scheduleCheckoutProductBlogPurge } from '@/lib/checkout/schedule-checkout-product-blog-purge';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
 import {
@@ -57,7 +54,6 @@ import type {
   TaxSubtotal,
 } from '@/lib/invoice-generator';
 import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
-import { isInventoryTrackedProduct } from '@/lib/is-inventory-tracked-product';
 import { logger } from '@/lib/logger';
 import { dispatchOrderCreationNotifications } from '@/lib/order-notification-dispatch';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
@@ -81,7 +77,6 @@ import {
 } from '@/lib/receipt-pdf-generator';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   getMerchantShippingRates,
@@ -2988,151 +2983,13 @@ export async function POST(request: NextRequest) {
     // it is never gated on downstream success; guarded so it can't break checkout.
     if (!idempotencyReplayed) {
       try {
-        revalidateProducts(merchant_id);
-
-        // revalidateProducts() above busts only the merchant-wide/listing
-        // tags. The bounded PDP snapshot is tagged
-        // per-slug (getProductScopedCacheTag('product', merchantId, slug)),
-        // which a bare revalidateProducts(merchantId) does NOT bust, so the
-        // exact PDP a shopper is viewing could keep serving just-sold-out
-        // stock for the full ~300s 'products' cacheLife. orderItemsPayload
-        // carries product_id but not slug, so resolve slugs with one
-        // merchant-scoped, PK-indexed lookup and bust the per-slug PDP tags too.
-        const revalidateProductIds = Array.from(
-          new Set(
-            orderItemsPayload
-              .map((item) => item.product_id)
-              .filter((id): id is string => Boolean(id))
-          )
-        );
-        if (revalidateProductIds.length > 0) {
-          const { data: revalidateProductRows, error: revalidateSlugError } =
-            await supabase
-              .from('products')
-              .select('id, slug, manage_stock, inventory_tracking_policy')
-              .eq('merchant_id', merchant_id)
-              .in('id', revalidateProductIds)
-              .returns<
-                Array<{
-                  id: string;
-                  inventory_tracking_policy: string | null;
-                  manage_stock: boolean | null;
-                  slug: string;
-                }>
-              >();
-          if (revalidateSlugError) {
-            logger.error({
-              message:
-                'Failed to resolve product slugs for PDP cache revalidation',
-              error: revalidateSlugError,
-              orderId: order.id,
-              merchantId: merchant_id,
-            });
-          } else if (revalidateProductRows) {
-            revalidateProductSlugs(
-              merchant_id,
-              revalidateProductRows.map((row) => row.slug)
-            );
-          }
-          const resolvedProductRows = revalidateProductRows ?? [];
-          const resolvedProductIds = new Set(
-            resolvedProductRows.map((product) => product.id)
-          );
-          const productsNeedingVariantLookup = new Set(
-            resolvedProductRows
-              .filter((product) => !isInventoryTrackedProduct(product))
-              .map((product) => product.id)
-          );
-
-          const variantIds = Array.from(
-            new Set(
-              orderItemsPayload
-                .filter(
-                  (item) =>
-                    typeof item.product_id === 'string' &&
-                    productsNeedingVariantLookup.has(item.product_id)
-                )
-                .map((item) => item.variant_id)
-                .filter(
-                  (variantId): variantId is string =>
-                    typeof variantId === 'string' && variantId.length > 0
-                )
-            )
-          );
-          const serializedVariantProductIds = new Set<string>();
-          let variantPolicyLookupFailed = false;
-          if (variantIds.length > 0) {
-            const { data: variantRows, error: variantRowsError } =
-              await supabase
-                .from('product_variants')
-                .select('product_id, inventory_tracking_policy')
-                .eq('merchant_id', merchant_id)
-                .in('id', variantIds)
-                .returns<
-                  Array<{
-                    inventory_tracking_policy: string | null;
-                    product_id: string;
-                  }>
-                >();
-            if (variantRowsError) {
-              variantPolicyLookupFailed = true;
-              logger.error({
-                message:
-                  'Failed to resolve variant inventory policies after order creation',
-                error: variantRowsError,
-                orderId: order.id,
-                merchantId: merchant_id,
-              });
-            } else {
-              for (const variant of variantRows ?? []) {
-                if (
-                  isInventoryTrackedProduct(
-                    { id: variant.product_id, manage_stock: false },
-                    [variant]
-                  )
-                ) {
-                  serializedVariantProductIds.add(variant.product_id);
-                }
-              }
-            }
-          }
-
-          const trackedProductIds = resolvedProductRows
-            .filter((product) =>
-              isInventoryTrackedProduct(product, [
-                ...(serializedVariantProductIds.has(product.id)
-                  ? [
-                      {
-                        product_id: product.id,
-                        inventory_tracking_policy: 'serialized_strict',
-                      },
-                    ]
-                  : []),
-              ])
-            )
-            .map((product) => product.id);
-          const unresolvedProductIds = revalidateProductIds.filter(
-            (productId) =>
-              !resolvedProductIds.has(productId) ||
-              (variantPolicyLookupFailed &&
-                productsNeedingVariantLookup.has(productId))
-          );
-          const productIdsForBlogPurge = Array.from(
-            new Set([...trackedProductIds, ...unresolvedProductIds])
-          );
-
-          if (productIdsForBlogPurge.length > 0) {
-            // Article enrichment can require several paginated reads. Keep it
-            // on the request's post-response queue so checkout latency remains
-            // bounded by the order RPC and the existing PDP cache invalidation.
-            scheduleOrderProductBlogPurgeAfterResponse({
-              merchantId: merchant_id,
-              merchantSlug: merchant.slug,
-              productIds: productIdsForBlogPurge,
-              supabase,
-            });
-          }
-        }
+        await scheduleCheckoutProductBlogPurge({
+          merchantId: merchant_id,
+          merchantSlug: merchant.slug,
+          orderId: order.id,
+          orderItems: orderItemsPayload,
+          supabase,
+        });
       } catch (revalidateError) {
         logger.error({
           message: 'Failed to revalidate product caches after order creation',
