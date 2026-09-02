@@ -167,12 +167,12 @@ export async function persistMerchantWalletAssignmentEvent(
     typeof metadata.request_id === 'string' ? metadata.request_id : '';
   const merchantId =
     typeof metadata.merchant_id === 'string' ? metadata.merchant_id : '';
-  if (
-    metadata.source !== 'merchant_wallet_funding' ||
-    !requestId ||
-    !merchantId
-  )
-    return { kind: 'review' as const };
+  if (metadata.source !== 'merchant_wallet_funding') {
+    return 'source' in metadata
+      ? { kind: 'ignored' as const }
+      : { kind: 'review' as const };
+  }
+  if (!requestId || !merchantId) return { kind: 'review' as const };
   const account =
     data.dedicated_account && typeof data.dedicated_account === 'object'
       ? (data.dedicated_account as Record<string, unknown>)

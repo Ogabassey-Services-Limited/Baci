@@ -654,6 +654,9 @@ export async function POST(request: NextRequest) {
           handled: 'merchant_wallet_assignment',
         });
       }
+      if (assignment.kind === 'ignored') {
+        return NextResponse.json({ message: 'Event ignored' });
+      }
       return NextResponse.json(
         {
           error: 'Paystack assignment accepted for review',

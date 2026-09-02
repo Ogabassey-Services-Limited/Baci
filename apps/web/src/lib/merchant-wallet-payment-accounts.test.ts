@@ -139,13 +139,23 @@ describe('merchant wallet payment-account provisioning', () => {
   it.each([
     {},
     { data: {} },
-    { data: { metadata: { source: 'other' } } },
-    {
+  ])('reviews assignment metadata without an explicit source', async (payload) => {
+    expect(
+      (await persistMerchantWalletAssignmentEvent(client(), payload)).kind
+    ).toBe('review');
+  });
+  it('ignores assignment metadata from another source', async () => {
+    const payload = { data: { metadata: { source: 'other' } } };
+    expect(
+      (await persistMerchantWalletAssignmentEvent(client(), payload)).kind
+    ).toBe('ignored');
+  });
+  it('reviews wallet assignment metadata missing merchant correlation', async () => {
+    const payload = {
       data: {
         metadata: { source: 'merchant_wallet_funding', request_id: 'r' },
       },
-    },
-  ])('reviews malformed assignment metadata', async (payload) => {
+    };
     expect(
       (await persistMerchantWalletAssignmentEvent(client(), payload)).kind
     ).toBe('review');

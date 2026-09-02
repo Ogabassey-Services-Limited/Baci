@@ -43,9 +43,13 @@ export async function confirmPaystackMerchantWalletDva({
           },
         }
       : { kind: 'none' };
-  const paidAt =
+  const parsedPaidAt =
     typeof paystackResponse.paid_at === 'string'
       ? new Date(paystackResponse.paid_at)
+      : null;
+  const paidAt =
+    parsedPaidAt && !Number.isNaN(parsedPaidAt.getTime())
+      ? parsedPaidAt
       : new Date();
   if (
     await hasActivePaystackOrderDvaAlias({
