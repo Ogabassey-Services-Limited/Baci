@@ -53,6 +53,16 @@ export function isEligibleAdminGiglMerchant(merchant: {
   );
 }
 
+export function isAdminGiglEnabled(shippingProviders: unknown): boolean {
+  return (
+    Array.isArray(shippingProviders) &&
+    shippingProviders.some(
+      (provider) =>
+        typeof provider === 'string' && provider.trim().toLowerCase() === 'gigl'
+    )
+  );
+}
+
 const orderSelect =
   'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products(weight_value, weight_unit))';
 
@@ -158,6 +168,24 @@ export async function postAdminOrderGiglQuote(
       {
         error: 'GIGL quotes are available only for Nigerian NGN merchants',
         code: 'GIGL_MERCHANT_INELIGIBLE',
+      },
+      { status: 422 }
+    );
+  }
+  const { data: featureSettings, error: featureError } = await auth.supabase
+    .from('merchant_feature_settings')
+    .select('shipping_providers')
+    .eq('merchant_id', access.merchantId)
+    .maybeSingle();
+  if (
+    featureError ||
+    !featureSettings ||
+    !isAdminGiglEnabled(featureSettings.shipping_providers)
+  ) {
+    return NextResponse.json(
+      {
+        error: 'GIGL shipping is not enabled for this merchant',
+        code: 'GIGL_PROVIDER_DISABLED',
       },
       { status: 422 }
     );
