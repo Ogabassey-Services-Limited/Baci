@@ -1,6 +1,6 @@
-import { getAppUrl, getInternalApiSecret } from '@/env';
 import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
+import { getProductBlogCacheRuntimeConfig } from '@/lib/product-blog-cache-runtime-config';
 
 const DEFAULT_REMOTE_EXPIRY_TIMEOUT_MS = 5_000;
 
@@ -35,8 +35,9 @@ export async function expireProductBlogCacheReliable(
   let secret: string | undefined;
   let baseUrl: string | undefined;
   try {
-    secret = options.secret ?? getInternalApiSecret();
-    baseUrl = options.baseUrl ?? process.env.BACI_WEB_BASE_URL ?? getAppUrl();
+    const runtimeConfig = getProductBlogCacheRuntimeConfig();
+    secret = options.secret ?? runtimeConfig.secret;
+    baseUrl = options.baseUrl ?? runtimeConfig.baseUrl;
   } catch {
     return false;
   }
