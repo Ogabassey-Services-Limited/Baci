@@ -18,8 +18,10 @@ const indexes = readFileSync(
 );
 
 describe('wallet shipping hardening migrations', () => {
-  it('uses distinct reserve return variables and preserves latest account assignment fields', () => {
-    expect(hardening).toContain(
+  it('uses an unambiguous reserve result row and preserves latest account assignment fields', () => {
+    expect(hardening).toContain('RETURNING * INTO v_new_charge');
+    expect(hardening).toContain('v_new_charge.status');
+    expect(hardening).not.toContain(
       'RETURNING id,status INTO v_charge_id,v_charge_status'
     );
     expect(hardening).toContain('request_id=EXCLUDED.request_id');
@@ -41,6 +43,11 @@ describe('wallet shipping hardening migrations', () => {
     expect(hardening).toContain(
       '(v_existing.id IS NULL AND v_quote.expires_at <= now())'
     );
+    expect(
+      hardening.indexOf(
+        'v_attestation.quote_request IS DISTINCT FROM v_quote.quote_request'
+      )
+    ).toBeLessThan(hardening.indexOf('IF v_existing.id IS NOT NULL THEN'));
   });
   it('fails closed for every non-refunded charge status', () => {
     expect(hardening).toContain("c.status IS DISTINCT FROM 'refunded'");
