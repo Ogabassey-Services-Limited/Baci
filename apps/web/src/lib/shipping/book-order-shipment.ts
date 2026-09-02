@@ -285,7 +285,6 @@ export async function bookOrderShipment(
       trackingNumber: result.trackingNumber,
     });
   }
-
   return {
     shipmentId: typedShipment.id,
     provider: result.provider,
