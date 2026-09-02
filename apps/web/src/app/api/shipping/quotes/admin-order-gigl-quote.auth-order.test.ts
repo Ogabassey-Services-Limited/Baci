@@ -118,6 +118,26 @@ describe('Admin GIGL edge auth and order validation', () => {
     );
   });
 
+  it('disambiguates the order-item product relationship in the order query', async () => {
+    const { admin, order } = setup();
+    order.select.mockImplementation((selection: string) => {
+      if (!selection.includes('product:products!order_items_product_id_fkey')) {
+        order.maybeSingle.mockResolvedValueOnce({
+          data: null,
+          error: { message: 'PGRST201 ambiguous relationship' },
+        });
+      }
+      return order;
+    });
+    const response = await subject({ receiver });
+    expect(response.status).toBe(200);
+    expect(admin.from('orders').select).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'product:products!order_items_product_id_fkey(weight_value, weight_unit)'
+      )
+    );
+  });
+
   it('returns 404 when the order does not exist', async () => {
     setup({ order: null });
     const response = await subject({ receiver });

@@ -15,6 +15,7 @@ import {
 import type { ShipmentBookingResult } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import { bookingSuccessResponse } from './booking-success-response';
 import { executeDirectBookingAttempt } from './execute-direct-booking-attempt';
 import { persistBookedShipment } from './persist-booked-shipment';
 import { prepareDirectBookingAttempt } from './prepare-direct-booking-attempt';
@@ -22,27 +23,6 @@ import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
-
-function bookingSuccessResponse(
-  shipmentId: string,
-  result: ShipmentBookingResult
-) {
-  return NextResponse.json(
-    {
-      success: true,
-      shipment: {
-        id: shipmentId,
-        trackingNumber: result.trackingNumber,
-        providerShipmentId: result.providerShipmentId,
-        carrier: result.carrierName,
-        status: result.status,
-        pickupScheduledAt: result.pickupScheduledAt,
-        labelUrl: result.labelUrl,
-      },
-    },
-    { status: 201 }
-  );
-}
 
 export async function POST(request: NextRequest) {
   let bookingLockToken: string | null = null;

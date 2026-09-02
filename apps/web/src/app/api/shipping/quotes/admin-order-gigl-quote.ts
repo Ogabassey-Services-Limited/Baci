@@ -44,7 +44,7 @@ export function calculateAdminWalletFunding(price: number, balance: number) {
 }
 
 const orderSelect =
-  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products(weight_value, weight_unit))';
+  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit))';
 
 function publicQuote(quote: ShippingQuote) {
   return toPublicQuoteResponse({
