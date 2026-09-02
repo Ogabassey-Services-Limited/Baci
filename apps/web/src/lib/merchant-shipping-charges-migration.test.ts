@@ -5,6 +5,10 @@ const sql = readFileSync(
   `${process.cwd()}/../../supabase/migrations/20260901192000_add_merchant_shipping_charges.sql`,
   'utf8'
 );
+const completionSql = readFileSync(
+  `${process.cwd()}/../../supabase/migrations/20260901203000_harden_shipping_charge_completion.sql`,
+  'utf8'
+);
 
 describe('merchant shipping charge migration contract', () => {
   const ownerFunctions = [
@@ -114,5 +118,67 @@ describe('merchant shipping charge migration contract', () => {
     expect(refund.indexOf('attempt_token_digest <>')).toBeLessThan(
       refund.indexOf("status='refunded'")
     );
+  });
+
+  it('requires a same-order, same-merchant GIGL shipment before completion', () => {
+    expect(completionSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.complete_merchant_shipping_charge'
+    );
+    for (const expression of [
+      'm.id = msc.merchant_id',
+      'm.user_id = auth.uid()',
+      'msc.attempt_token_digest = v_digest',
+      "IF v_charge.status = 'provider_submitting' THEN",
+      's.merchant_id = v_charge.merchant_id',
+      's.order_id = v_charge.order_id',
+      "s.provider = 'GIGL'",
+      "RAISE EXCEPTION 'shipment_binding_mismatch'",
+    ]) {
+      expect(completionSql).toContain(expression);
+    }
+    expect(
+      completionSql.indexOf("RAISE EXCEPTION 'shipment_binding_mismatch'")
+    ).toBeLessThan(completionSql.indexOf("SET status = 'booked'"));
+  });
+
+  it('models completion rejection for an unrelated shipment', () => {
+    const charge = { merchantId: 'merchant-a', orderId: 'order-a' };
+    const shipmentMatches = (shipment: {
+      merchantId: string;
+      orderId: string;
+      provider: string;
+    }) =>
+      shipment.merchantId === charge.merchantId &&
+      shipment.orderId === charge.orderId &&
+      shipment.provider === 'GIGL';
+
+    expect(
+      shipmentMatches({
+        merchantId: 'merchant-b',
+        orderId: 'order-a',
+        provider: 'GIGL',
+      })
+    ).toBe(false);
+    expect(
+      shipmentMatches({
+        merchantId: 'merchant-a',
+        orderId: 'order-b',
+        provider: 'GIGL',
+      })
+    ).toBe(false);
+    expect(
+      shipmentMatches({
+        merchantId: 'merchant-a',
+        orderId: 'order-a',
+        provider: 'TOPSHIP',
+      })
+    ).toBe(false);
+    expect(
+      shipmentMatches({
+        merchantId: 'merchant-a',
+        orderId: 'order-a',
+        provider: 'GIGL',
+      })
+    ).toBe(true);
   });
 });

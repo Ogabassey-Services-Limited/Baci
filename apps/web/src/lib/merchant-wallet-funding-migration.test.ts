@@ -9,6 +9,13 @@ const sql = readFileSync(
   ),
   'utf8'
 );
+const hardeningSql = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260901203000_harden_shipping_charge_completion.sql'
+  ),
+  'utf8'
+);
 describe('merchant wallet funding migration contract', () => {
   it('defines protected request and account tables', () => {
     expect(sql).toMatch(/merchant_wallet_funding_account_requests/);
@@ -82,6 +89,31 @@ describe('merchant wallet funding migration contract', () => {
     );
     expect(sql).not.toMatch(
       /REVOKE ALL ON FUNCTION public\.fail_merchant_wallet_funding_request\(uuid\)/
+    );
+  });
+
+  it('allows authenticated request inserts only for pending owner rows', () => {
+    expect(hardeningSql).toContain(
+      'DROP POLICY IF EXISTS merchant_wallet_request_owner_insert'
+    );
+    expect(hardeningSql).toContain(
+      "FOR INSERT TO authenticated\n  WITH CHECK (\n    status = 'pending'"
+    );
+    expect(hardeningSql).toContain(
+      'm.id = merchant_wallet_funding_account_requests.merchant_id'
+    );
+    expect(hardeningSql).toContain('m.user_id = auth.uid()');
+  });
+
+  it('revokes request updates/deletes and grants only select/insert', () => {
+    expect(hardeningSql).toContain(
+      'REVOKE ALL ON TABLE public.merchant_wallet_funding_account_requests FROM anon, authenticated;'
+    );
+    expect(hardeningSql).toContain(
+      'GRANT SELECT, INSERT ON TABLE public.merchant_wallet_funding_account_requests TO authenticated;'
+    );
+    expect(hardeningSql).not.toMatch(
+      /GRANT\s+(?:UPDATE|DELETE|ALL).*merchant_wallet_funding_account_requests.*authenticated/is
     );
   });
 });
