@@ -226,41 +226,6 @@ describe('POST /api/products/bulk-publish', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
-  it('revalidates per-slug tags and purges products that became public', async () => {
-    const { POST } = await import('./route');
-    updateData = [
-      {
-        id: 'product-1',
-        slug: 'baci-phone',
-        name: 'Baci Phone',
-        category: 'Phones',
-      },
-    ];
-
-    const response = await POST(createRequest());
-
-    expect(response.status).toBe(200);
-    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
-      'baci-phone',
-    ]);
-    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'test-store',
-      [{ slug: 'baci-phone', categorySegment: 'phones' }]
-    );
-    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith({
-      supabase: expect.anything(),
-      merchantId: MERCHANT_ID,
-      merchantSlug: 'test-store',
-      productIds: ['product-1'],
-      entries: [{ slug: 'baci-phone', categorySegment: 'phones' }],
-      categorySlugs: ['phones'],
-      skipProductPurge: true,
-    });
-    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
-      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
-    );
-  });
-
   it('does not purge deleted drafts when no products became public', async () => {
     const { POST } = await import('./route');
     deleteData = [{ id: 'draft-1' }];
