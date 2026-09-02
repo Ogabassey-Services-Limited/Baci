@@ -40,6 +40,7 @@ function renderCard(
   const props: React.ComponentProps<typeof JumiaConnectionCard> = {
     integrations: [integration],
     merchantId: 'merchant-1',
+    canManageIntegrations: true,
     onConnect: vi.fn(),
     onAddProducts: vi.fn(),
     onCheckApprovals: vi.fn(),
@@ -104,5 +105,40 @@ describe('JumiaConnectionCard', () => {
     expect(
       screen.getByRole('button', { name: /add products/i })
     ).toBeDisabled();
+  });
+
+  it('hides mutation controls for view-only staff', () => {
+    renderCard({ canManageIntegrations: false });
+
+    expect(
+      screen.queryByRole('button', { name: /add products/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /check approvals/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /sync orders/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /sync stock/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /disconnect jumia/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /view orders/i })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=jumia&integrationId=integration-1'
+    );
+  });
+
+  it('scopes the quick Jumia orders link to its only integration', () => {
+    renderCard();
+
+    expect(
+      screen.getByRole('link', { name: /view jumia orders/i })
+    ).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=jumia&integrationId=integration-1'
+    );
   });
 });

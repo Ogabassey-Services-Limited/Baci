@@ -29,6 +29,7 @@ import type { JumiaIntegration } from './use-jumia-integrations';
 type JumiaConnectionCardProps = {
   integrations: JumiaIntegration[];
   merchantId?: string;
+  canManageIntegrations: boolean;
   onConnect: () => void;
   onAddProducts: (integrationId: string) => void;
   onCheckApprovals: (integrationId: string) => void;
@@ -51,6 +52,7 @@ function formatLastSync(dateString: string | null) {
 export function JumiaConnectionCard({
   integrations,
   merchantId,
+  canManageIntegrations,
   onConnect,
   onAddProducts,
   onCheckApprovals,
@@ -84,7 +86,9 @@ export function JumiaConnectionCard({
           </div>
 
           {integrations.length === 0 ? (
-            <Button onClick={onConnect}>Connect</Button>
+            canManageIntegrations ? (
+              <Button onClick={onConnect}>Connect</Button>
+            ) : null
           ) : (
             <div className="flex items-center gap-2">
               <Badge
@@ -93,10 +97,12 @@ export function JumiaConnectionCard({
               >
                 Connected
               </Badge>
-              <Button variant="outline" size="sm" onClick={onConnect}>
-                <Plus className="size-4" />
-                Add shop
-              </Button>
+              {canManageIntegrations && (
+                <Button variant="outline" size="sm" onClick={onConnect}>
+                  <Plus className="size-4" />
+                  Add shop
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -131,90 +137,106 @@ export function JumiaConnectionCard({
               </div>
 
               <div className="flex flex-wrap gap-2 sm:justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!merchantId}
-                  onClick={() => onAddProducts(integration.id)}
-                >
-                  <Plus className="size-4" />
-                  <span className="ml-1.5">Add Products</span>
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/dashboard/orders?source=jumia&integrationId=${encodeURIComponent(integration.id)}`}
+                  >
+                    <Package className="size-4" />
+                    <span className="ml-1.5">View orders</span>
+                  </Link>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onCheckApprovals(integration.id)}
-                  disabled={approvalCheckingIds.has(integration.id)}
-                >
-                  {approvalCheckingIds.has(integration.id) ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  <span className="ml-1.5">
-                    {approvalCheckingIds.has(integration.id)
-                      ? 'Checking approvals'
-                      : 'Check approvals'}
-                  </span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onSyncOrders(integration.id)}
-                  disabled={syncingIds.has(integration.id)}
-                >
-                  {syncingIds.has(integration.id) ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  <span className="ml-1.5">
-                    {syncingIds.has(integration.id)
-                      ? 'Syncing Orders'
-                      : 'Sync Orders'}
-                  </span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onSyncStock(integration.id)}
-                  disabled={stockSyncingIds.has(integration.id)}
-                >
-                  {stockSyncingIds.has(integration.id) ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ArrowUpDown className="size-4" />
-                  )}
-                  <span className="ml-1.5">
-                    {stockSyncingIds.has(integration.id)
-                      ? 'Syncing Stock'
-                      : 'Sync Stock'}
-                  </span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => onDisconnect(integration.id)}
-                >
-                  <Unlink className="size-4" />
-                  <span>Disconnect Jumia</span>
-                  <span className="sr-only">
-                    {' '}
-                    for {integration.shop_name || 'shop'}
-                  </span>
-                </Button>
+                {canManageIntegrations && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!merchantId}
+                      onClick={() => onAddProducts(integration.id)}
+                    >
+                      <Plus className="size-4" />
+                      <span className="ml-1.5">Add Products</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onCheckApprovals(integration.id)}
+                      disabled={approvalCheckingIds.has(integration.id)}
+                    >
+                      {approvalCheckingIds.has(integration.id) ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      <span className="ml-1.5">
+                        {approvalCheckingIds.has(integration.id)
+                          ? 'Checking approvals'
+                          : 'Check approvals'}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onSyncOrders(integration.id)}
+                      disabled={syncingIds.has(integration.id)}
+                    >
+                      {syncingIds.has(integration.id) ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      <span className="ml-1.5">
+                        {syncingIds.has(integration.id)
+                          ? 'Syncing Orders'
+                          : 'Sync Orders'}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onSyncStock(integration.id)}
+                      disabled={stockSyncingIds.has(integration.id)}
+                    >
+                      {stockSyncingIds.has(integration.id) ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <ArrowUpDown className="size-4" />
+                      )}
+                      <span className="ml-1.5">
+                        {stockSyncingIds.has(integration.id)
+                          ? 'Syncing Stock'
+                          : 'Sync Stock'}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => onDisconnect(integration.id)}
+                    >
+                      <Unlink className="size-4" />
+                      <span>Disconnect Jumia</span>
+                      <span className="sr-only">
+                        {' '}
+                        for {integration.shop_name || 'shop'}
+                      </span>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           ))}
 
           <div className="pt-4 border-t flex gap-3">
-            <Button variant="outline" className="flex-1" asChild>
-              <Link href="/dashboard/orders?source=jumia">
-                <Package className="size-4 mr-2" />
-                View Jumia Orders
-              </Link>
-            </Button>
+            {integrations.length === 1 && (
+              <Button variant="outline" className="flex-1" asChild>
+                <Link
+                  href={`/dashboard/orders?source=jumia&integrationId=${encodeURIComponent(integrations[0].id)}`}
+                >
+                  <Package className="size-4 mr-2" />
+                  View Jumia Orders
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" className="flex-1" asChild>
               <a
                 href="https://vendorcenter.jumia.com"

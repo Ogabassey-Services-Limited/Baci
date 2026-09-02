@@ -96,16 +96,14 @@ export async function reserveJumiaExportMappings(args: ReserveArgs): Promise<
     };
   }
 
-  const blockedSkus = new Set(
-    (existingMappings ?? [])
-      .filter((mapping) => mapping.sync_status !== 'error')
-      .map((mapping) => mapping.jumia_sku)
-  );
-  const exportVariations = args.exportVariations.filter(
-    (variation) => !blockedSkus.has(variation.sellerSku)
+  const hasExistingMapping = (existingMappings ?? []).some(
+    (mapping) => mapping.sync_status !== 'error'
   );
 
-  if (exportVariations.length === 0) {
+  // Product creation is a top-level feed, not a variation update. If any
+  // variation already has a non-error mapping, retrying only the rejected
+  // variations could create a duplicate Jumia product.
+  if (hasExistingMapping) {
     return {
       ok: false,
       status: 409,
@@ -114,6 +112,8 @@ export async function reserveJumiaExportMappings(args: ReserveArgs): Promise<
       code: 'jumia_mapping_exists',
     };
   }
+
+  const exportVariations = args.exportVariations;
 
   const variantIdsBySku = new Map(args.variantIdsBySku);
   // Clear every failed mapping for this product/integration scope so removed

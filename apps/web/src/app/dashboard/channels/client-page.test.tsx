@@ -16,6 +16,7 @@ vi.mock('@/hooks/use-toast', () => ({
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'merchant-1' },
+    hasPermission: vi.fn(() => true),
   })),
 }));
 
@@ -285,8 +286,14 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       expect(
-        screen.getByRole('link', { name: /view jumia orders/i })
-      ).toHaveAttribute('href', '/dashboard/orders?source=jumia');
+        screen.getAllByRole('link', { name: /view orders/i })
+      ).toHaveLength(2);
+      expect(
+        screen.getAllByRole('link', { name: /view orders/i })[0]
+      ).toHaveAttribute(
+        'href',
+        '/dashboard/orders?source=jumia&integrationId=int-1'
+      );
       expect(
         screen.getByRole('link', { name: /vendor center/i })
       ).toHaveAttribute('href', 'https://vendorcenter.jumia.com');

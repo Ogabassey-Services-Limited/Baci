@@ -162,7 +162,7 @@ describe('reserveJumiaExportMappings', () => {
     });
   });
 
-  it('retries only variants whose previous export was rejected', async () => {
+  it('blocks a partial variant retry instead of creating a duplicate product', async () => {
     const { from, insert } = buildSupabase({
       existingMappings: [{ jumia_sku: 'SKU-1', sync_status: 'synced' }],
     });
@@ -180,13 +180,14 @@ describe('reserveJumiaExportMappings', () => {
       supabase: { from } as never,
     });
 
-    expect(result).toMatchObject({
-      ok: true,
-      exportVariations: [{ sellerSku: 'SKU-2', price: 1600, currency: 'NGN' }],
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error:
+        'This product is already mapped to Jumia for this integration. Update the existing listing instead.',
+      code: 'jumia_mapping_exists',
     });
-    expect(insert).toHaveBeenCalledWith([
-      expect.objectContaining({ jumia_sku: 'SKU-2', sync_status: 'pending' }),
-    ]);
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it('returns a server failure when the linked-product lookup fails', async () => {

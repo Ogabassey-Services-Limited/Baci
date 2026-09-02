@@ -29,7 +29,10 @@ const {
     .fn()
     .mockImplementation((_column: string, values: unknown[]) =>
       Promise.resolve({
-        data: values.map((_, index) => ({ id: `mapping-${index}` })),
+        data: values.map((_, index) => ({
+          id: `mapping-${index}`,
+          sync_status: 'error',
+        })),
         error: null,
       })
     );
@@ -252,7 +255,10 @@ describe('Products Export POST', () => {
     mockInsert.mockResolvedValue({ error: null });
     mockMappingIn.mockImplementation((_column: string, values: unknown[]) =>
       Promise.resolve({
-        data: values.map((_, index) => ({ id: `mapping-${index}` })),
+        data: values.map((_, index) => ({
+          id: `mapping-${index}`,
+          sync_status: 'error',
+        })),
         error: null,
       })
     );

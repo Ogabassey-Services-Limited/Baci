@@ -53,6 +53,8 @@ export default function ChannelsClientPage() {
   const { toast } = useToast();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+  const canManageIntegrations =
+    merchantContext?.hasPermission?.('integrations', 'manage') ?? false;
   const {
     integrations,
     setIntegrations,
@@ -189,6 +191,7 @@ export default function ChannelsClientPage() {
       <JumiaConnectionCard
         integrations={integrations}
         merchantId={merchant?.id}
+        canManageIntegrations={canManageIntegrations}
         onConnect={() => setShowConnectModal(true)}
         onAddProducts={setPublishIntegrationId}
         onCheckApprovals={handleCheckApprovals}
