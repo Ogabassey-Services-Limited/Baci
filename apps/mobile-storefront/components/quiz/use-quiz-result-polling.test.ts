@@ -5,28 +5,17 @@ import { fetchQuizResult } from '@/services/quiz-results';
 import { useQuizResultPolling } from './use-quiz-result-polling';
 
 const mockQuizResultsWakeup = { current: null as (() => void) | null };
-const mockRemoveChannel = jest.fn();
 
-jest.mock('@/lib/supabase', () => {
-  const channel = {
-    on: jest.fn(
-      (
-        type: string,
-        config: { event?: string },
-        callback: (() => void) | undefined
-      ) => {
-        if (type === 'broadcast' && config.event === 'quiz_results_ready') {
-          mockQuizResultsWakeup.current = callback ?? null;
-        }
-        return channel;
-      }
-    ),
-    subscribe: jest.fn(() => channel),
-  };
+jest.mock('./use-quiz-result-realtime-wakeup', () => {
   return {
-    supabase: {
-      channel: jest.fn(() => channel),
-      removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
+    useQuizResultRealtimeWakeup: ({
+      enabled,
+      onWakeup,
+    }: {
+      enabled: boolean;
+      onWakeup: () => void;
+    }) => {
+      mockQuizResultsWakeup.current = enabled ? onWakeup : null;
     },
   };
 });
@@ -214,9 +203,7 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      jest.advanceTimersByTime(1);
-      await Promise.resolve();
-      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(1);
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
 
@@ -227,9 +214,7 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      jest.advanceTimersByTime(1);
-      await Promise.resolve();
-      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(1);
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(3);
   });

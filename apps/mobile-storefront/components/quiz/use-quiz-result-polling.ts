@@ -151,5 +151,5 @@ export function useQuizResultPolling({
       if (timeoutId) clearTimeout(timeoutId);
       subscription.remove();
     };
-  }, [attemptId, enabled, eventId, expectedUserId, onResult]);
+  }, [attemptId, enabled, expectedUserId, onResult]);
 }
