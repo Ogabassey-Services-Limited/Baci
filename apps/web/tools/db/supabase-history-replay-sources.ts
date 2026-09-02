@@ -4,6 +4,7 @@ import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pe
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
 import { INVENTORY_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-inventory-pending-sources';
+import { JUMIA_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-jumia-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
 import { PRODUCTION_MAPPINGS } from './supabase-history-replay-production-mappings';
 import { SEARCH_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-search-pending-sources';
@@ -262,6 +263,7 @@ const PENDING_SOURCES = [
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
   FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
   INVENTORY_PENDING_REPLAY_SOURCE_ROWS,
+  JUMIA_PENDING_REPLAY_SOURCE_ROWS,
   NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
   SEARCH_PENDING_REPLAY_SOURCE_ROWS,
 ]

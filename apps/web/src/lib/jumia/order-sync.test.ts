@@ -74,6 +74,8 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
             id: 'integration-1',
             merchant_id: 'merchant-1',
             shop_id: 'shop-1',
+            connection_method: 'self_authorization',
+            jumia_authorization_id: 'authorization-1',
             last_sync_at: '2026-04-25T07:00:00.000Z',
             sync_config: { orders: true },
           },

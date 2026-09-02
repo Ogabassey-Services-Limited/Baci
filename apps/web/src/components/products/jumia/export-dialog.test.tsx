@@ -162,6 +162,7 @@ describe('ExportToJumiaDialog', () => {
     expect(body).toEqual(
       expect.objectContaining({
         integrationId: 'int-1',
+        productId: 'prod-1',
         name: 'Test Product',
         category: expect.objectContaining({ code: 42 }),
         brand: expect.objectContaining({ code: 99, name: 'TestBrand' }),

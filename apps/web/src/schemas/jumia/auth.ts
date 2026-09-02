@@ -21,10 +21,19 @@ export const JumiaTokenResponseSchema = z.object({
   token_type: z.string().trim().min(1),
 });
 
+export const JumiaSelfAuthorizationTokenResponseSchema =
+  JumiaTokenResponseSchema.extend({
+    refresh_token: z.string().trim().min(1),
+    refresh_expires_in: numericOrString,
+  });
+
 export const JumiaTokenErrorSchema = z.object({
   error: z.string().trim().min(1),
   error_description: z.string().trim().min(1),
 });
 
 export type JumiaTokenResponse = z.infer<typeof JumiaTokenResponseSchema>;
+export type JumiaSelfAuthorizationTokenResponse = z.infer<
+  typeof JumiaSelfAuthorizationTokenResponseSchema
+>;
 export type JumiaTokenError = z.infer<typeof JumiaTokenErrorSchema>;

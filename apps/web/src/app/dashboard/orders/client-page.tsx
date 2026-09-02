@@ -33,6 +33,7 @@ import { OrdersFiltersBar } from './orders-filters-bar';
 import { OrdersListCard } from './orders-list-card';
 import { OrdersStatsCards } from './orders-stats-cards';
 import { OrdersUrgentAlert } from './orders-urgent-alert';
+import { resolveJumiaIntegrationId } from './resolve-jumia-integration-id';
 
 const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 function getCurrencyFormatter(
@@ -105,6 +106,7 @@ export default function OrdersClientPage({
   const sourceFilter = parseAgenticOrderSourceFilter(
     searchParams.get('source')
   );
+  const requestedJumiaIntegrationId = searchParams.get('integrationId');
   const isHydrated = useRef(false);
   const merchantId = merchant?.id ?? null;
   const [prevMerchantId, setPrevMerchantId] = useState<
@@ -165,18 +167,8 @@ export default function OrdersClientPage({
     return () => controller.abort();
   }, [merchantId]);
 
-  /** Resolve the correct integration ID for a given order.
-   *  With a single integration, return it directly.
-   *  With multiple, return the first match — callers should prompt the user
-   *  when null is returned.
-   */
-  const getIntegrationIdForOrder = (_order: Order): string | null => {
-    if (jumiaIntegrations.length === 1) return jumiaIntegrations[0].id;
-    // Multiple integrations: without a per-order integration_id field,
-    // we cannot auto-resolve. Return null to signal the caller.
-    if (jumiaIntegrations.length > 1) return null;
-    return null;
-  };
+  const getIntegrationIdForOrder = (_order: Order): string | null =>
+    resolveJumiaIntegrationId(jumiaIntegrations, requestedJumiaIntegrationId);
 
   useEffect(() => {
     if (

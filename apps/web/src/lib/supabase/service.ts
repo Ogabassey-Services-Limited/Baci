@@ -8,6 +8,9 @@ const serviceRoleClientBrand: unique symbol = Symbol(
 const adsCredentialsClientBrand: unique symbol = Symbol(
   'baci.ads-credentials.service-role-client'
 );
+const jumiaCredentialsClientBrand: unique symbol = Symbol(
+  'baci.jumia-credentials.service-role-client'
+);
 const serviceRoleBrandValue: true = true;
 
 export type ServiceRoleClient = SupabaseClient<Database> & {
@@ -27,6 +30,17 @@ export type AdsCredentialServiceClient = SupabaseClient<Database> & {
 };
 
 /**
+ * A service-role client reserved for the server-only Jumia credential RPC.
+ *
+ * Keep this type distinct from the other privileged clients so Jumia
+ * ciphertext reads cannot accidentally flow through an unrelated worker or
+ * admin boundary.
+ */
+export type JumiaCredentialServiceClient = SupabaseClient<Database> & {
+  readonly [jumiaCredentialsClientBrand]: true;
+};
+
+/**
  * Creates a Supabase client with service role key for admin operations.
  * This client bypasses RLS policies and should only be used in:
  * - Webhook handlers (no user context)
@@ -41,9 +55,12 @@ export function createServiceClient(
 export function createServiceClient(
   sentinel: 'ads-credentials'
 ): AdsCredentialServiceClient;
+export function createServiceClient(
+  sentinel: 'jumia-credentials'
+): JumiaCredentialServiceClient;
 export function createServiceClient(): SupabaseClient;
 export function createServiceClient(
-  sentinel?: 'event-pipeline' | 'ads-credentials'
+  sentinel?: 'event-pipeline' | 'ads-credentials' | 'jumia-credentials'
 ) {
   const url = getSupabaseUrl();
   // `SUPABASE_ADS_CREDENTIAL_KEY` is the preferred deployment secret for the
@@ -54,7 +71,9 @@ export function createServiceClient(
     sentinel === 'ads-credentials'
       ? process.env.SUPABASE_ADS_CREDENTIAL_KEY ||
         process.env.SUPABASE_SERVICE_ROLE_KEY
-      : process.env.SUPABASE_SERVICE_ROLE_KEY;
+      : sentinel === 'jumia-credentials'
+        ? process.env.SUPABASE_JUMIA_CREDENTIAL_KEY
+        : process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {
     throw new Error(
@@ -66,7 +85,9 @@ export function createServiceClient(
     throw new Error(
       sentinel === 'ads-credentials'
         ? 'SUPABASE_ADS_CREDENTIAL_KEY or SUPABASE_SERVICE_ROLE_KEY is missing. This is required for Ads credential handlers.'
-        : 'SUPABASE_SERVICE_ROLE_KEY is missing. This is required for webhook handlers.'
+        : sentinel === 'jumia-credentials'
+          ? 'SUPABASE_JUMIA_CREDENTIAL_KEY is missing. This is required for Jumia credential handlers.'
+          : 'SUPABASE_SERVICE_ROLE_KEY is missing. This is required for webhook handlers.'
     );
   }
 
@@ -85,6 +106,11 @@ export function createServiceClient(
   if (sentinel === 'ads-credentials') {
     return Object.assign(createClient<Database>(url, serviceRoleKey, options), {
       [adsCredentialsClientBrand]: serviceRoleBrandValue,
+    });
+  }
+  if (sentinel === 'jumia-credentials') {
+    return Object.assign(createClient<Database>(url, serviceRoleKey, options), {
+      [jumiaCredentialsClientBrand]: serviceRoleBrandValue,
     });
   }
   return createClient(url, serviceRoleKey, options);

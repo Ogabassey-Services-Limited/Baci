@@ -18,17 +18,22 @@ const mockProductsIn = vi.fn();
 const mockMappingUpdate = vi.fn();
 
 const mockMappingUpsert = vi.fn().mockResolvedValue({ error: null });
+const mappingFilters: Array<{ field: string; value: unknown }> = [];
 
 const mockSupabase = {
   auth: { getUser: mockGetUser },
   from: vi.fn((table: string) => {
     if (table === 'jumia_product_mappings') {
+      const makeEqChain = (remaining: number) => ({
+        eq: (field: string, value: unknown) => {
+          mappingFilters.push({ field, value });
+          return remaining === 1
+            ? mockMappingsSelect()
+            : makeEqChain(remaining - 1);
+        },
+      });
       return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({ eq: () => mockMappingsSelect() }),
-          }),
-        }),
+        select: () => makeEqChain(4),
         update: (...args: unknown[]) => ({
           eq: () => mockMappingUpdate(...args),
         }),
@@ -113,7 +118,12 @@ const { POST } = await import('./route');
 describe('POST /api/marketplace/jumia/products/stock', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mappingFilters.length = 0;
     mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -172,7 +182,6 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('returns success with updated: 0 when no mappings exist', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
     mockMappingsSelect.mockResolvedValue({ data: [], error: null });
 
     const res = await POST(makeRequest(INT_ID));
@@ -180,11 +189,13 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.updated).toBe(0);
+    expect(mappingFilters).toEqual(
+      expect.arrayContaining([{ field: 'marketplace_key', value: 'default' }])
+    );
   });
 
   it('returns 500 with generic message when mappings query fails', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
     mockMappingsSelect.mockResolvedValue({
       data: null,
       error: { message: 'DB connection lost' },
@@ -200,7 +211,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('pushes stock update when stock has changed (product-only mapping)', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
@@ -244,7 +258,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('uses stock_quantity over legacy stock when both present', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
@@ -278,7 +295,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('skips when stock has not changed', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
@@ -306,7 +326,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('skips mappings with missing seller SKU', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
@@ -330,7 +353,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('pushes stock update for variant-level mapping', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
@@ -365,7 +391,10 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
 
   it('returns 500 when Jumia API call fails', async () => {
     setupAuth();
-    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      marketplaceKey: 'default',
+    });
     mockMappingsSelect.mockResolvedValue({
       data: [
         {
