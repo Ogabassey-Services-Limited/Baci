@@ -30,6 +30,19 @@ function formatDate(value: string): string {
   });
 }
 
+function getPickupPaymentMessage(result: RepairStatusResult): string {
+  if (!result.pickupPaymentStatus) return 'Pickup payment is still required.';
+  if (result.pickupPaymentStatus === 'booked') {
+    return result.trackingNumber
+      ? 'Your GIGL pickup is booked. Follow its progress below.'
+      : 'Your GIGL pickup is booked. Tracking will appear shortly.';
+  }
+  if (result.pickupPaymentStatus === 'review') {
+    return 'Payment confirmed. Your pickup needs support review.';
+  }
+  return 'Payment confirmed. Arranging your GIGL pickup.';
+}
+
 export function RepairStatusTimeline({
   result,
   trackHref,
@@ -118,6 +131,14 @@ export function RepairStatusTimeline({
           Service method:{' '}
           {result.serviceType === 'pickup' ? 'Courier pickup' : 'Drop-off'}
         </p>
+        {result.serviceType === 'pickup' ? (
+          <>
+            <p>{getPickupPaymentMessage(result)}</p>
+            {result.pickupFee !== null && result.pickupCurrency === 'NGN' ? (
+              <p>Pickup fee: ₦{result.pickupFee.toLocaleString()}</p>
+            ) : null}
+          </>
+        ) : null}
         {result.updatedAt ? (
           <p>Last updated: {formatDate(result.updatedAt)}</p>
         ) : null}
