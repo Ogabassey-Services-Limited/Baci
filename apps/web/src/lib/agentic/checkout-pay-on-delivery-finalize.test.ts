@@ -151,7 +151,11 @@ function buildSessionUpdateMock(result: unknown) {
 }
 
 function createProductsChain(
-  data: Array<{ manage_stock: boolean | null; slug: string }> | null = [],
+  data: Array<{
+    id?: string;
+    manage_stock: boolean | null;
+    slug: string;
+  }> | null = [],
   error: unknown = null
 ) {
   const chain: {
@@ -366,7 +370,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       error: null,
     });
     const productsChain = createProductsChain([
-      { manage_stock: true, slug: 'phone-slug' },
+      { id: 'product-1', manage_stock: true, slug: 'phone-slug' },
     ]);
     const supabase = {
       from: vi.fn((table: string) =>
@@ -402,7 +406,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       undefined,
       { feedScope: 'merchant' }
     );
-    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
+    expect(productsChain.select).toHaveBeenCalledWith('id, slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
@@ -439,7 +443,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       error: null,
     });
     const productsChain = createProductsChain([
-      { manage_stock: false, slug: 'unlimited-phone' },
+      { id: 'product-1', manage_stock: false, slug: 'unlimited-phone' },
     ]);
     const supabase = {
       from: vi.fn((table: string) =>
