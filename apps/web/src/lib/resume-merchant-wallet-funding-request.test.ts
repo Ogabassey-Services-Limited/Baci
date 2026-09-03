@@ -50,42 +50,45 @@ function dva(overrides: Record<string, unknown> = {}) {
       first_name: null,
       last_name: null,
     },
-    metadata: null,
+    metadata: {
+      source: 'merchant_wallet_funding',
+      request_id: 'r1',
+    },
     ...overrides,
   };
 }
 
 describe('pickRecoverableFundingAccount', () => {
-  it('requires exactly one request-correlated active NGN account', () => {
-    const requestCreated = new Date('2026-09-03T10:00:00.000Z').toISOString();
+  it('requires exactly one request-metadata-correlated active NGN account', () => {
     expect(
       pickRecoverableFundingAccount(
         [
           dva({
             account_number: '1111111111',
-            created_at: '2026-09-01T00:00:00.000Z',
+            metadata: {
+              source: 'merchant_wallet_funding',
+              request_id: 'other',
+            },
           }),
-          dva({
-            account_number: '1234567890',
-            created_at: '2026-09-03T10:01:00.000Z',
-          }),
+          dva({ account_number: '1234567890' }),
         ],
-        { id: 'r1', created_at: requestCreated }
+        { id: 'r1', created_at: new Date().toISOString() }
       )?.account_number
     ).toBe('1234567890');
   });
 
-  it('rejects an older unrelated DVA even when it is the only active account', () => {
+  it('rejects a time-adjacent DVA that lacks funding-request metadata', () => {
     expect(
       pickRecoverableFundingAccount(
         [
           dva({
-            created_at: '2026-08-01T00:00:00.000Z',
+            created_at: new Date().toISOString(),
+            metadata: null,
           }),
         ],
         {
           id: 'r1',
-          created_at: new Date('2026-09-03T10:00:00.000Z').toISOString(),
+          created_at: new Date().toISOString(),
         }
       )
     ).toBeNull();

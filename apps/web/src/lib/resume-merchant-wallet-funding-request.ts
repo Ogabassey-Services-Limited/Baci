@@ -8,7 +8,6 @@ import { createMerchantWalletFundingRecoveryAttestation } from './merchant-walle
 import { logMerchantWalletProvisioningError } from './merchant-wallet-provisioning-logging';
 
 const STALE_PENDING_MS = 15 * 60 * 1000;
-const REQUEST_CLOCK_SKEW_MS = 2 * 60 * 1000;
 
 type MerchantIdentity = {
   id: string;
@@ -34,24 +33,14 @@ export function pickRecoverableFundingAccount(
   request: { id: string; created_at?: string | null }
 ): DedicatedAccountResponse | null {
   if (!accounts?.length) return null;
-  const requestCreatedMs = Date.parse(String(request.created_at ?? ''));
-  const candidates = accounts.filter((account) => {
-    if (
-      account.active !== true ||
-      account.assigned !== true ||
-      account.currency !== 'NGN' ||
-      !/^\d{10,20}$/.test(account.account_number)
-    ) {
-      return false;
-    }
-    if (metadataMatchesRequest(account.metadata, request.id)) {
-      return true;
-    }
-    if (!Number.isFinite(requestCreatedMs)) return false;
-    const accountCreatedMs = Date.parse(account.created_at);
-    if (!Number.isFinite(accountCreatedMs)) return false;
-    return accountCreatedMs >= requestCreatedMs - REQUEST_CLOCK_SKEW_MS;
-  });
+  const candidates = accounts.filter(
+    (account) =>
+      account.active === true &&
+      account.assigned === true &&
+      account.currency === 'NGN' &&
+      /^\d{10,20}$/.test(account.account_number) &&
+      metadataMatchesRequest(account.metadata, request.id)
+  );
   return candidates.length === 1 ? candidates[0] : null;
 }
 

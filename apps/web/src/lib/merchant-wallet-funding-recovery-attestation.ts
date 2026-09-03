@@ -1,8 +1,15 @@
 import { createHmac } from 'node:crypto';
 
-export const MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET =
-  process.env.MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET ??
-  'baci-merchant-wallet-funding-recovery-hmac-v1';
+function resolveMerchantWalletFundingRecoveryHmacSecret(): string {
+  const secret =
+    process.env.MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET?.trim();
+  if (!secret) {
+    throw new Error(
+      'MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET is not configured'
+    );
+  }
+  return secret;
+}
 
 export function createMerchantWalletFundingRecoveryAttestation(input: {
   requestId: string;
@@ -26,7 +33,7 @@ export function createMerchantWalletFundingRecoveryAttestation(input: {
     input.providerCustomerCode ?? '',
     input.attestedAtIso,
   ].join('|');
-  return createHmac('sha256', MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET)
+  return createHmac('sha256', resolveMerchantWalletFundingRecoveryHmacSecret())
     .update(payload)
     .digest('hex');
 }
