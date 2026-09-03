@@ -78,6 +78,7 @@ describe('Admin GIGL provider, persistence, binding, and wallet behavior', () =>
     expect(response.status).toBe(200);
     expect(mocks.persistAdminGiglQuote).toHaveBeenCalledWith(
       expect.objectContaining({
+        supabase: expect.anything(),
         quote: expect.objectContaining({
           id: cheaper.id,
           price: 9_900,

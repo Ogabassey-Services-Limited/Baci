@@ -216,6 +216,7 @@ export async function postAdminOrderGiglQuote(
     quoteRequest,
   });
   const { error: persistError } = await persistAdminGiglQuote({
+    supabase: auth.supabase,
     quote: persisted,
     attestation: {
       quote_id: quote.id,

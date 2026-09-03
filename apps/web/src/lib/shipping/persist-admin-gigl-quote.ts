@@ -1,24 +1,25 @@
 import 'server-only';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AdminGiglQuotePersistenceInput {
   attestation: Record<string, unknown>;
   quote: Record<string, unknown>;
+  /** Caller-bound client; never constructs a service-role client. */
+  supabase: SupabaseClient;
 }
 
 /**
- * Persists an owner-scoped Admin GIGL quote through the service-role-only RPC.
- * All order and merchant reads must happen through the authenticated client;
- * this helper is intentionally limited to the trusted writer call.
+ * Persists an Admin GIGL quote through the authenticated order-scoped RPC.
+ * Ownership / orders:fulfill is enforced by the SECURITY DEFINER writer.
  */
 export function persistAdminGiglQuote({
   attestation,
   quote,
+  supabase,
 }: AdminGiglQuotePersistenceInput) {
-  const admin = createAdminClient();
-  return admin.rpc(
-    'persist_admin_gigl_quote' as never,
+  return supabase.rpc(
+    'persist_authenticated_admin_gigl_quote' as never,
     {
       p_quote: quote,
       p_attestation: attestation,
