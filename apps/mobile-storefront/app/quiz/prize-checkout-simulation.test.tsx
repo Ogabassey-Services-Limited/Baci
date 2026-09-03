@@ -36,6 +36,14 @@ describe('QuizPrizeCheckoutSimulationRoute', () => {
   it('passes the selected test prize into the simulation screen', () => {
     render(<QuizPrizeCheckoutSimulationRoute />);
     expect(screen.getByText('product-1: iPhone XR: used')).toBeOnTheScreen();
+    expect(screen.getByTestId('quiz-prize-checkout-shell').props.edges).toEqual(
+      {
+        bottom: 'off',
+        left: 'off',
+        right: 'off',
+        top: 'off',
+      }
+    );
   });
 
   it('uses documented fallback values when optional route params are absent', () => {

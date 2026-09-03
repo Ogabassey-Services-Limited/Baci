@@ -39,7 +39,9 @@ export function createQuizAttemptPersistence(access: QuizV2StoreAccess) {
         pendingLockedOptionId: lockedOptionId,
         startRequestId: state.startRequestId,
         submittedAt:
-          attempt.status === 'in_progress' ? null : attempt.serverNow,
+          attempt.status === 'in_progress'
+            ? null
+            : (attempt.submittedAt ?? null),
         userId: state.recoveryUserId,
       })
     );

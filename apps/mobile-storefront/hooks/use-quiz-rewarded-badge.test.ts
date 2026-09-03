@@ -33,7 +33,7 @@ const mockAd = {
     }
   ),
   load: jest.fn(),
-  show: jest.fn(),
+  show: jest.fn<() => Promise<void>>(),
 };
 
 jest.mock('react-native-google-mobile-ads', () => ({
@@ -237,6 +237,43 @@ describe('useQuizRewardedBadge', () => {
 
     expect(mockAd.show).not.toHaveBeenCalled();
     expect(result.current.isWatching).toBe(false);
+  });
+
+  it('keeps reward listeners after the loaded ad is shown when eligibility expires', () => {
+    const { result, rerender } = renderHook(
+      (props: GateProps) => useQuizRewardedBadge(props),
+      {
+        initialProps: {
+          eventId: 'event-1',
+          eventTitle: 'Today Quiz',
+          remainingSeconds: 120,
+          status: 'scheduled',
+          userId: 'user-1',
+        },
+      }
+    );
+
+    mockAd.show.mockResolvedValue(undefined);
+    act(() => result.current.watchAd());
+    act(() => listeners.get(RewardedAdEventType.LOADED)?.());
+    rerender({
+      eventId: 'event-1',
+      eventTitle: 'Today Quiz',
+      remainingSeconds: 90,
+      status: 'scheduled',
+      userId: 'user-1',
+    });
+
+    act(() =>
+      listeners.get(RewardedAdEventType.EARNED_REWARD)?.({ amount: 1 })
+    );
+
+    expect(mockAd.show).toHaveBeenCalledTimes(1);
+    expect(mockUnlockBadge).toHaveBeenCalledWith(
+      'user-1',
+      'event-1',
+      'Today Quiz'
+    );
   });
 
   it('ignores a queued reward after the account or event identity changes', () => {

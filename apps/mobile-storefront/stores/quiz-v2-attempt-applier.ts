@@ -42,7 +42,7 @@ export function createQuizV2AttemptApplier({
         attempt.eventId,
         attempt.eventEndsAt,
         attempt.serverNow,
-        attempt.serverNow
+        attempt.submittedAt ?? null
       ),
       lockedOptionId: null,
       expiryRetryable: false,

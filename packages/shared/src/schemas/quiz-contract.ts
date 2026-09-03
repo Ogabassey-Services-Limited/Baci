@@ -168,6 +168,7 @@ export const quizV2AttemptResponseSchema = z
     resumed: z.boolean().optional(),
     serverNow: quizDateTimeSchema,
     status: quizV2AttemptStatusSchema,
+    submittedAt: quizDateTimeSchema.nullable().optional(),
   })
   .superRefine((value, context) => {
     if (value.status === 'in_progress' && !value.question) {

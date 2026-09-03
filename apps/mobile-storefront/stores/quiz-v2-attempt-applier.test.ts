@@ -56,20 +56,34 @@ describe('createQuizV2AttemptApplier', () => {
 
   it('creates terminal context for a completed attempt', async () => {
     const set = jest.fn();
+    const submittedAt = '2026-09-02T11:00:12.345Z';
     const apply = createQuizV2AttemptApplier({
       access: createAccess(set),
       persist: jest.fn().mockResolvedValue(undefined),
     });
 
-    await apply(attempt('completed'));
+    await apply({ ...attempt('completed'), submittedAt });
 
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'result',
         terminalContext: expect.objectContaining({
-          submittedAt: attempt('completed').serverNow,
+          submittedAt,
         }),
       })
     );
+  });
+
+  it('does not use a retry response time as the terminal submission time', async () => {
+    const set = jest.fn();
+    const apply = createQuizV2AttemptApplier({
+      access: createAccess(set),
+      persist: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await apply({ ...attempt('completed'), submittedAt: null });
+
+    const terminalContext = set.mock.calls[0][0].terminalContext;
+    expect(terminalContext).not.toHaveProperty('submittedAt');
   });
 });

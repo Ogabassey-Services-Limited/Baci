@@ -44,6 +44,7 @@ interface RewardedAdSession {
   cleanups: Array<() => void>;
   generation: number;
   identityKey: string;
+  presented: boolean;
   settled: boolean;
 }
 
@@ -116,9 +117,8 @@ export function useQuizRewardedBadge({
   }, [identityKey]);
 
   useEffect(() => {
-    if (isEligible) return;
     const session = sessionRef.current;
-    if (!session) return;
+    if (isEligible || !session || session.presented) return;
     session.settled = true;
     session.cleanups.forEach((unsubscribe) => {
       unsubscribe();
@@ -152,6 +152,7 @@ export function useQuizRewardedBadge({
       cleanups: [],
       generation: generationRef.current,
       identityKey,
+      presented: false,
       settled: false,
     };
     sessionRef.current = session;
@@ -181,6 +182,7 @@ export function useQuizRewardedBadge({
           mobileAds.RewardedAdEventType.LOADED,
           () => {
             if (!isCurrent()) return;
+            session.presented = true;
             void rewardedAd.show().catch(finish);
           }
         ),

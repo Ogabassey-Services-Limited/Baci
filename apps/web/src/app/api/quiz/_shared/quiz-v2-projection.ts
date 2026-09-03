@@ -33,6 +33,7 @@ function pickAttempt(value: unknown) {
     resumed: row.resumed,
     serverNow: row.serverNow,
     status: row.status,
+    submittedAt: row.submittedAt,
   };
 }
 

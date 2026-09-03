@@ -18,7 +18,7 @@ export default function QuizPrizeCheckoutSimulationRoute() {
   const productId = first(params.productId) ?? 'test-prize';
 
   return (
-    <StorefrontScreenShell>
+    <StorefrontScreenShell edges={[]} testID="quiz-prize-checkout-shell">
       <QuizPrizeCheckoutSimulationScreen
         prize={{
           condition: (first(params.condition) ||
