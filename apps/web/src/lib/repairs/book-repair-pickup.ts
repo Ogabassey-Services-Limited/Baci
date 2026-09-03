@@ -74,7 +74,7 @@ export async function bookRepairPickup(
   if (!sender) {
     return pickupFailure('missing_pickup_address');
   }
-  const receiver = await getRepairCenterAddress(supabase, merchantId);
+  const receiver = await getRepairCenterAddress(merchantId);
   if (!receiver) {
     return pickupFailure('repair_center_unconfigured');
   }

@@ -118,7 +118,7 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const receiver = await getRepairCenterAddress(supabase, merchant.id);
+  const receiver = await getRepairCenterAddress(merchant.id);
   const sender = buildPickupSender({
     customer_email: parsed.data.customerEmail,
     customer_name: parsed.data.customerName,

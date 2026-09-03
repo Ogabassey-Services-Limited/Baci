@@ -1,5 +1,5 @@
 import 'server-only';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createRepairPickupReceiverClient } from './repair-pickup-receiver-client';
 
 /**
  * The merchant's repair-center address, shaped for use as a shipping receiver
@@ -30,8 +30,8 @@ function readNullableString(value: unknown): string | null {
 
 /**
  * Reads the merchant's private repair-center address through the published
- * pickup-receiver RPC. Callers pass their existing Supabase client so payment
- * webhooks and storefront actions never construct a service-role client.
+ * pickup-receiver RPC. The short-lived, merchant-bound client proves that the
+ * request came through this server-only boundary without using service role.
  *
  * Returns `null` when pickup is not configured — unpublished store, pickup
  * explicitly disabled, missing phone, or incomplete address/city/state — so
@@ -39,13 +39,13 @@ function readNullableString(value: unknown): string | null {
  * should reach the client.
  */
 export async function getRepairCenterAddress(
-  supabase: SupabaseClient,
   merchantId: string
 ): Promise<RepairCenterAddress | null> {
   if (!merchantId) {
     return null;
   }
 
+  const supabase = createRepairPickupReceiverClient(merchantId);
   const { data, error } = await supabase.rpc(REPAIR_PICKUP_RECEIVER_RPC, {
     p_merchant_id: merchantId,
   });

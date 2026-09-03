@@ -1,5 +1,5 @@
--- REGRESSION TEST: the repair-pickup receiver projection exposes only published,
--- phone-complete destinations and is executable by storefront quote roles.
+-- REGRESSION TEST: the repair-pickup receiver projection exposes published,
+-- phone-complete destinations only to the merchant-bound server capability.
 
 BEGIN;
 
@@ -87,22 +87,59 @@ VALUES
 ON CONFLICT (merchant_id) DO UPDATE
 SET repair_settings = EXCLUDED.repair_settings;
 
-SET LOCAL ROLE anon;
-SELECT pg_catalog.set_config('request.jwt.claim.role', 'anon', true);
+SET LOCAL ROLE repair_pickup_receiver;
+
+DO $test$
+BEGIN
+  IF public.get_repair_pickup_receiver(
+    '74a63d82-0000-4000-8000-000000000001'
+  ) IS DISTINCT FROM '{}'::jsonb THEN
+    RAISE EXCEPTION 'unscoped receiver role received repair-center details';
+  END IF;
+END;
+$test$;
+
+SELECT pg_catalog.set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'repair_pickup_receiver',
+    'repair_pickup_receiver_context', 'server-quote',
+    'repair_pickup_receiver_merchant_id',
+    '74a63d82-0000-4000-8000-000000000001'
+  )::text,
+  true
+);
 
 DO $test$
 BEGIN
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000001'
   ) ->> 'address' IS DISTINCT FROM '3 Olayeni Street, Computer Village' THEN
-    RAISE EXCEPTION 'anon did not receive the published repair-center projection';
+    RAISE EXCEPTION 'server capability did not receive its repair center';
   END IF;
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000001'
   ) ->> 'phone' IS DISTINCT FROM '09070007000' THEN
-    RAISE EXCEPTION 'anon did not receive the repair-center phone';
+    RAISE EXCEPTION 'server capability did not receive repair-center phone';
   END IF;
+
+  IF public.get_repair_pickup_receiver(
+    '74a63d82-0000-4000-8000-000000000002'
+  ) IS DISTINCT FROM '{}'::jsonb THEN
+    RAISE EXCEPTION 'capability disclosed a different merchant receiver';
+  END IF;
+
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    jsonb_build_object(
+      'role', 'repair_pickup_receiver',
+      'repair_pickup_receiver_context', 'server-quote',
+      'repair_pickup_receiver_merchant_id',
+      '74a63d82-0000-4000-8000-000000000002'
+    )::text,
+    true
+  );
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000002'
@@ -110,17 +147,50 @@ BEGIN
     RAISE EXCEPTION 'anon received an unpublished repair-center projection';
   END IF;
 
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    jsonb_build_object(
+      'role', 'repair_pickup_receiver',
+      'repair_pickup_receiver_context', 'server-quote',
+      'repair_pickup_receiver_merchant_id',
+      '74a63d82-0000-4000-8000-000000000003'
+    )::text,
+    true
+  );
+
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000003'
   ) IS DISTINCT FROM '{}'::jsonb THEN
     RAISE EXCEPTION 'anon received a pickup-disabled repair-center projection';
   END IF;
 
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    jsonb_build_object(
+      'role', 'repair_pickup_receiver',
+      'repair_pickup_receiver_context', 'server-quote',
+      'repair_pickup_receiver_merchant_id',
+      '74a63d82-0000-4000-8000-000000000005'
+    )::text,
+    true
+  );
+
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000005'
   ) IS DISTINCT FROM '{}'::jsonb THEN
     RAISE EXCEPTION 'anon received a phoneless repair-center projection';
   END IF;
+
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    jsonb_build_object(
+      'role', 'repair_pickup_receiver',
+      'repair_pickup_receiver_context', 'server-quote',
+      'repair_pickup_receiver_merchant_id',
+      '74a63d82-0000-4000-8000-000000000004'
+    )::text,
+    true
+  );
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000004'
@@ -136,20 +206,24 @@ DO $test$
 DECLARE
   v_unexpected_grantees text[];
 BEGIN
-  IF NOT has_function_privilege(
+  IF has_function_privilege(
     'anon',
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
-  ) OR NOT has_function_privilege(
+  ) OR has_function_privilege(
     'authenticated',
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
-  ) OR NOT has_function_privilege(
+  ) OR has_function_privilege(
     'service_role',
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
+  ) OR NOT has_function_privilege(
+    'repair_pickup_receiver',
+    'public.get_repair_pickup_receiver(uuid)',
+    'EXECUTE'
   ) THEN
-    RAISE EXCEPTION 'required storefront roles cannot execute receiver projection';
+    RAISE EXCEPTION 'receiver projection grant is not limited to scoped role';
   END IF;
 
   SELECT array_agg(role_name ORDER BY role_name)
@@ -163,11 +237,7 @@ BEGIN
       'public.get_repair_pickup_receiver(uuid)'::regprocedure
       AND privilege.privilege_type = 'EXECUTE'
       AND privilege.grantee <> procedure.proowner
-      AND COALESCE(role.rolname, 'PUBLIC') NOT IN (
-        'anon',
-        'authenticated',
-        'service_role'
-      )
+      AND COALESCE(role.rolname, 'PUBLIC') <> 'repair_pickup_receiver'
   ) AS unexpected;
 
   IF v_unexpected_grantees IS NOT NULL THEN

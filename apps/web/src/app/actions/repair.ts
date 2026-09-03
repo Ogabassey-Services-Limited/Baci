@@ -13,7 +13,6 @@ import {
   REPAIR_PICKUP_PROVIDER,
 } from '@/lib/repairs/repair-pickup-constants';
 import { shippingService } from '@/lib/shipping';
-import { createClient } from '@/lib/supabase/server';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
@@ -142,8 +141,7 @@ export async function calculateRepairShipping(
     return dropOffOnly;
   }
 
-  const supabase = await createClient();
-  const repairCenter = await getRepairCenterAddress(supabase, merchant.id);
+  const repairCenter = await getRepairCenterAddress(merchant.id);
   if (!repairCenter) {
     return dropOffOnly;
   }

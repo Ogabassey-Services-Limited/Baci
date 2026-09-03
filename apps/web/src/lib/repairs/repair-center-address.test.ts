@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRepairCenterAddress } from './repair-center-address';
 
+const mocks = vi.hoisted(() => ({
+  createRepairPickupReceiverClient: vi.fn(),
+}));
+
+vi.mock('./repair-pickup-receiver-client', () => ({
+  createRepairPickupReceiverClient: mocks.createRepairPickupReceiverClient,
+}));
+
 const merchantId = '123e4567-e89b-12d3-a456-426614174000';
 
 function makeClient(result: { data: unknown; error: unknown }) {
@@ -26,17 +34,18 @@ describe('getRepairCenterAddress', () => {
   });
 
   it('returns null when the merchant id is empty', async () => {
-    const supabase = makeClient({ data: completeProjection, error: null });
-    const result = await getRepairCenterAddress(supabase as never, '');
+    const result = await getRepairCenterAddress('');
     expect(result).toBeNull();
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(mocks.createRepairPickupReceiverClient).not.toHaveBeenCalled();
   });
 
   it('returns null when the projection is empty', async () => {
     const supabase = makeClient({ data: {}, error: null });
-    expect(
-      await getRepairCenterAddress(supabase as never, merchantId)
-    ).toBeNull();
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
+    expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
+      merchantId
+    );
     expect(supabase.rpc).toHaveBeenCalledWith('get_repair_pickup_receiver', {
       p_merchant_id: merchantId,
     });
@@ -44,9 +53,8 @@ describe('getRepairCenterAddress', () => {
 
   it('returns null when the projection is not an object', async () => {
     const supabase = makeClient({ data: 'not-an-object', error: null });
-    expect(
-      await getRepairCenterAddress(supabase as never, merchantId)
-    ).toBeNull();
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
   });
 
   it('returns null when the address is incomplete', async () => {
@@ -54,9 +62,8 @@ describe('getRepairCenterAddress', () => {
       data: { address: '3 Olayeni Street' },
       error: null,
     });
-    expect(
-      await getRepairCenterAddress(supabase as never, merchantId)
-    ).toBeNull();
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
   });
 
   it('returns null when the projection omits a contact phone', async () => {
@@ -64,15 +71,15 @@ describe('getRepairCenterAddress', () => {
       data: { ...completeProjection, phone: '' },
       error: null,
     });
-    expect(
-      await getRepairCenterAddress(supabase as never, merchantId)
-    ).toBeNull();
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
   });
 
   it('maps a complete projection into a receiver address', async () => {
     const supabase = makeClient({ data: completeProjection, error: null });
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
 
-    const result = await getRepairCenterAddress(supabase as never, merchantId);
+    const result = await getRepairCenterAddress(merchantId);
 
     expect(result).toEqual({
       name: 'Ogabassey Repair Center',
@@ -92,10 +99,9 @@ describe('getRepairCenterAddress', () => {
       data: null,
       error: { message: 'boom' },
     });
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
     try {
-      expect(
-        await getRepairCenterAddress(supabase as never, merchantId)
-      ).toBeNull();
+      expect(await getRepairCenterAddress(merchantId)).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith(
         'getRepairCenterAddress: query failed',
         { message: 'boom' }
