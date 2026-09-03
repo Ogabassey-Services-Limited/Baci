@@ -7,6 +7,7 @@ describe('materializeBuilderAiProviderChain', () => {
       materializeBuilderAiProviderChain(
         {},
         {
+          createCerebrasModel: () => ({}) as never,
           createGoogleModel: () => ({}) as never,
           createGroqModel: () => ({}) as never,
           createOpenRouterModel: () => ({}) as never,

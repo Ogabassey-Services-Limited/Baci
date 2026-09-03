@@ -18,6 +18,9 @@ cannot claim that row.
 ## Ceremony
 
 1. Deploy this code with the bootstrap disabled.
+   A valid pre-change Cerebras/Groq attestation remains available to Builder AI
+   during this deployment; Google becomes primary only after its binding rows
+   are present in a later deployment snapshot.
 2. Arm `attest` with a new token hash and run ID using the Vercel dashboard or
    the project-environment REST API (the CLI cannot set the required metadata
    comment). Create the production-only sensitive

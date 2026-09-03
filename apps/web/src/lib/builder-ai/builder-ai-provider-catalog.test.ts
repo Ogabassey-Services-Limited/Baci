@@ -1,11 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  type BuilderAiProviderEnvironment,
   type BuilderAiProviderFactories,
   materializeBuilderAiProviders,
 } from './builder-ai-provider-catalog';
 
 const factories: BuilderAiProviderFactories = {
+  createCerebrasModel: vi.fn((key) => ({ provider: 'cerebras', key }) as never),
   createGoogleModel: vi.fn((key) => ({ provider: 'google', key }) as never),
   createGroqModel: vi.fn((key) => ({ provider: 'groq', key }) as never),
   createOpenRouterModel: vi.fn(
@@ -49,6 +51,13 @@ describe('builder AI provider catalog', () => {
     deploymentTier: 'approved-reliable',
     releaseAttestedAt: '2026-08-01T00:00:00.000Z',
   };
+  const cerebrasAttestation = {
+    accountRef: 'cerebras-account',
+    approvedModel: 'gemma-4-31b',
+    credential: 'cerebras-key',
+    deploymentTier: 'approved-reliable',
+    releaseAttestedAt: '2026-08-01T00:00:00.000Z',
+  };
   const groqAttestation = {
     accountRef: 'groq-account',
     approvedModel: 'openai/gpt-oss-120b',
@@ -79,6 +88,45 @@ describe('builder AI provider catalog', () => {
     GROQ_BUILDER_RELEASE_ATTESTED_AT: groqAttestation.releaseAttestedAt,
     BUILDER_AI_PROVIDER_BINDING_PEPPER: bindingPepper,
   };
+
+  it('keeps the previously attested Cerebras pair available during the Google rollout', () => {
+    const legacyEnvironment = {
+      CEREBRAS_API_KEY: cerebrasAttestation.credential,
+      CEREBRAS_BUILDER_ACCOUNT_REF: cerebrasAttestation.accountRef,
+      CEREBRAS_BUILDER_CREDENTIAL_BINDING_TAG: bindingTag(
+        'cerebras',
+        cerebrasAttestation,
+        bindingPepper
+      ),
+      CEREBRAS_BUILDER_APPROVED_MODEL: cerebrasAttestation.approvedModel,
+      CEREBRAS_BUILDER_DEPLOYMENT_TIER: cerebrasAttestation.deploymentTier,
+      CEREBRAS_BUILDER_RELEASE_ATTESTED_AT:
+        cerebrasAttestation.releaseAttestedAt,
+      GROQ_API_KEY: groqAttestation.credential,
+      GROQ_BUILDER_ACCOUNT_REF: groqAttestation.accountRef,
+      GROQ_BUILDER_CREDENTIAL_BINDING_TAG: bindingTag(
+        'groq',
+        groqAttestation,
+        bindingPepper
+      ),
+      GROQ_BUILDER_APPROVED_MODEL: groqAttestation.approvedModel,
+      GROQ_BUILDER_DEPLOYMENT_TIER: groqAttestation.deploymentTier,
+      GROQ_BUILDER_RELEASE_ATTESTED_AT: groqAttestation.releaseAttestedAt,
+      BUILDER_AI_PROVIDER_BINDING_PEPPER: bindingPepper,
+    } as unknown as BuilderAiProviderEnvironment;
+    const transitionFactories = {
+      ...factories,
+      createCerebrasModel: vi.fn(
+        (key: string) => ({ provider: 'cerebras', key }) as never
+      ),
+    } as unknown as BuilderAiProviderFactories;
+
+    expect(
+      materializeBuilderAiProviders(legacyEnvironment, transitionFactories, {
+        now: Date.parse('2026-08-05T00:00:00.000Z'),
+      }).map(({ name }) => name)
+    ).toEqual(['cerebras:gemma-4-31b', 'groq:openai/gpt-oss-120b']);
+  });
 
   it('fails closed without both credential-bound reliable-provider attestations', () => {
     expect(

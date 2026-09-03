@@ -133,12 +133,12 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
 
     const completion = verifyBuilderAiJsonTransport(dependencies);
 
-    await vi.advanceTimersByTimeAsync(20_000);
+    await vi.advanceTimersByTimeAsync(30_000);
 
     await expect(completion).resolves.toBe(1);
   });
 
-  it('records a timed-out Google probe and continues with Groq and OpenRouter', async () => {
+  it('allows a healthy Google probe to complete after the legacy five-second deadline', async () => {
     vi.useFakeTimers();
     const dependencies = createDependencies();
     vi.mocked(dependencies.createDeadlineSignal).mockImplementation(
@@ -148,15 +148,19 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
       AbortSignal.any(signals)
     );
     vi.mocked(dependencies.runProvider)
-      .mockReturnValueOnce(new Promise(() => {}))
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          setTimeout(() => resolve(true), 8_000);
+        })
+      )
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(true);
     const { verifyBuilderAiJsonTransport } = await loadSmokeModule();
 
     const completion = verifyBuilderAiJsonTransport(dependencies);
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(8_000);
 
-    await expect(completion).resolves.toBe(1);
+    await expect(completion).resolves.toBe(0);
     expect(
       vi.mocked(dependencies.runProvider).mock.calls.map(
         ([provider]) => provider.name

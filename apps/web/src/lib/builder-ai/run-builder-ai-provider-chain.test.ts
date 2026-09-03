@@ -41,6 +41,31 @@ describe('runBuilderAiProviderChain', () => {
     vi.clearAllMocks();
   });
 
+  it('accepts the previously attested Cerebras pair during the Google rollout', async () => {
+    const transitionProviders = [
+      {
+        model: { id: 'cerebras' } as never,
+        name: 'cerebras:gemma-4-31b',
+      },
+      providers[1] as (typeof providers)[number],
+    ];
+    vi.mocked(generateText).mockResolvedValueOnce({
+      output: validPlan,
+    } as never);
+
+    await expect(
+      runBuilderAiProviderChain({
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: Date.now() + 5_000,
+        prompt: 'Update the hero',
+        providerChain: transitionProviders,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual(validPlan);
+
+    expect(generateText).toHaveBeenCalledOnce();
+  });
+
   it('falls through malformed JSON and sends schema-free JSON transport', async () => {
     vi.mocked(generateText)
       .mockResolvedValueOnce({ output: '{not-json' } as never)

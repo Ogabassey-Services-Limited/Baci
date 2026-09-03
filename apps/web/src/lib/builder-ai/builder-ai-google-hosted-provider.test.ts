@@ -39,6 +39,7 @@ describe('Builder AI Google-hosted Gemma regression', () => {
       (key: string) => ({ key, provider: 'google' }) as never
     );
     const factories = {
+      createCerebrasModel: vi.fn(),
       createGoogleModel,
       createGroqModel: vi.fn(
         (key: string) => ({ key, provider: 'groq' }) as never
