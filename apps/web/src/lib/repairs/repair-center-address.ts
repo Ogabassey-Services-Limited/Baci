@@ -4,8 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 /**
  * The merchant's repair-center address, shaped for use as a shipping receiver
  * (courier pickup) or a display origin. Derived from the PRIVATE
- * `merchant_feature_settings.repair_settings` jsonb column via the anonymous-safe
- * `get_repair_pickup_receiver` projection.
+ * `merchant_feature_settings.repair_settings` jsonb column via the
+ * service_role-only `get_repair_pickup_receiver` projection.
  */
 export interface RepairCenterAddress {
   name: string;
@@ -29,14 +29,15 @@ function readNullableString(value: unknown): string | null {
 }
 
 /**
- * Reads the merchant's private repair-center address through the published
- * pickup-receiver RPC. Callers pass their existing Supabase client so payment
- * webhooks and storefront actions never construct a service-role client.
+ * Reads the merchant's private repair-center address through the
+ * service_role-only pickup-receiver RPC. Callers must pass a privileged
+ * Supabase client (webhook service role or the repair-pickup receiver client);
+ * anonymous storefront clients cannot execute the projection.
  *
  * Returns `null` when pickup is not configured — unpublished store, pickup
- * explicitly disabled, or the address/city/state are incomplete — so callers
- * can fall back to drop-off only. Only prices, never the raw address, should
- * reach the client.
+ * explicitly disabled, missing phone, or incomplete address/city/state — so
+ * callers can fall back to drop-off only. Only prices, never the raw address,
+ * should reach the client.
  */
 export async function getRepairCenterAddress(
   supabase: SupabaseClient,
@@ -61,13 +62,14 @@ export async function getRepairCenterAddress(
   const address = readNullableString(data.address);
   const city = readNullableString(data.city);
   const state = readNullableString(data.state);
-  if (!address || !city || !state) {
+  const phone = readNullableString(data.phone);
+  if (!address || !city || !state || !phone) {
     return null;
   }
 
   return {
     name: readNullableString(data.name) || 'Repair Center',
-    phone: readNullableString(data.phone) || '',
+    phone,
     email: readNullableString(data.email) || undefined,
     address,
     city,

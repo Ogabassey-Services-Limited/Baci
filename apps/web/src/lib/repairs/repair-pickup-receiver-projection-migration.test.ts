@@ -20,7 +20,7 @@ describe('repair pickup receiver projection migration', () => {
     expect(migration).toContain('pickup_enabled');
   });
 
-  it('grants the projection to storefront quote roles only', () => {
+  it('initially grants the projection to storefront quote roles', () => {
     expect(migration).toContain(
       'REVOKE ALL ON FUNCTION public.get_repair_pickup_receiver(uuid) FROM PUBLIC'
     );

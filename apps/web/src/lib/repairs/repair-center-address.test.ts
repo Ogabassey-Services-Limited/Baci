@@ -59,6 +59,16 @@ describe('getRepairCenterAddress', () => {
     ).toBeNull();
   });
 
+  it('returns null when the projection omits a contact phone', async () => {
+    const supabase = makeClient({
+      data: { ...completeProjection, phone: '' },
+      error: null,
+    });
+    expect(
+      await getRepairCenterAddress(supabase as never, merchantId)
+    ).toBeNull();
+  });
+
   it('maps a complete projection into a receiver address', async () => {
     const supabase = makeClient({ data: completeProjection, error: null });
 

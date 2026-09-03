@@ -1,5 +1,5 @@
--- REGRESSION TEST: the public repair-pickup receiver projection exposes only
--- published, pickup-enabled destinations and only to storefront quote roles.
+-- REGRESSION TEST: the repair-pickup receiver projection is service-role only,
+-- requires a contact phone, and hides unpublished or pickup-disabled centers.
 
 BEGIN;
 
@@ -27,9 +27,15 @@ VALUES
     'Disabled Repair Receiver',
     'disabled-repair-receiver',
     true
+  ),
+  (
+    '74a63d82-0000-4000-8000-000000000005',
+    'phoneless-repair-receiver@example.com',
+    'Phoneless Repair Receiver',
+    'phoneless-repair-receiver',
+    true
   );
 
--- Merchants auto-create a feature-settings row; shape repair_settings in place.
 INSERT INTO public.merchant_feature_settings (merchant_id, repair_settings)
 VALUES
   (
@@ -66,52 +72,70 @@ VALUES
       'state', 'FCT',
       'country', 'Nigeria'
     )
+  ),
+  (
+    '74a63d82-0000-4000-8000-000000000005',
+    jsonb_build_object(
+      'pickup_address', '5 Silent Avenue, Lagos',
+      'contact_name', 'Phoneless Repair Center',
+      'contact_phone', '',
+      'city', 'Lagos',
+      'state', 'Lagos',
+      'country', 'Nigeria'
+    )
   )
 ON CONFLICT (merchant_id) DO UPDATE
 SET repair_settings = EXCLUDED.repair_settings;
-
-SET LOCAL ROLE anon;
-SELECT pg_catalog.set_config('request.jwt.claim.role', 'anon', true);
 
 DO $test$
 BEGIN
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000001'
   ) ->> 'address' IS DISTINCT FROM '3 Olayeni Street, Computer Village' THEN
-    RAISE EXCEPTION 'anon did not receive the published repair-center projection';
+    RAISE EXCEPTION 'service_role did not receive the published repair-center projection';
+  END IF;
+
+  IF public.get_repair_pickup_receiver(
+    '74a63d82-0000-4000-8000-000000000001'
+  ) ->> 'phone' IS DISTINCT FROM '09070007000' THEN
+    RAISE EXCEPTION 'service_role did not receive the repair-center phone';
   END IF;
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000002'
   ) IS DISTINCT FROM '{}'::jsonb THEN
-    RAISE EXCEPTION 'anon received an unpublished repair-center projection';
+    RAISE EXCEPTION 'service_role received an unpublished repair-center projection';
   END IF;
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000003'
   ) IS DISTINCT FROM '{}'::jsonb THEN
-    RAISE EXCEPTION 'anon received a pickup-disabled repair-center projection';
+    RAISE EXCEPTION 'service_role received a pickup-disabled repair-center projection';
+  END IF;
+
+  IF public.get_repair_pickup_receiver(
+    '74a63d82-0000-4000-8000-000000000005'
+  ) IS DISTINCT FROM '{}'::jsonb THEN
+    RAISE EXCEPTION 'service_role received a phoneless repair-center projection';
   END IF;
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000004'
   ) IS DISTINCT FROM '{}'::jsonb THEN
-    RAISE EXCEPTION 'anon received data for a missing merchant';
+    RAISE EXCEPTION 'service_role received data for a missing merchant';
   END IF;
 END;
 $test$;
-
-RESET ROLE;
 
 DO $test$
 DECLARE
   v_unexpected_grantees text[];
 BEGIN
-  IF NOT has_function_privilege(
+  IF has_function_privilege(
     'anon',
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
-  ) OR NOT has_function_privilege(
+  ) OR has_function_privilege(
     'authenticated',
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
@@ -120,7 +144,7 @@ BEGIN
     'public.get_repair_pickup_receiver(uuid)',
     'EXECUTE'
   ) THEN
-    RAISE EXCEPTION 'required storefront roles cannot execute receiver projection';
+    RAISE EXCEPTION 'receiver projection grants must be service_role only';
   END IF;
 
   SELECT array_agg(role_name ORDER BY role_name)
@@ -134,11 +158,7 @@ BEGIN
       'public.get_repair_pickup_receiver(uuid)'::regprocedure
       AND privilege.privilege_type = 'EXECUTE'
       AND privilege.grantee <> procedure.proowner
-      AND COALESCE(role.rolname, 'PUBLIC') NOT IN (
-        'anon',
-        'authenticated',
-        'service_role'
-      )
+      AND COALESCE(role.rolname, 'PUBLIC') <> 'service_role'
   ) AS unexpected;
 
   IF v_unexpected_grantees IS NOT NULL THEN

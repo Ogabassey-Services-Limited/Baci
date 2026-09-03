@@ -159,7 +159,7 @@ BEGIN
   FROM public.confirm_repair_pickup_payment(
     '73a63d82-0000-4000-8000-000000000003',
     '73a63d82-0000-4000-8000-000000000001',
-    'RPU-SQLREGRESSIONTERM',
+    'RPU-SQLTERMINAL00001',
     9100,
     'NGN',
     '{"status":"success"}'::jsonb
@@ -174,7 +174,7 @@ BEGIN
     FROM public.repairs AS repair
     WHERE repair.id = '73a63d82-0000-4000-8000-000000000003'
       AND repair.pickup_payment_status = 'review'
-      AND repair.pickup_payment_reference = 'RPU-SQLREGRESSIONTERM'
+      AND repair.pickup_payment_reference = 'RPU-SQLTERMINAL00001'
       AND repair.pickup_fee = 9100
       AND repair.status = 'cancelled'
   ) THEN
@@ -184,7 +184,7 @@ BEGIN
   IF (
     SELECT count(*)
     FROM public.transactions AS transaction
-    WHERE transaction.gateway_reference = 'RPU-SQLREGRESSIONTERM'
+    WHERE transaction.gateway_reference = 'RPU-SQLTERMINAL00001'
   ) <> 1 THEN
     RAISE EXCEPTION 'terminal repair pickup payment transaction missing';
   END IF;
