@@ -41,9 +41,30 @@ describe('merchant shipping charge RPC adapter', () => {
       data: null,
       error: { message: 'MERCHANT_WALLET_INSUFFICIENT' },
     });
+    const from = vi.fn((table: string) => {
+      const result =
+        table === 'orders'
+          ? { merchant_id: 'm1', shipping_fee: 4500 }
+          : table === 'shipping_quotes'
+            ? { price: 4500 }
+            : { available_balance: 1200 };
+      const query = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: result, error: null }),
+      };
+      return query;
+    });
     await expect(
-      reserveMerchantShippingCharge({ rpc } as never, 'o1', 'q1')
-    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_INSUFFICIENT' });
+      reserveMerchantShippingCharge({ rpc, from } as never, 'o1', 'q1')
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_WALLET_INSUFFICIENT',
+      details: {
+        availableBalance: 1200,
+        chargedAmount: 4500,
+        shortfall: 3300,
+      },
+    });
   });
 
   it('surfaces refund and reconciliation RPC failures', async () => {

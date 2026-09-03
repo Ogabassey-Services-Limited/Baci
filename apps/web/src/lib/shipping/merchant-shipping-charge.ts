@@ -18,6 +18,45 @@ function attemptToken(): string {
   return randomBytes(32).toString('hex');
 }
 
+async function readInsufficientWalletDetails(
+  supabase: SupabaseClient,
+  orderId: string,
+  quoteId: string
+) {
+  if (typeof supabase.from !== 'function') return undefined;
+  try {
+    const { data: order } = await supabase
+      .from('orders')
+      .select('merchant_id, shipping_fee')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (!order?.merchant_id) return undefined;
+    const { data: quote } = await supabase
+      .from('shipping_quotes')
+      .select('price')
+      .eq('id', quoteId)
+      .eq('merchant_id', order.merchant_id)
+      .maybeSingle();
+    const { data: wallet } = await supabase
+      .from('merchant_wallets')
+      .select('available_balance')
+      .eq('merchant_id', order.merchant_id)
+      .maybeSingle();
+    const chargedAmount = Number(quote?.price ?? order.shipping_fee ?? 0);
+    const availableBalance = Number(wallet?.available_balance ?? 0);
+    if (!Number.isFinite(chargedAmount) || !Number.isFinite(availableBalance)) {
+      return undefined;
+    }
+    return {
+      availableBalance,
+      chargedAmount,
+      shortfall: Math.max(0, chargedAmount - availableBalance),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function reserveMerchantShippingCharge(
   supabase: SupabaseClient,
   orderId: string,
@@ -37,7 +76,9 @@ export async function reserveMerchantShippingCharge(
       throw new OrderShipmentBookingError(
         'Insufficient merchant wallet balance.',
         409,
-        'MERCHANT_WALLET_INSUFFICIENT'
+        'MERCHANT_WALLET_INSUFFICIENT',
+        undefined,
+        await readInsufficientWalletDetails(supabase, orderId, quoteId)
       );
     }
     throw new OrderShipmentBookingError(

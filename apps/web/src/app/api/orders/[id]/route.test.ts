@@ -61,12 +61,28 @@ vi.mock('@/lib/shipping/order-shipment-booking-utils', () => {
   class MockOrderShipmentBookingError extends Error {
     readonly code: string;
     readonly status: number;
+    readonly details?: {
+      availableBalance: number;
+      chargedAmount: number;
+      shortfall: number;
+    };
 
-    constructor(message: string, status: number, code: string) {
+    constructor(
+      message: string,
+      status: number,
+      code: string,
+      _providerReference?: string,
+      details?: {
+        availableBalance: number;
+        chargedAmount: number;
+        shortfall: number;
+      }
+    ) {
       super(message);
       this.name = 'OrderShipmentBookingError';
       this.status = status;
       this.code = code;
+      this.details = details;
     }
   }
 
@@ -107,6 +123,7 @@ type ExistingOrder = {
   customer_id: string | null;
   selected_quote_id: string | null;
   shipping_provider: string | null;
+  shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
   tracking_number: string | null;
   shipment_id: string | null;
   shipping_address?: Record<string, unknown> | null;
@@ -545,6 +562,61 @@ describe('PATCH /api/orders/[id]', () => {
     expect(response.status).toBe(200);
     expect(ordersUpdate).toHaveBeenCalledWith({
       selected_quote_id: null,
+      shipping_address: {
+        address: '2 New Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+  });
+
+  it('clears merchant-wallet funding when invalidating a bound GIGL quote', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'merchant_wallet',
+      tracking_number: null,
+      shipment_id: null,
+      shipping_address: {
+        address: '1 Old Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'processing',
+      shipping_provider: 'GIGL',
+      tracking_number: null,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(ordersUpdate).toHaveBeenCalledWith({
+      selected_quote_id: null,
+      shipping_funding_source: null,
       shipping_address: {
         address: '2 New Street',
         city: 'Lagos',
@@ -1047,6 +1119,61 @@ describe('PATCH /api/orders/[id]', () => {
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
     expect(clearOrderShipmentBookingLock).not.toHaveBeenCalled();
+  });
+
+  it('returns the wallet snapshot when a merchant-wallet booking is short', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    });
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(bookOrderShipment).mockRejectedValue(
+      new OrderShipmentBookingError(
+        'Insufficient merchant wallet balance.',
+        409,
+        'MERCHANT_WALLET_INSUFFICIENT',
+        undefined,
+        {
+          availableBalance: 1200,
+          chargedAmount: 4500,
+          shortfall: 3300,
+        }
+      )
+    );
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'shipped' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'Insufficient merchant wallet balance.',
+      code: 'MERCHANT_WALLET_INSUFFICIENT',
+      availableBalance: 1200,
+      chargedAmount: 4500,
+      shortfall: 3300,
+    });
+    expect(ordersUpdate).not.toHaveBeenCalled();
   });
 
   it('returns 500 when shipment booking fails unexpectedly', async () => {

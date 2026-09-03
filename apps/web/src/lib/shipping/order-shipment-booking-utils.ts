@@ -36,7 +36,12 @@ export class OrderShipmentBookingError extends Error {
     message: string,
     readonly status: number,
     readonly code: string,
-    readonly providerReference?: string
+    readonly providerReference?: string,
+    readonly details?: {
+      availableBalance: number;
+      chargedAmount: number;
+      shortfall: number;
+    }
   ) {
     super(message);
     this.name = 'OrderShipmentBookingError';

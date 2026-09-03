@@ -255,6 +255,9 @@ export async function PATCH(
           );
         }
         updates.selected_quote_id = null;
+        if (existingOrder.shipping_funding_source === 'merchant_wallet') {
+          updates.shipping_funding_source = null;
+        }
       }
     }
 
@@ -610,7 +613,11 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof OrderShipmentBookingError) {
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        {
+          error: error.message,
+          code: error.code,
+          ...(error.details ?? {}),
+        },
         { status: error.status }
       );
     }

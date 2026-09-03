@@ -110,7 +110,14 @@ export async function refreshWalletOrderShipmentQuote(
     sender,
     { orderId }
   );
-  if (refreshed.id === quoteId) return quoteId;
+  const previousPrice = Number(storedQuote.price);
+  const nextPrice = Number(refreshed.price);
+  const quoteChanged =
+    refreshed.id !== quoteId ||
+    (Number.isFinite(previousPrice) &&
+      Number.isFinite(nextPrice) &&
+      previousPrice !== nextPrice);
+  if (!quoteChanged) return quoteId;
 
   const { error: updateError } = await supabase
     .from('orders')
@@ -125,5 +132,9 @@ export async function refreshWalletOrderShipmentQuote(
       'QUOTE_REFRESH_ORDER_UPDATE_FAILED'
     );
   }
-  return refreshed.id;
+  throw new OrderShipmentBookingError(
+    'The shipping quote changed or expired. Please get a new quote and confirm shipping before booking.',
+    409,
+    'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED'
+  );
 }

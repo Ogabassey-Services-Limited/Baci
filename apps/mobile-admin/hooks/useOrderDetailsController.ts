@@ -17,6 +17,7 @@ import { createOrderDetailsPaymentActions } from '@/hooks/createOrderDetailsPaym
 import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsReceiptActions';
 import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
 import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
+import { handleOrderDetailsProviderBookingError } from '@/hooks/handleOrderDetailsProviderBookingError';
 import { useOrderAuditEvents } from '@/hooks/orders/useOrderAuditEvents';
 import { useAuth } from '@/hooks/useAuth';
 import { useGiglAdminShippingEligibility } from '@/hooks/useGiglAdminShippingEligibility';
@@ -188,6 +189,8 @@ export function useOrderDetailsController() {
     shipmentFlowStep: uiState.shipmentFlowStep,
     showShipmentFlow: uiState.showShipmentFlow,
     updateStatus: updateStatusMutation.mutateAsync,
+    onProviderBookingError: (error) =>
+      handleOrderDetailsProviderBookingError(error, giglShipping),
   });
 
   const statusActions = createOrderDetailsStatusActions({

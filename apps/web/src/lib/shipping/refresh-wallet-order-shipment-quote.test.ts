@@ -32,17 +32,20 @@ const merchantSender: ShippingAddress = {
   country: 'Nigeria',
   countryCode: 'NG',
 };
+const destination = {
+  address: '123 Main St',
+  city: 'Lagos',
+  state: 'Lagos',
+  country: 'Nigeria',
+  countryCode: 'NG',
+};
 const domesticQuoteRequest = {
   shipmentType: 'domestic' as const,
   sessionId: 'session-1',
   receiver: {
     name: 'Jane Doe',
     phone: '08012345678',
-    address: '123 Main St',
-    city: 'Lagos',
-    state: 'Lagos',
-    country: 'Nigeria',
-    countryCode: 'NG',
+    ...destination,
   },
   items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
 };
@@ -50,26 +53,14 @@ const storedQuote = {
   id: quoteId,
   merchant_id: merchantId,
   provider: 'GIGL',
-  service_tier: 'GoStandard',
-  carrier_name: 'GIG Logistics',
   price: 2500,
-  currency: 'NGN',
-  estimated_days: 3,
-  provider_rate_id: 'GIGL_4_0',
-  expires_at: new Date(Date.now() + 86_400_000).toISOString(),
   quote_request: domesticQuoteRequest,
 };
 const matchingOrder = {
   id: orderId,
   selected_quote_id: quoteId,
   shipping_provider: 'GIGL',
-  shipping_address: {
-    address: domesticQuoteRequest.receiver.address,
-    city: domesticQuoteRequest.receiver.city,
-    state: domesticQuoteRequest.receiver.state,
-    country: domesticQuoteRequest.receiver.country,
-    countryCode: domesticQuoteRequest.receiver.countryCode,
-  },
+  shipping_address: destination,
 };
 
 function createSupabase(options?: {
@@ -194,10 +185,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
         order: {
           data: {
             ...matchingOrder,
-            shipping_address: {
-              ...matchingOrder.shipping_address,
-              address: '99 Other Street',
-            },
+            shipping_address: { ...destination, address: '99 Other Street' },
           },
           error: null,
         },
@@ -273,7 +261,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
     expect(updates).toEqual([]);
   });
 
-  it('attaches the refreshed quote id and fee when a new quote is persisted', async () => {
+  it('attaches a replacement quote then requires explicit reconfirmation', async () => {
     mocks.refreshOrderShipmentQuote.mockResolvedValue({
       ...storedQuote,
       id: 'quote-refreshed',
@@ -285,7 +273,10 @@ describe('refreshWalletOrderShipmentQuote', () => {
       refresh(
         createSupabase({ onOrderUpdate: (payload) => updates.push(payload) })
       )
-    ).resolves.toBe('quote-refreshed');
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+    });
     expect(updates).toEqual([
       { selected_quote_id: 'quote-refreshed', shipping_fee: 3200 },
     ]);
