@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
+import { notifyRepairPickupBookingAfterPayment } from '@/lib/repairs/notify-repair-pickup-booking';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 
 type RepairPickupPaymentHandlingResult =
@@ -23,6 +24,24 @@ function getConfirmed(value: unknown): boolean | null {
   if (!row || typeof row !== 'object') return null;
   const confirmed = (row as Record<string, unknown>).confirmed;
   return typeof confirmed === 'boolean' ? confirmed : null;
+}
+
+async function markPickupClaimMismatchForReview(
+  supabase: SupabaseClient,
+  claim: { merchantId: string; repairId: string }
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('repairs')
+    .update({ pickup_payment_status: 'review' })
+    .eq('id', claim.repairId)
+    .eq('merchant_id', claim.merchantId)
+    .neq('pickup_payment_status', 'booked');
+
+  if (error) {
+    console.error('Repair pickup claim mismatch review update failed:', error);
+    return false;
+  }
+  return true;
 }
 
 async function setPickupPaymentStatus(
@@ -82,7 +101,7 @@ export async function handleRepairPickupPayment({
       reference,
     });
     if (claim) {
-      await setPickupPaymentStatus(supabase, claim, 'review');
+      await markPickupClaimMismatchForReview(supabase, claim);
     }
     return {
       handled: true,
@@ -114,6 +133,11 @@ export async function handleRepairPickupPayment({
     claim.repairId
   );
   if (booking.ok) {
+    await notifyRepairPickupBookingAfterPayment(
+      supabase,
+      claim.merchantId,
+      claim.repairId
+    );
     return {
       handled: true,
       status: 200,

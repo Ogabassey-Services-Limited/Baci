@@ -145,12 +145,23 @@ export async function startRepairPickupPayment({
     pickup_address: parsed.data.pickupAddress ?? null,
     quoted_price: null,
   });
-  const { quote } = await quoteRepairPickup({
-    items,
-    merchantId: merchant.id,
-    receiver,
-    sender,
-  });
+  let quoteResult: Awaited<ReturnType<typeof quoteRepairPickup>>;
+  try {
+    quoteResult = await quoteRepairPickup({
+      items,
+      merchantId: merchant.id,
+      receiver,
+      sender,
+    });
+  } catch (error) {
+    console.error('Repair pickup quote failed during payment start:', error);
+    return {
+      success: false,
+      code: 'pickup_unavailable',
+      error: 'Courier pickup is not available for this address.',
+    };
+  }
+  const { quote } = quoteResult;
   if (!quote) {
     return {
       success: false,

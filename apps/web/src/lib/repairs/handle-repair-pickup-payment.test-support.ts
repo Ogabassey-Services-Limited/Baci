@@ -28,7 +28,7 @@ export function createRepairPickupPaymentSupabase(confirmed = true) {
   });
   const neq = vi.fn().mockResolvedValue({ error: null });
   const thirdEq = vi.fn().mockReturnValue({ neq });
-  const secondEq = vi.fn().mockReturnValue({ eq: thirdEq });
+  const secondEq = vi.fn().mockReturnValue({ eq: thirdEq, neq });
   const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
   const update = vi.fn().mockReturnValue({ eq: firstEq });
   const from = vi.fn().mockReturnValue({ update });

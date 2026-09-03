@@ -15,6 +15,10 @@ vi.mock('@/lib/repairs/book-repair-pickup', () => ({
   bookRepairPickup: mocks.bookRepairPickup,
 }));
 
+vi.mock('@/lib/repairs/notify-repair-pickup-booking', () => ({
+  notifyRepairPickupBookingAfterPayment: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('handleRepairPickupPayment claim confirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,7 +81,8 @@ describe('handleRepairPickupPayment claim confirmation', () => {
   });
 
   it('does not confirm or book a tampered payment amount', async () => {
-    const { client, rpc } = createRepairPickupPaymentSupabase();
+    const { client, rpc, neq, thirdEq, update } =
+      createRepairPickupPaymentSupabase();
 
     const result = await handleRepairPickupPayment({
       gateway: 'paystack',
@@ -97,6 +102,9 @@ describe('handleRepairPickupPayment claim confirmation', () => {
     });
     expect(rpc).not.toHaveBeenCalled();
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
+    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(thirdEq).not.toHaveBeenCalled();
   });
 
   it('does not confirm a pickup claim with an invalid signature', async () => {

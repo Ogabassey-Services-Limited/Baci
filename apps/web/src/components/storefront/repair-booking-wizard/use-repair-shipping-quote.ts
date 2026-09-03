@@ -47,5 +47,15 @@ export function useRepairShippingQuote(merchantSlug: string) {
     return Promise.resolve();
   };
 
-  return { isCalculatingShipping, retry, selectAddress, shippingQuote };
+  const applyShippingQuote = (quote: ShippingCalculationResult) => {
+    setShippingQuote(quote);
+  };
+
+  return {
+    applyShippingQuote,
+    isCalculatingShipping,
+    retry,
+    selectAddress,
+    shippingQuote,
+  };
 }

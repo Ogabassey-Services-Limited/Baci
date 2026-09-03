@@ -57,6 +57,7 @@ export function RepairBookingWizard({
   );
   const { toast } = useToast();
   const {
+    applyShippingQuote,
     isCalculatingShipping,
     retry: retryShippingQuote,
     selectAddress: handleAddressSelect,
@@ -139,7 +140,26 @@ export function RepairBookingWizard({
               'We have received your repair request. We will contact you shortly.',
             title: 'Request Submitted',
           });
+        } else if (
+          result.code === 'payment_initialization_failed' &&
+          result.ticketNumber
+        ) {
+          setTicketNumber(result.ticketNumber);
+          setIsSuccess(true);
+          toast({
+            description: result.error,
+            title: 'Request Saved',
+          });
         } else {
+          if (result.code === 'quote_changed' && result.quote) {
+            applyShippingQuote({
+              formattedPrice: result.quote.formattedPrice,
+              isFree: false,
+              message: `Estimated pickup fee: ${result.quote.formattedPrice}`,
+              price: result.quote.price,
+            });
+            setCurrentStep(1);
+          }
           toast({
             description: result.error,
             title: 'Submission Failed',

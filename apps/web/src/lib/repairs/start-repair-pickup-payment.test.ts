@@ -211,6 +211,25 @@ describe('startRepairPickupPayment', () => {
     });
   });
 
+  it('returns pickup_unavailable when the live quote request throws', async () => {
+    mocks.quoteRepairPickup.mockRejectedValueOnce(new Error('GIGL offline'));
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'pickup_unavailable',
+      error: 'Courier pickup is not available for this address.',
+    });
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+  });
+
   it('rejects a non-string or oversized merchant identifier before lookup', async () => {
     const result = await startRepairPickupPayment({
       data: input,
