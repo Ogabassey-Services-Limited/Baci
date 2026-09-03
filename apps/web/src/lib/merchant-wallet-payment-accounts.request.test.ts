@@ -76,15 +76,16 @@ describe('merchant wallet payment-account provisioning — request', () => {
     const supabase = client();
     await expect(
       requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
-    ).rejects.toThrow('Paystack customer provisioning failed');
-    expect(supabase.rpc).toHaveBeenCalledWith(
-      'fail_merchant_wallet_funding_request',
-      { p_request_id: 'req1', p_merchant_id: 'm' }
-    );
+    ).resolves.toEqual({
+      status: 'pending',
+      account: null,
+      requestId: 'req1',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('requires review when the failure transition itself fails', async () => {
-    customer.mockRejectedValue(new Error('provider timeout'));
+    customer.mockResolvedValue({ success: false });
     const supabase = client([], { rpcError: new Error('rpc down') });
     await expect(
       requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
@@ -113,16 +114,34 @@ describe('merchant wallet payment-account provisioning — request', () => {
     );
   });
 
+  it('keeps the funding request pending after an ambiguous DVA transport failure', async () => {
+    dva.mockResolvedValue({
+      success: false,
+      code: 'NETWORK_ERROR',
+      error: 'socket hang up',
+    });
+    const supabase = client();
+    await expect(
+      requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
+    ).resolves.toEqual({
+      status: 'pending',
+      account: null,
+      requestId: 'req1',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('marks the request failed when DVA provisioning throws', async () => {
     dva.mockRejectedValue(new Error('provider timeout'));
     const supabase = client();
     await expect(
       requestMerchantWalletAccount(supabase, { id: 'm', email: 'e' })
-    ).rejects.toThrow('Paystack DVA provisioning failed');
-    expect(supabase.rpc).toHaveBeenCalledWith(
-      'fail_merchant_wallet_funding_request',
-      { p_request_id: 'req1', p_merchant_id: 'm' }
-    );
+    ).resolves.toEqual({
+      status: 'pending',
+      account: null,
+      requestId: 'req1',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('allows a later retry after a provider failure is transitioned to failed', async () => {

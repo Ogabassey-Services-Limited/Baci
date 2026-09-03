@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createDedicatedAccount, createOrGetCustomer } from '@/lib/paystack';
+import { isAmbiguousPaystackProvisioningFailure } from './is-ambiguous-paystack-provisioning-failure';
 import { logMerchantWalletProvisioningError } from './merchant-wallet-provisioning-logging';
 
 export type MerchantWalletAccount = {
@@ -120,9 +121,23 @@ export async function requestMerchantWalletAccount(
       merchant.id,
       provisioningError
     );
+    if (isAmbiguousPaystackProvisioningFailure(provisioningError)) {
+      return {
+        status: 'pending' as const,
+        account: null,
+        requestId: request.id,
+      };
+    }
     return failProvisioningRequest('Paystack customer provisioning failed');
   }
   if (!customer.success) {
+    if (isAmbiguousPaystackProvisioningFailure(customer)) {
+      return {
+        status: 'pending' as const,
+        account: null,
+        requestId: request.id,
+      };
+    }
     return failProvisioningRequest('Paystack customer provisioning failed');
   }
   let dva: Awaited<ReturnType<typeof createDedicatedAccount>>;
@@ -139,9 +154,23 @@ export async function requestMerchantWalletAccount(
       merchant.id,
       provisioningError
     );
+    if (isAmbiguousPaystackProvisioningFailure(provisioningError)) {
+      return {
+        status: 'pending' as const,
+        account: null,
+        requestId: request.id,
+      };
+    }
     return failProvisioningRequest('Paystack DVA provisioning failed');
   }
   if (!dva.success) {
+    if (isAmbiguousPaystackProvisioningFailure(dva)) {
+      return {
+        status: 'pending' as const,
+        account: null,
+        requestId: request.id,
+      };
+    }
     return failProvisioningRequest('Paystack DVA provisioning failed');
   }
   return { status: 'pending' as const, account: null, requestId: request.id };

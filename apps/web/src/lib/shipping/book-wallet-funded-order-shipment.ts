@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
+  cleanupPreSubmissionReservation,
+  hasReservedMerchantShippingCharge,
+} from './book-wallet-funded-reservation-cleanup';
+import {
   completePendingWalletExistingShipment,
   readPendingWalletExistingShipment,
 } from './finalize-wallet-funded-existing-shipment';
@@ -22,50 +26,6 @@ type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
 type ChargeReservation = Awaited<
   ReturnType<typeof reserveMerchantShippingCharge>
 >;
-async function hasReservedMerchantShippingCharge(
-  supabase: SupabaseClient,
-  orderId: string,
-  quoteId: string
-): Promise<boolean | null> {
-  if (typeof supabase.from !== 'function') return false;
-  try {
-    const { data, error } = await supabase
-      .from('merchant_shipping_charges')
-      .select('id')
-      .eq('order_id', orderId)
-      .eq('shipping_quote_id', quoteId)
-      .eq('status', 'reserved')
-      .maybeSingle();
-    if (error) return null;
-    return Boolean(data?.id);
-  } catch {
-    return null;
-  }
-}
-async function cleanupPreSubmissionReservation(
-  supabase: SupabaseClient,
-  reservation: ChargeReservation,
-  reasonCode: string,
-  releaseLock?: ReleaseLock
-): Promise<void> {
-  try {
-    await refundMerchantShippingCharge(
-      supabase,
-      reservation.charge.chargeId,
-      reservation.token,
-      reasonCode
-    );
-  } catch {
-    console.error('Wallet shipping refund failed during cleanup.');
-  }
-  if (releaseLock) {
-    try {
-      await releaseLock();
-    } catch {
-      console.error('Booking lock release failed during cleanup.');
-    }
-  }
-}
 export async function bookWalletFundedOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
