@@ -16,6 +16,27 @@ type PrepareQuote = () => Promise<string>;
 type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
 
+async function hasReservedMerchantShippingCharge(
+  supabase: SupabaseClient,
+  orderId: string,
+  quoteId: string
+): Promise<boolean> {
+  if (typeof supabase.from !== 'function') return false;
+  try {
+    const { data, error } = await supabase
+      .from('merchant_shipping_charges')
+      .select('id')
+      .eq('order_id', orderId)
+      .eq('shipping_quote_id', quoteId)
+      .eq('status', 'reserved')
+      .maybeSingle();
+    if (error) return false;
+    return Boolean(data?.id);
+  } catch {
+    return false;
+  }
+}
+
 export async function bookWalletFundedOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
@@ -54,7 +75,12 @@ export async function bookWalletFundedOrderShipment(
     }
   }
   let preparedQuoteId = quoteId;
-  if (prepareQuote) {
+  // If a prior attempt already reserved funds for this quote, resume that
+  // charge instead of refreshing (refresh would fail on active-charge replace).
+  const shouldPrepareQuote =
+    Boolean(prepareQuote) &&
+    !(await hasReservedMerchantShippingCharge(supabase, orderId, quoteId));
+  if (shouldPrepareQuote && prepareQuote) {
     try {
       preparedQuoteId = await prepareQuote();
     } catch (error) {

@@ -5,6 +5,7 @@ import {
   parseStoredQuoteRequest,
   quotedShipmentItemWeight,
   toDomesticBookingItems,
+  toQuoteComparableOrderItems,
   toShipmentItems,
 } from './order-shipment-booking-utils';
 
@@ -169,5 +170,14 @@ describe('toDomesticBookingItems', () => {
         value: 5000,
       },
     ]);
+  });
+
+  it('derives the same 1 kg fallback used by domestic quote construction', () => {
+    expect(
+      toQuoteComparableOrderItems(
+        [{ name: 'Widget', quantity: 1, price: 5000 }],
+        { defaultWeight: 1 }
+      )
+    ).toEqual([{ name: 'Widget', quantity: 1, price: 5000, weight: 1 }]);
   });
 });

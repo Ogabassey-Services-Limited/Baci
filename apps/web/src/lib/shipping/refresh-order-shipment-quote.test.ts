@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
-import type { ShippingAddress } from '@/lib/shipping/types';
+import {
+  correctedSender,
+  createRefreshOrderQuote,
+  storedSender,
+} from './refresh-order-shipment-quote.test-support';
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
@@ -12,14 +16,11 @@ vi.mock('server-only', () => ({}));
 
 const adminMocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
-  persistAdminGiglQuote: vi.fn(),
+  adminRpc: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: adminMocks.createAdminClient,
-}));
-vi.mock('./persist-admin-gigl-quote', () => ({
-  persistAdminGiglQuote: adminMocks.persistAdminGiglQuote,
 }));
 
 const { refreshOrderShipmentQuote } = await import(
@@ -27,56 +28,11 @@ const { refreshOrderShipmentQuote } = await import(
 );
 const { shippingService } = await import('@/lib/shipping');
 
-const storedSender: ShippingAddress = {
-  name: 'Merchant',
-  phone: '08000000000',
-  address: '2 Olaide Tomori Street, Ikeja, Lagos',
-  city: 'Lagos',
-  state: 'Lagos',
-  country: 'Nigeria',
-  countryCode: 'NG',
-};
-
-const correctedSender: ShippingAddress = {
-  name: 'Merchant',
-  phone: '08000000000',
-  address: '2 Olaide Tomori Street, Ikeja, Lagos',
-  city: 'Ikeja',
-  state: 'Lagos',
-  country: 'Nigeria',
-  countryCode: 'NG',
-};
-
-function createQuote(overrides?: {
-  expiresAt?: string;
-  sender?: ShippingAddress;
-}) {
-  return {
-    id: 'quote-1',
-    merchant_id: 'merchant-1',
-    provider: 'GIGL',
-    service_tier: 'GoStandard',
-    carrier_name: 'GIG Logistics',
-    price: 2500,
-    currency: 'NGN',
-    estimated_days: 3,
-    provider_rate_id: 'GIGL_4_0',
-    expires_at:
-      overrides?.expiresAt ?? new Date(Date.now() + 86_400_000).toISOString(),
-    quote_request: {
-      shipmentType: 'domestic' as const,
-      sessionId: 'session-1',
-      sender: overrides?.sender ?? storedSender,
-      receiver: correctedSender,
-      items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
-    },
-    provider_metadata: {},
-  };
-}
-
 function createSupabase(
   upsertError: { code: string; message: string } | null = null
 ) {
+  adminMocks.adminRpc.mockResolvedValue({ error: upsertError });
+  adminMocks.createAdminClient.mockReturnValue({ rpc: adminMocks.adminRpc });
   return {
     rpc: vi.fn().mockResolvedValue({ error: upsertError }),
   };
@@ -85,7 +41,8 @@ function createSupabase(
 describe('refreshOrderShipmentQuote', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adminMocks.persistAdminGiglQuote.mockResolvedValue({ error: null });
+    adminMocks.adminRpc.mockResolvedValue({ error: null });
+    adminMocks.createAdminClient.mockReturnValue({ rpc: adminMocks.adminRpc });
     vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
       {
         id: 'quote-refreshed',
@@ -106,7 +63,7 @@ describe('refreshOrderShipmentQuote', () => {
   });
 
   it('returns the stored quote when it is unexpired and the sender already matches', async () => {
-    const quote = createQuote({ sender: correctedSender });
+    const quote = createRefreshOrderQuote({ sender: correctedSender });
 
     const result = await refreshOrderShipmentQuote(
       createSupabase() as never,
@@ -120,7 +77,7 @@ describe('refreshOrderShipmentQuote', () => {
   });
 
   it('refreshes and persists when an unexpired domestic sender differs', async () => {
-    const quote = createQuote({ sender: storedSender });
+    const quote = createRefreshOrderQuote({ sender: storedSender });
     const supabase = createSupabase();
 
     const result = await refreshOrderShipmentQuote(
@@ -135,28 +92,30 @@ describe('refreshOrderShipmentQuote', () => {
       expect.objectContaining({ sender: correctedSender })
     );
     expect(result.id).toBe('quote-refreshed');
-    expect(supabase.rpc).toHaveBeenCalledWith(
+    expect(adminMocks.createAdminClient).toHaveBeenCalledWith();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(adminMocks.adminRpc).toHaveBeenCalledWith(
       'persist_refreshed_merchant_shipping_quote',
       expect.objectContaining({
         p_quote: expect.objectContaining({ id: 'quote-refreshed' }),
       })
     );
-    expect(adminMocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('attests a refreshed Admin GIGL quote to the wallet order', async () => {
     const quote = {
-      ...createQuote({
+      ...createRefreshOrderQuote({
         expiresAt: new Date(Date.now() - 60_000).toISOString(),
       }),
       quote_request: {
-        ...createQuote().quote_request,
+        ...createRefreshOrderQuote().quote_request,
         admin_order_provenance: 'server_gigl_v1' as const,
       },
     };
+    const supabase = createSupabase();
 
     const result = await refreshOrderShipmentQuote(
-      createSupabase() as never,
+      supabase as never,
       quote,
       'GIGL',
       correctedSender,
@@ -164,27 +123,23 @@ describe('refreshOrderShipmentQuote', () => {
     );
 
     expect(result.id).toBe('quote-refreshed');
-    expect(adminMocks.persistAdminGiglQuote).toHaveBeenCalledWith({
-      quote: expect.objectContaining({
-        id: 'quote-refreshed',
-        merchant_id: 'merchant-1',
-        session_id: 'order-1',
-        provider: 'GIGL',
-      }),
-      attestation: {
-        quote_id: 'quote-refreshed',
-        order_id: 'order-1',
-        merchant_id: 'merchant-1',
-        provider_rate_id: 'GIGL_4_0',
-        quote_request: expect.objectContaining({
-          admin_order_provenance: 'server_gigl_v1',
+    expect(adminMocks.createAdminClient).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_refreshed_order_shipping_quote',
+      expect.objectContaining({
+        p_order_id: 'order-1',
+        p_quote: expect.objectContaining({
+          id: 'quote-refreshed',
+          merchant_id: 'merchant-1',
+          session_id: 'order-1',
+          provider: 'GIGL',
         }),
-      },
-    });
+      })
+    );
   });
 
   it('fails before the provider when refresh is disabled for a stale wallet quote', async () => {
-    const quote = createQuote({
+    const quote = createRefreshOrderQuote({
       expiresAt: new Date(Date.now() - 60_000).toISOString(),
     });
 
@@ -204,7 +159,7 @@ describe('refreshOrderShipmentQuote', () => {
   });
 
   it('fails before the provider when refresh is disabled for a changed sender', async () => {
-    const quote = createQuote({ sender: storedSender });
+    const quote = createRefreshOrderQuote({ sender: storedSender });
 
     await expect(
       refreshOrderShipmentQuote(
@@ -223,7 +178,7 @@ describe('refreshOrderShipmentQuote', () => {
 
   it('preserves the selected pickup centre when refreshing a legacy GIGL rate ID', async () => {
     const quote = {
-      ...createQuote({ sender: storedSender }),
+      ...createRefreshOrderQuote({ sender: storedSender }),
       provider_rate_id: 'GIGL_30_1_1_575_0',
     };
     vi.mocked(shippingService.getProviderQuotes).mockResolvedValueOnce([
@@ -271,7 +226,7 @@ describe('refreshOrderShipmentQuote', () => {
   });
 
   it('refreshes an unexpired domestic quote when its saved sender is missing', async () => {
-    const storedQuote = createQuote({ sender: correctedSender });
+    const storedQuote = createRefreshOrderQuote({ sender: correctedSender });
     const { sender: _sender, ...quoteRequestWithoutSender } =
       storedQuote.quote_request;
     const quote = {
@@ -294,7 +249,7 @@ describe('refreshOrderShipmentQuote', () => {
 
   describe('bugfix: upsert failure must not continue booking', () => {
     it('throws QUOTE_REFRESH_PERSIST_FAILED when the refreshed quote cannot be saved', async () => {
-      const quote = createQuote({
+      const quote = createRefreshOrderQuote({
         expiresAt: new Date(Date.now() - 60_000).toISOString(),
       });
       const upsertError = { code: '42501', message: 'permission denied' };

@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { persistAdminGiglQuote } = vi.hoisted(() => ({
-  persistAdminGiglQuote: vi.fn(),
-}));
+const createAdminClient = vi.fn();
 
 vi.mock('server-only', () => ({}));
-vi.mock('./persist-admin-gigl-quote', () => ({
-  persistAdminGiglQuote,
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => createAdminClient(...args),
 }));
 
 import { persistRefreshedShippingQuote } from './persist-refreshed-shipping-quote';
@@ -29,13 +27,12 @@ const checkoutQuote = {
 describe('persistRefreshedShippingQuote', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    persistAdminGiglQuote.mockResolvedValue({ error: null });
   });
 
-  it('persists checkout refreshes through the merchant-owned RPC', async () => {
-    const supabase = {
-      rpc: vi.fn().mockResolvedValue({ error: null }),
-    };
+  it('persists checkout refreshes through the service-role merchant RPC', async () => {
+    const adminRpc = vi.fn().mockResolvedValue({ error: null });
+    createAdminClient.mockReturnValue({ rpc: adminRpc });
+    const supabase = { rpc: vi.fn() };
 
     await expect(
       persistRefreshedShippingQuote(supabase as never, checkoutQuote, {
@@ -45,7 +42,9 @@ describe('persistRefreshedShippingQuote', () => {
       })
     ).resolves.toEqual({ error: null });
 
-    expect(supabase.rpc).toHaveBeenCalledWith(
+    expect(createAdminClient).toHaveBeenCalledWith();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(adminRpc).toHaveBeenCalledWith(
       'persist_refreshed_merchant_shipping_quote',
       {
         p_quote: expect.objectContaining({
@@ -54,11 +53,10 @@ describe('persistRefreshedShippingQuote', () => {
         }),
       }
     );
-    expect(persistAdminGiglQuote).not.toHaveBeenCalled();
   });
 
-  it('writes an order-scoped attestation for Admin GIGL wallet refreshes', async () => {
-    const supabase = { rpc: vi.fn() };
+  it('writes an order-scoped attestation through the authenticated client', async () => {
+    const supabase = { rpc: vi.fn().mockResolvedValue({ error: null }) };
 
     await expect(
       persistRefreshedShippingQuote(
@@ -70,7 +68,7 @@ describe('persistRefreshedShippingQuote', () => {
           providerRateId: 'GIGL_4_0',
           providerCost: 10_000,
           platformMargin: 2_000,
-          marginBasisPoints: 2_000,
+          marginBasisPoints: 1_000,
           pricingVersion: 'gigl_platform_margin_v1',
         },
         {
@@ -96,26 +94,10 @@ describe('persistRefreshedShippingQuote', () => {
       )
     ).resolves.toEqual({ error: null });
 
-    expect(persistAdminGiglQuote).toHaveBeenCalledWith({
-      quote: expect.objectContaining({
-        id: 'q2',
-        provider: 'GIGL',
-        merchant_id: 'merchant-1',
-        session_id: 'order-1',
-        provider_cost: 10_000,
-        platform_margin: 2_000,
-        pricing_version: 'gigl_platform_margin_v1',
-      }),
-      attestation: {
-        quote_id: 'q2',
-        order_id: 'order-1',
-        merchant_id: 'merchant-1',
-        provider_rate_id: 'GIGL_4_0',
-        quote_request: expect.objectContaining({
-          admin_order_provenance: 'server_gigl_v1',
-        }),
-      },
-    });
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_refreshed_order_shipping_quote',
+      expect.objectContaining({ p_order_id: 'order-1' })
+    );
   });
 });

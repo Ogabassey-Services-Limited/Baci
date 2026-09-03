@@ -3,12 +3,13 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toShippingQuoteUpsert } from '@/app/api/shipping/quotes/shipping-quote-persistence';
 import type { QuoteRequest, ShippingQuote } from '@/lib/shipping/types';
-import { persistAdminGiglQuote } from './persist-admin-gigl-quote';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
- * Persist a provider-refreshed quote. Wallet GIGL replacements stay on the
- * attested admin writer; checkout/book refreshes use the merchant-owned RPC
- * so this helper never constructs a service-role client.
+ * Persist a provider-refreshed quote.
+ * - Checkout/book refreshes use the service-role writer so callers cannot forge
+ *   quote economics through PostgREST.
+ * - Admin wallet refreshes stay on the caller-bound order attestation RPC.
  */
 export async function persistRefreshedShippingQuote(
   supabase: SupabaseClient,
@@ -17,32 +18,25 @@ export async function persistRefreshedShippingQuote(
     merchantId?: string | null;
     sessionId: string;
     quoteRequest: QuoteRequest;
-    /**
-     * Order identity for an Admin wallet refresh. Admin GIGL quotes are
-     * attested to their order before wallet reservation, so a replacement
-     * quote must use the trusted attestation writer rather than the ordinary
-     * shipping_quotes upsert.
-     */
+    /** Order identity for an Admin wallet refresh, bound by the server RPC. */
     orderId?: string;
   }
 ): Promise<{ error: { code?: string; message?: string } | null }> {
   const persisted = toShippingQuoteUpsert(quote, context);
 
   if (quote.provider === 'GIGL' && context.orderId && context.merchantId) {
-    const { error } = await persistAdminGiglQuote({
-      quote: persisted,
-      attestation: {
-        quote_id: quote.id,
-        order_id: context.orderId,
-        merchant_id: context.merchantId,
-        provider_rate_id: quote.providerRateId ?? null,
-        quote_request: context.quoteRequest,
-      },
-    });
+    const { error } = await supabase.rpc(
+      'persist_refreshed_order_shipping_quote' as never,
+      {
+        p_order_id: context.orderId,
+        p_quote: persisted,
+      } as never
+    );
     return { error };
   }
 
-  const { error } = await supabase.rpc(
+  const admin = createAdminClient();
+  const { error } = await admin.rpc(
     'persist_refreshed_merchant_shipping_quote' as never,
     { p_quote: persisted } as never
   );

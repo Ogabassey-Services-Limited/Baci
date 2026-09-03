@@ -182,7 +182,12 @@ export async function bookOrderShipment(
     assertQuoteReceiverMatchesOrder(effectiveQuoteRequest, typedOrder);
     assertQuoteItemsMatchOrder(
       effectiveQuoteRequest,
-      toQuoteComparableOrderItems(typedOrder.order_items)
+      toQuoteComparableOrderItems(typedOrder.order_items, {
+        // Domestic quote construction uses 1 kg when the product has no
+        // recorded weight. Reuse that same attested default for the booking
+        // guard so a tampered quote cannot change the shipment payload.
+        defaultWeight: 1,
+      })
     );
   }
 

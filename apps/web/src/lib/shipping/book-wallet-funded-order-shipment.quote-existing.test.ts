@@ -1,0 +1,174 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('./merchant-shipping-charge', () => ({
+  reserveMerchantShippingCharge: vi.fn(),
+  beginMerchantShippingChargeSubmission: vi.fn(),
+  completeMerchantShippingCharge: vi.fn(),
+  refundMerchantShippingCharge: vi.fn(),
+  markMerchantShippingChargeForReconciliation: vi.fn(),
+}));
+
+import { bookWalletOrCustomerCheckout } from './book-wallet-funded-order-shipment';
+import { supabaseFixture } from './book-wallet-funded-order-shipment.test-support';
+import * as charge from './merchant-shipping-charge';
+import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+
+describe('wallet-funded shipment orchestration — quote and existing shipment', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('releases the lock when quote preparation fails before reservation', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(
+        new OrderShipmentBookingError(
+          'Quote metadata unavailable',
+          500,
+          'QUOTE_METADATA_LOOKUP_FAILED'
+        )
+      );
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q-stale',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        prepareQuote
+      )
+    ).rejects.toMatchObject({ code: 'QUOTE_METADATA_LOOKUP_FAILED' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+  });
+
+  it('skips quote refresh when a reserved wallet charge already exists', async () => {
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(new Error('refresh would replace active charge'));
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'charge-reserved' },
+          error: null,
+        }),
+      })),
+    };
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'charge-reserved',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 'r'.repeat(64),
+    });
+    const book = vi.fn().mockResolvedValue({
+      shipmentId: 's1',
+      provider: 'GIGL' as const,
+      providerShipmentId: 'p1',
+      trackingNumber: 't1',
+      carrierName: 'GIGL',
+      quoteId: 'q1',
+      estimatedDays: null,
+      shipmentStatus: 'booked' as const,
+    });
+
+    await bookWalletOrCustomerCheckout(
+      supabase as never,
+      'm1',
+      'o1',
+      'q1',
+      'merchant_wallet',
+      book,
+      undefined,
+      prepareQuote
+    );
+
+    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(charge.reserveMerchantShippingCharge).toHaveBeenCalledWith(
+      supabase,
+      'o1',
+      'q1'
+    );
+    expect(book).toHaveBeenCalledWith('q1');
+  });
+
+  it('returns an existing booked shipment before preparing a quote', async () => {
+    const existing = {
+      shipmentId: 's-existing',
+      provider: 'GIGL' as const,
+      providerShipmentId: 'p-existing',
+      trackingNumber: 't-existing',
+      carrierName: 'GIGL',
+      quoteId: 'q-existing',
+      estimatedDays: null,
+      shipmentStatus: 'booked' as const,
+    };
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(new Error('stale quote should not be prepared'));
+    const readExistingShipment = vi.fn().mockResolvedValue(existing);
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        undefined,
+        prepareQuote,
+        readExistingShipment
+      )
+    ).resolves.toEqual(existing);
+
+    expect(readExistingShipment).toHaveBeenCalledOnce();
+    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+  });
+
+  it('releases the lock and skips reservation when existing-shipment lookup fails', async () => {
+    const release = vi.fn().mockRejectedValue(new Error('lock release failed'));
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const readExistingShipment = vi
+      .fn()
+      .mockRejectedValue(
+        new OrderShipmentBookingError(
+          'Unable to verify existing shipment.',
+          500,
+          'EXISTING_SHIPMENT_LOOKUP_FAILED'
+        )
+      );
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        undefined,
+        readExistingShipment
+      )
+    ).rejects.toMatchObject({ code: 'EXISTING_SHIPMENT_LOOKUP_FAILED' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to release shipment booking lock after existing-shipment lookup error:',
+      expect.any(Error)
+    );
+    errorSpy.mockRestore();
+  });
+});

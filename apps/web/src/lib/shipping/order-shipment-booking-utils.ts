@@ -72,12 +72,21 @@ function isShipmentItem(value: unknown): value is ShipmentItem {
   if (!value || typeof value !== 'object') return false;
 
   const item = value as Partial<ShipmentItem>;
+  const quantity = item.quantity;
+  const weight = item.weight;
+  const itemValue = item.value;
 
   return (
     typeof item.name === 'string' &&
-    typeof item.quantity === 'number' &&
-    typeof item.weight === 'number' &&
-    typeof item.value === 'number'
+    typeof quantity === 'number' &&
+    Number.isInteger(quantity) &&
+    quantity > 0 &&
+    typeof weight === 'number' &&
+    Number.isFinite(weight) &&
+    weight > 0 &&
+    typeof itemValue === 'number' &&
+    Number.isFinite(itemValue) &&
+    itemValue >= 0
   );
 }
 
@@ -183,7 +192,10 @@ export function quotedShipmentItemWeight(item: {
   return product?.weight_unit?.toLowerCase() === 'g' ? value * 0.001 : value;
 }
 
-export function toQuoteComparableOrderItems(items: unknown) {
+export function toQuoteComparableOrderItems(
+  items: unknown,
+  options: { defaultWeight?: number } = {}
+) {
   if (!Array.isArray(items)) return [];
   return items.flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
@@ -199,7 +211,7 @@ export function toQuoteComparableOrderItems(items: unknown) {
         name: record.name ?? null,
         quantity: record.quantity ?? null,
         price: record.price,
-        weight: quotedShipmentItemWeight(record),
+        weight: quotedShipmentItemWeight(record) ?? options.defaultWeight,
       },
     ];
   });

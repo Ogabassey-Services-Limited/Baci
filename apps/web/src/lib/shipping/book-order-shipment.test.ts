@@ -314,11 +314,117 @@ describe('bookOrderShipment', () => {
     );
   });
 
+  it('rejects a domestic booking when an attested quote weight differs from the order product', async () => {
+    const supabase = createMockSupabase({
+      order: {
+        data: {
+          ...validOrder,
+          order_items: [
+            {
+              name: 'Widget',
+              quantity: 2,
+              price: 5000,
+              product: { weight_value: 1, weight_unit: 'kg' },
+            },
+          ],
+        },
+        error: null,
+      },
+      quote: {
+        data: {
+          ...validQuote,
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'domestic',
+            receiver: {
+              name: 'Jane Doe',
+              phone: '08012345678',
+              address: '123 Main St',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            items: [{ name: 'Widget', quantity: 2, weight: 2, value: 5000 }],
+          },
+        },
+        error: null,
+      },
+      merchant: { data: validMerchant, error: null },
+    });
+
+    await expect(
+      bookOrderShipment(supabase, 'merchant-1', 'order-1')
+    ).rejects.toThrow('saved shipping quote no longer matches this order');
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['quantity', { quantity: 3, value: 5000 }],
+    ['value', { quantity: 2, value: 7000 }],
+  ])('rejects a domestic booking when attested item %s changes', async (_field, item) => {
+    const supabase = createMockSupabase({
+      order: {
+        data: {
+          ...validOrder,
+          order_items: [
+            {
+              name: 'Widget',
+              quantity: 2,
+              price: 5000,
+              product: { weight_value: 1, weight_unit: 'kg' },
+            },
+          ],
+        },
+        error: null,
+      },
+      quote: {
+        data: {
+          ...validQuote,
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'domestic',
+            receiver: {
+              name: 'Jane Doe',
+              phone: '08012345678',
+              address: '123 Main St',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            items: [{ name: 'Widget', ...item, weight: 1 }],
+          },
+        },
+        error: null,
+      },
+      merchant: { data: validMerchant, error: null },
+    });
+
+    await expect(
+      bookOrderShipment(supabase, 'merchant-1', 'order-1')
+    ).rejects.toThrow('saved shipping quote no longer matches this order');
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
+
   it('books domestic items using the attested quote weights', async () => {
     vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
 
     const supabase = createMockSupabase({
-      order: { data: validOrder, error: null },
+      order: {
+        data: {
+          ...validOrder,
+          order_items: [
+            {
+              name: 'Widget',
+              quantity: 2,
+              price: 5000,
+              product: { weight_value: 2.5, weight_unit: 'kg' },
+            },
+          ],
+        },
+        error: null,
+      },
       quote: {
         data: {
           ...validQuote,
