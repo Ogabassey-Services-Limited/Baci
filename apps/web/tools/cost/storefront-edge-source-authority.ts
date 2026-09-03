@@ -30,8 +30,8 @@ function isIncludedRouteSource(sourcePath: string) {
   );
 }
 
-function isIncludedApiSource(sourcePath: string) {
-  return isStorefrontRequiredApiSourcePath(sourcePath);
+function isIncludedApiSource(sourcePath: string, apiRoot: string) {
+  return isStorefrontRequiredApiSourcePath(sourcePath, apiRoot);
 }
 
 async function listCurrentSources(
@@ -154,13 +154,13 @@ export async function readStorefrontEdgeSourceAuthority(
       .sort();
     const approvedApiTree = [...approvedTree.keys()]
       .filter((sourcePath) => sourcePath.startsWith(`${apiRoot}/`))
-      .filter(isIncludedApiSource)
+      .filter((sourcePath) => isIncludedApiSource(sourcePath, apiRoot))
       .sort();
     const [currentApiTree, currentRouteTree] = await Promise.all([
       listCurrentSources(
         options.repoRoot,
         resolve(options.repoRoot, apiRoot),
-        isIncludedApiSource
+        (sourcePath) => isIncludedApiSource(sourcePath, apiRoot)
       ),
       Promise.all(
         routeRoots.map((routeRoot) =>

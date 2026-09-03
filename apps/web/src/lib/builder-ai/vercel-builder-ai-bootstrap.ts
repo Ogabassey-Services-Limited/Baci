@@ -1,5 +1,6 @@
 const VERCEL_API_ORIGIN = 'https://api.vercel.com';
 const TOKEN_HASH_KEY = 'BUILDER_AI_ATTEST_SMOKE_TOKEN_SHA256';
+const MAX_CONTROL_PLANE_LIST_PAGES = 2;
 
 export function builderAiBootstrapComment(runId: string): string {
   return `baci-builder-ai-bootstrap:${runId}`;
@@ -137,8 +138,11 @@ export function createBuilderAiVercelBootstrapClient(
         const rows: unknown[] = [];
         const seenCursors = new Set<string>();
         let cursor: string | null = null;
+        let listedPages = 0;
 
         do {
+          if (listedPages >= MAX_CONTROL_PLANE_LIST_PAGES) return false;
+          listedPages += 1;
           const cursorQuery = cursor
             ? `?until=${encodeURIComponent(cursor)}`
             : '';
