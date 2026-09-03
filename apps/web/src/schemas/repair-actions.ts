@@ -11,6 +11,13 @@ export const repairMerchantIdentifierSchema = z
   .max(120)
   .transform((value) => value.toLowerCase());
 
+/** Customer-facing pickup fee quoted before Paystack initialization. */
+export const repairPickupExpectedFeeSchema = z.coerce
+  .number()
+  .finite()
+  .positive()
+  .max(10_000_000);
+
 /**
  * `/[slug]/repair?device=<slug>&quote=<id>` preselection query params. Reuses
  * the same device-slug shape the storefront read API validates route params

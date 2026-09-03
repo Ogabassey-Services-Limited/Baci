@@ -15,6 +15,7 @@ import { repairBookingSchema } from '@/lib/validations/repair';
 import {
   repairMerchantIdentifierSchema,
   repairMerchantIdSchema,
+  repairPickupExpectedFeeSchema,
 } from '@/schemas/repair-actions';
 
 const createReference = customAlphabet(
@@ -44,7 +45,7 @@ type StartRepairPickupPaymentResult =
 
 interface StartRepairPickupPaymentInput {
   data: unknown;
-  expectedPickupFee: number;
+  expectedPickupFee: unknown;
   merchantId: string;
   merchantIdentifier: string;
 }
@@ -70,10 +71,13 @@ export async function startRepairPickupPayment({
   const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
   const parsedMerchantIdentifier =
     repairMerchantIdentifierSchema.safeParse(merchantIdentifier);
+  const parsedExpectedPickupFee =
+    repairPickupExpectedFeeSchema.safeParse(expectedPickupFee);
   const parsed = repairBookingSchema.safeParse(data);
   if (
     !parsedMerchantId.success ||
     !parsedMerchantIdentifier.success ||
+    !parsedExpectedPickupFee.success ||
     !parsed.success ||
     parsed.data.serviceType !== 'pickup'
   ) {
@@ -170,7 +174,7 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const expectedKobo = Math.round(expectedPickupFee * 100);
+  const expectedKobo = Math.round(parsedExpectedPickupFee.data * 100);
   const amountKobo = Math.round(quote.price * 100);
   if (expectedKobo !== amountKobo) {
     return {

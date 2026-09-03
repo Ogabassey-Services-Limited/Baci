@@ -230,6 +230,22 @@ describe('startRepairPickupPayment', () => {
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid expected pickup fees before merchant lookup', async () => {
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: -10,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'validation_failed',
+      error: 'Enter valid repair and pickup details.',
+    });
+    expect(mocks.resolveWalletTopUpMerchant).not.toHaveBeenCalled();
+  });
+
   it('rejects a non-string or oversized merchant identifier before lookup', async () => {
     const result = await startRepairPickupPayment({
       data: input,

@@ -6,8 +6,6 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
-import { createRepair } from '@/app/actions/repair';
-import { startCustomerRepairPickupPayment } from '@/app/actions/repair-pickup-payment';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +24,7 @@ import {
   REPAIR_WIZARD_STEPS,
   type RepairBookingPreselection,
 } from './repair-booking-wizard/repair-booking-wizard-constants';
+import { useRepairBookingSubmit } from './repair-booking-wizard/use-repair-booking-submit';
 import { useRepairShippingQuote } from './repair-booking-wizard/use-repair-shipping-quote';
 
 export type { RepairBookingPreselection };
@@ -44,7 +43,6 @@ export function RepairBookingWizard({
   preselection,
 }: RepairBookingWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [ticketNumber, setTicketNumber] = useState<number | null>(null);
   const [pickupPayment, setPickupPayment] = useState<{
@@ -63,6 +61,20 @@ export function RepairBookingWizard({
     selectAddress: handleAddressSelect,
     shippingQuote,
   } = useRepairShippingQuote(merchantSlug);
+
+  const { isSubmitting, onSubmit } = useRepairBookingSubmit({
+    applyShippingQuote,
+    merchantId,
+    merchantSlug,
+    onPickupPaymentReady: setPickupPayment,
+    onSuccess: (nextTicketNumber) => {
+      setTicketNumber(nextTicketNumber);
+      setIsSuccess(true);
+    },
+    setCurrentStep,
+    shippingQuote,
+    toast,
+  });
 
   const form = useForm<
     z.input<typeof repairBookingSchema>,
@@ -109,74 +121,6 @@ export function RepairBookingWizard({
 
   const prevStep = () => {
     setCurrentStep((prev) => prev - 1);
-  };
-
-  const onSubmit = (data: RepairBookingInput) => {
-    setIsSubmitting(true);
-    const operation =
-      data.serviceType === 'pickup' && shippingQuote?.price
-        ? startCustomerRepairPickupPayment(
-            data,
-            shippingQuote.price,
-            merchantId,
-            merchantSlug
-          )
-        : createRepair(data, merchantId);
-
-    return operation
-      .then((result) => {
-        if (result.success) {
-          if ('payment' in result) {
-            setPickupPayment({
-              ...result.payment,
-              ticketNumber: result.ticketNumber,
-            });
-            return;
-          }
-          setTicketNumber(result.ticketNumber);
-          setIsSuccess(true);
-          toast({
-            description:
-              'We have received your repair request. We will contact you shortly.',
-            title: 'Request Submitted',
-          });
-        } else if (
-          result.code === 'payment_initialization_failed' &&
-          result.ticketNumber
-        ) {
-          setTicketNumber(result.ticketNumber);
-          setIsSuccess(true);
-          toast({
-            description: result.error,
-            title: 'Request Saved',
-          });
-        } else {
-          if (result.code === 'quote_changed' && result.quote) {
-            applyShippingQuote({
-              formattedPrice: result.quote.formattedPrice,
-              isFree: false,
-              message: `Estimated pickup fee: ${result.quote.formattedPrice}`,
-              price: result.quote.price,
-            });
-            setCurrentStep(1);
-          }
-          toast({
-            description: result.error,
-            title: 'Submission Failed',
-            variant: 'destructive',
-          });
-        }
-      })
-      .catch(() => {
-        toast({
-          description: 'Something went wrong. Please try again.',
-          title: 'Error',
-          variant: 'destructive',
-        });
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
   };
 
   if (pickupPayment) {

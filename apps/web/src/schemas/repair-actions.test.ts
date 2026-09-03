@@ -3,6 +3,7 @@ import {
   repairBookingSearchParamsSchema,
   repairMerchantIdentifierSchema,
   repairMerchantIdSchema,
+  repairPickupExpectedFeeSchema,
   repairPlaceDetailsSchema,
 } from './repair-actions';
 
@@ -38,6 +39,30 @@ describe('repairMerchantIdentifierSchema', () => {
     expect(
       repairMerchantIdentifierSchema.safeParse('a'.repeat(121)).success
     ).toBe(false);
+  });
+});
+
+describe('repairPickupExpectedFeeSchema', () => {
+  it('coerces and accepts a positive pickup fee', () => {
+    const result = repairPickupExpectedFeeSchema.safeParse('8250');
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected fee to parse');
+    expect(result.data).toBe(8250);
+  });
+
+  it('rejects non-finite, non-positive, or oversized fees', () => {
+    expect(repairPickupExpectedFeeSchema.safeParse(-1).success).toBe(false);
+    expect(repairPickupExpectedFeeSchema.safeParse(0).success).toBe(false);
+    expect(repairPickupExpectedFeeSchema.safeParse('pickup').success).toBe(
+      false
+    );
+    expect(
+      repairPickupExpectedFeeSchema.safeParse(Number.POSITIVE_INFINITY).success
+    ).toBe(false);
+    expect(repairPickupExpectedFeeSchema.safeParse(10_000_001).success).toBe(
+      false
+    );
   });
 });
 

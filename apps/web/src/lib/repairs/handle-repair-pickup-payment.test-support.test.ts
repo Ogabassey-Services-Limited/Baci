@@ -37,9 +37,9 @@ describe('handle-repair-pickup-payment.test-support', () => {
   });
 
   it('creates a supabase mock that confirms payment by default', async () => {
-    const { client, rpc } = createRepairPickupPaymentSupabase();
+    const { rpc } = createRepairPickupPaymentSupabase();
 
-    const { data, error } = await client.rpc('confirm_repair_pickup_payment', {
+    const { data, error } = await rpc('confirm_repair_pickup_payment', {
       p_amount: 8250,
       p_currency: 'NGN',
       p_gateway_response: {},
@@ -54,9 +54,9 @@ describe('handle-repair-pickup-payment.test-support', () => {
   });
 
   it('creates a supabase mock that reports an unconfirmed duplicate claim', async () => {
-    const { client } = createRepairPickupPaymentSupabase(false);
+    const { rpc } = createRepairPickupPaymentSupabase(false);
 
-    const { data } = await client.rpc('confirm_repair_pickup_payment', {});
+    const { data } = await rpc('confirm_repair_pickup_payment', {});
 
     expect(data).toEqual([{ confirmed: false }]);
   });
