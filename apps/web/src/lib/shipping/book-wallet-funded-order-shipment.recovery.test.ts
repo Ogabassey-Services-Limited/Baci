@@ -4,6 +4,7 @@ vi.mock('./merchant-shipping-charge', () => ({
   reserveMerchantShippingCharge: vi.fn(),
   beginMerchantShippingChargeSubmission: vi.fn(),
   completeMerchantShippingCharge: vi.fn(),
+  recoverMerchantShippingChargeForPersistedShipment: vi.fn(),
   refundMerchantShippingCharge: vi.fn(),
   markMerchantShippingChargeForReconciliation: vi.fn(),
 }));

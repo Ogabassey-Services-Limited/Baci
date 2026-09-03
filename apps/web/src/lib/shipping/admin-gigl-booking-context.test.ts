@@ -30,7 +30,7 @@ describe('Admin GIGL booking context', () => {
     expect(
       resolveAdminGiglBookingContext('GIGL', order, adminDomesticQuote)
         .defaultWeight
-    ).toBe(0.1);
+    ).toBe(1);
     expect(
       resolveAdminGiglBookingContext('TOPSHIP', order, adminDomesticQuote)
         .defaultWeight

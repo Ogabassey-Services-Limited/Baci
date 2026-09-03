@@ -76,6 +76,33 @@ describe('fetchGoogleAddressDetails', () => {
       fetchGoogleAddressDetails({ googleMapsApiKey: 'key', placeId: 'place' })
     ).rejects.toThrow('offline');
   });
+
+  it('bugfix: requests plural address_components so locality/coords are returned', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'OK',
+        result: {
+          address_components: [
+            { long_name: 'Lagos', types: ['locality'] },
+            { long_name: 'Lagos', types: ['administrative_area_level_1'] },
+            { long_name: 'Nigeria', short_name: 'NG', types: ['country'] },
+          ],
+          geometry: { location: { lat: 6.5, lng: 3.3 } },
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchGoogleAddressDetails({
+      googleMapsApiKey: 'key',
+      placeId: 'place-1',
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      'fields=address_components%2Cgeometry'
+    );
+  });
 });
 
 describe('Google locality fallback', () => {

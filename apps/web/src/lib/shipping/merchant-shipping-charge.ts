@@ -165,6 +165,27 @@ export async function completeMerchantShippingCharge(
     : row(data as string[] | string | null);
 }
 
+export async function recoverMerchantShippingChargeForPersistedShipment(
+  supabase: SupabaseClient,
+  chargeId: string,
+  token: string,
+  shipmentId: string
+) {
+  const { data, error } = await supabase.rpc(
+    'recover_merchant_shipping_charge_for_persisted_shipment',
+    { p_charge_id: chargeId, p_attempt_token: token, p_shipment_id: shipmentId }
+  );
+  if (error)
+    throw new OrderShipmentBookingError(
+      'Unable to recover shipment charge for the persisted booking.',
+      500,
+      'MERCHANT_WALLET_COMPLETION_FAILED'
+    );
+  return typeof data === 'string'
+    ? data
+    : row(data as string[] | string | null);
+}
+
 export async function refundMerchantShippingCharge(
   supabase: SupabaseClient,
   chargeId: string,

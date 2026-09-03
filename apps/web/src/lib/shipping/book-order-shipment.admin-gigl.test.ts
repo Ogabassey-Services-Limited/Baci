@@ -120,7 +120,7 @@ function quoteRequest(receiver: Record<string, unknown>) {
     shipmentType: 'domestic',
     admin_order_provenance: 'server_gigl_v1' as const,
     receiver,
-    items: [{ name: 'Widget', quantity: 2, weight: 0.1, value: 5000 }],
+    items: [{ name: 'Widget', quantity: 2, weight: 1, value: 5000 }],
   };
 }
 
@@ -130,7 +130,7 @@ describe('Admin GIGL order booking', () => {
     vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
   });
 
-  it('accepts an unweighted manual order attested at 0.1 kg', async () => {
+  it('accepts an unweighted manual order attested at 1 kg', async () => {
     const supabase = createSupabase(orderBase, {
       ...quoteBase,
       quote_request: quoteRequest({
@@ -153,7 +153,7 @@ describe('Admin GIGL order booking', () => {
             name: 'Widget',
             description: 'Widget',
             quantity: 2,
-            weight: 0.1,
+            weight: 1,
             value: 5000,
           },
         ],

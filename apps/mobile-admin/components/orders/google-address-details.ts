@@ -54,7 +54,7 @@ function buildGoogleDetailsUrl({
   const params = new URLSearchParams({
     key: googleMapsApiKey,
     place_id: placeId,
-    fields: 'address_component,geometry',
+    fields: 'address_components,geometry',
   });
   return `https://maps.googleapis.com/maps/api/place/details/json?${params.toString()}`;
 }

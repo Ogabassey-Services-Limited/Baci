@@ -3,6 +3,7 @@ import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
   beginMerchantShippingChargeSubmission,
   completeMerchantShippingCharge,
+  recoverMerchantShippingChargeForPersistedShipment,
 } from './merchant-shipping-charge';
 import { shouldReleaseBookingLock } from './order-shipment-booking-lock-errors';
 
@@ -37,6 +38,15 @@ export async function finalizeWalletFundedExistingShipment(
   chargeStatus: string,
   existingShipment: BookOrderShipmentResult
 ): Promise<BookOrderShipmentResult> {
+  if (chargeStatus === 'provider_submitting') {
+    await recoverMerchantShippingChargeForPersistedShipment(
+      supabase,
+      chargeId,
+      token,
+      existingShipment.shipmentId
+    );
+    return existingShipment;
+  }
   if (chargeStatus === 'reserved') {
     await beginMerchantShippingChargeSubmission(supabase, chargeId, token);
   }

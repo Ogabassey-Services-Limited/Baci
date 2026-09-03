@@ -5,7 +5,7 @@ import {
 import type { QuoteRequest, ShippingAddress } from './types';
 
 const ADMIN_GIGL_ORDER_PROVENANCE = 'server_gigl_v1';
-const ADMIN_GIGL_DEFAULT_WEIGHT_KG = 0.1;
+const ADMIN_GIGL_DEFAULT_WEIGHT_KG = 1;
 const DOMESTIC_DEFAULT_WEIGHT_KG = 1;
 
 export function resolveAdminGiglBookingContext(

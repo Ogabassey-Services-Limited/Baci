@@ -5,6 +5,7 @@ vi.mock('./merchant-shipping-charge', () => ({
   reserveMerchantShippingCharge: vi.fn(),
   beginMerchantShippingChargeSubmission: vi.fn(),
   completeMerchantShippingCharge: vi.fn(),
+  recoverMerchantShippingChargeForPersistedShipment: vi.fn(),
   refundMerchantShippingCharge: vi.fn(),
   markMerchantShippingChargeForReconciliation: vi.fn(),
 }));
@@ -129,9 +130,9 @@ describe('wallet-funded shipment orchestration — charge state', () => {
       },
       token: 'i'.repeat(64),
     });
-    vi.mocked(charge.completeMerchantShippingCharge).mockResolvedValue(
-      undefined as never
-    );
+    vi.mocked(
+      charge.recoverMerchantShippingChargeForPersistedShipment
+    ).mockResolvedValue('booked' as never);
     const book = vi.fn();
     const existingShipment = {
       shipmentId: 's-persisted',
@@ -162,7 +163,10 @@ describe('wallet-funded shipment orchestration — charge state', () => {
     ).resolves.toMatchObject({ shipmentId: 's-persisted' });
     expect(book).not.toHaveBeenCalled();
     expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
-    expect(charge.completeMerchantShippingCharge).toHaveBeenCalledWith(
+    expect(charge.completeMerchantShippingCharge).not.toHaveBeenCalled();
+    expect(
+      charge.recoverMerchantShippingChargeForPersistedShipment
+    ).toHaveBeenCalledWith(
       supabaseFixture,
       'c7',
       'i'.repeat(64),
