@@ -52,3 +52,7 @@ export function setupBuilderAiAttestationSmokeMocks() {
     ]);
   });
 }
+
+export const routeModule = await import('./route');
+export const { BUILDER_AI_ATTESTATION_MAX_WORK_MS, maxDuration, POST } =
+  routeModule;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { POST } from './route';
 import {
   builderAiAttestationSmokeRunId,
   getBuilderAiAttestationSmokeSeams,
+  POST,
   setupBuilderAiAttestationSmokeMocks,
 } from './route.test-support';
 

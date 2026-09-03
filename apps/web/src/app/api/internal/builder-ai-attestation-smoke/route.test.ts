@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as route from './route';
-import { BUILDER_AI_ATTESTATION_MAX_WORK_MS, maxDuration, POST } from './route';
 import {
+  BUILDER_AI_ATTESTATION_MAX_WORK_MS,
   builderAiAttestationSmokeRunId,
   getBuilderAiAttestationSmokeSeams,
+  maxDuration,
+  POST,
+  routeModule,
   setupBuilderAiAttestationSmokeMocks,
 } from './route.test-support';
 
@@ -56,8 +58,8 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
   });
 
   it('relies on the cache-components-compatible default runtime and dynamic behavior', () => {
-    expect(route).not.toHaveProperty('dynamic');
-    expect(route).not.toHaveProperty('runtime');
+    expect(routeModule).not.toHaveProperty('dynamic');
+    expect(routeModule).not.toHaveProperty('runtime');
   });
 
   it('returns a correlated control-plane failure when the Vercel client is unavailable', async () => {
