@@ -14,9 +14,18 @@ import {
   adminOrderGiglQuoteSchema,
   orderGiglQuoteSchema,
 } from '@/schemas/order-gigl-shipping';
-import { toPublicQuoteResponse } from './public-quote-response';
+import {
+  calculateAdminWalletFunding,
+  selectEligibleAdminGiglQuote,
+  toAdminPublicQuote,
+} from './admin-order-gigl-quote.helpers';
 import { resolveAdminGiglEligibility } from './resolve-admin-gigl-eligibility';
 import { toShippingQuoteUpsert } from './shipping-quote-persistence';
+
+export {
+  calculateAdminWalletFunding,
+  selectEligibleAdminGiglQuote,
+} from './admin-order-gigl-quote.helpers';
 
 type AdminInput = {
   admin_order_id: string;
@@ -31,36 +40,8 @@ type AdminInput = {
   };
 };
 
-export function selectEligibleAdminGiglQuote(quotes: ShippingQuote[]) {
-  return (
-    quotes
-      .filter(
-        (quote) =>
-          quote.provider === 'GIGL' &&
-          quote.currency === 'NGN' &&
-          !quote.isStationPickup &&
-          quote.price > 0
-      )
-      .sort((a, b) => a.price - b.price)[0] ?? null
-  );
-}
-
-export function calculateAdminWalletFunding(price: number, balance: number) {
-  const availableBalance = Math.max(0, Number.isFinite(balance) ? balance : 0);
-  const shortfall = Math.max(0, price - availableBalance);
-  return { availableBalance, shortfall, canBook: shortfall === 0 };
-}
-
 const orderSelect =
   'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit))';
-
-function publicQuote(quote: ShippingQuote) {
-  return toPublicQuoteResponse({
-    quotes: { featured: [quote], all: [quote] },
-    sessionId: quote.id,
-    expiresAt: quote.expiresAt.toISOString(),
-  }).quotes.featured[0];
-}
 
 export async function postAdminOrderGiglQuote(
   request: NextRequest,
@@ -236,7 +217,7 @@ export async function postAdminOrderGiglQuote(
         Number(walletRow?.available_balance ?? 0)
       );
     return NextResponse.json({
-      quote: publicQuote(quote),
+      quote: toAdminPublicQuote(quote),
       availableBalance,
       shortfall,
       canBook,
@@ -300,7 +281,7 @@ export async function postAdminOrderGiglQuote(
     Number(result?.available_balance ?? 0)
   );
   return NextResponse.json({
-    quote: publicQuote(quote),
+    quote: toAdminPublicQuote(quote),
     availableBalance,
     shortfall,
     canBook,

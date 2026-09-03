@@ -44,6 +44,7 @@ export function buildDomesticSenderSupabaseMock(
     single: vi.fn().mockResolvedValue({
       data: {
         id: '22222222-2222-4222-8222-222222222222',
+        merchant_id: 'merchant-1',
         provider: 'GIGL',
         provider_rate_id: 'gigl:service-centre:5',
         provider_metadata: { stationId: 5 },
@@ -97,9 +98,17 @@ export function buildDomesticSenderSupabaseMock(
   };
 
   return {
-    rpc: vi.fn().mockResolvedValue({
-      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
-      error: null,
+    rpc: vi.fn().mockImplementation((fn: string) => {
+      if (fn === 'get_shipping_quote_booking_metadata') {
+        return { data: null, error: null };
+      }
+      if (fn === 'persist_refreshed_order_shipping_quote') {
+        return { error: null };
+      }
+      return {
+        data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+        error: null,
+      };
     }),
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -176,11 +185,12 @@ export function buildDomesticSenderBookingRequest(): NextRequest {
       receiver: {
         name: 'Jane Customer',
         phone: '+2348022222222',
-        address: '2 Customer Road',
-        city: 'Lagos',
-        state: 'Lagos',
-        country: 'Nigeria',
-        countryCode: 'NG',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+        postalCode: 'M5V 3L9',
       },
       items: [
         {
@@ -188,6 +198,10 @@ export function buildDomesticSenderBookingRequest(): NextRequest {
           quantity: 1,
           weight: 1,
           value: 500000,
+          hsCode: '851712',
+          length: 10,
+          width: 8,
+          height: 6,
         },
       ],
     }),

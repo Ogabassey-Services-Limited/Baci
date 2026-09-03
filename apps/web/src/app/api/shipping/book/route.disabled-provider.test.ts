@@ -113,9 +113,20 @@ function buildSupabaseMock() {
   };
 
   return {
-    rpc: vi.fn().mockResolvedValue({
-      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
-      error: null,
+    rpc: vi.fn().mockImplementation((fn: string) => {
+      if (fn === 'get_shipping_quote_booking_metadata') {
+        return {
+          data: {
+            serviceType: 'Premium_Express',
+            pricingTier: 'International',
+          },
+          error: null,
+        };
+      }
+      return {
+        data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+        error: null,
+      };
     }),
     auth: {
       getUser: vi.fn().mockResolvedValue({

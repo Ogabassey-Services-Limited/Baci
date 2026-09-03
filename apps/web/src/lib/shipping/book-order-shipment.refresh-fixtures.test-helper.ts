@@ -151,6 +151,12 @@ export function createSupabase({
   };
 
   return {
+    rpc: vi.fn().mockImplementation((fn: string) => {
+      if (fn === 'persist_refreshed_order_shipping_quote') {
+        return { error: upsertError };
+      }
+      return { data: null, error: null };
+    }),
     from: vi.fn((table: string) => {
       if (table === 'orders') return { select: vi.fn(() => orderSelect) };
       if (table === 'shipments') {

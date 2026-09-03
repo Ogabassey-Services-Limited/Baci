@@ -7,7 +7,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { clearOrderShipmentBookingLock } from '@/lib/shipping/order-shipment-booking-lock';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
@@ -24,6 +23,7 @@ import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
+import { releaseDirectBookingLock } from './release-direct-booking-lock';
 
 export async function POST(request: NextRequest) {
   let bookingLockToken: string | null = null;
@@ -286,17 +286,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    if (bookingLockToken && bookingSupabase && !retainBookingLock) {
-      try {
-        await clearOrderShipmentBookingLock(
-          bookingSupabase,
-          bookingMerchantId,
-          bookingOrderId,
-          bookingLockToken
-        );
-      } catch {
-        // The lock is left to expire if cleanup cannot be completed here.
-      }
-    }
+    await releaseDirectBookingLock(
+      bookingSupabase,
+      bookingMerchantId,
+      bookingOrderId,
+      bookingLockToken,
+      retainBookingLock
+    );
   }
 }

@@ -142,6 +142,18 @@ function createSupabase(
       if (table === 'merchants') return { select: vi.fn(() => merchants) };
       throw new Error(`Unexpected table ${table}`);
     }),
+    rpc: vi.fn().mockImplementation((fn: string) => {
+      if (fn === 'get_shipping_quote_booking_metadata') {
+        return {
+          data:
+            provider === 'TOPSHIP'
+              ? { serviceType: 'Premium_Express', pricingTier: 'International' }
+              : null,
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    }),
   } as never;
 }
 
