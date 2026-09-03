@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { persistMerchantWalletAssignmentEvent } from '@/lib/merchant-wallet-payment-accounts';
+import { persistMerchantWalletAssignmentEvent } from '@/lib/persist-merchant-wallet-assignment-event';
 
 function supabase(
   error: Error | null = null,

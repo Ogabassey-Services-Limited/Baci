@@ -142,6 +142,24 @@ export function toShipmentItems(orderItems: OrderItemRecord[]): ShipmentItem[] {
   }));
 }
 
+export function toDomesticBookingItems(
+  orderItems: OrderItemRecord[],
+  quoteItems: ShipmentItem[] | undefined
+): ShipmentItem[] {
+  if (!quoteItems?.length) return toShipmentItems(orderItems);
+  return quoteItems.map((item) => ({
+    name: item.name,
+    description: item.description || item.name,
+    quantity: item.quantity,
+    weight: item.weight,
+    value: item.value,
+    ...(item.hsCode ? { hsCode: item.hsCode } : {}),
+    ...(item.length !== undefined ? { length: item.length } : {}),
+    ...(item.width !== undefined ? { width: item.width } : {}),
+    ...(item.height !== undefined ? { height: item.height } : {}),
+  }));
+}
+
 export function quotedShipmentItemWeight(item: {
   product?: {
     weight_value?: number | string | null;

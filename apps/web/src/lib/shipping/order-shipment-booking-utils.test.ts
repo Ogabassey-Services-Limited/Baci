@@ -4,6 +4,7 @@ import {
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
   quotedShipmentItemWeight,
+  toDomesticBookingItems,
   toShipmentItems,
 } from './order-shipment-booking-utils';
 
@@ -133,6 +134,39 @@ describe('toShipmentItems', () => {
         quantity: 1,
         weight: 1,
         value: 0,
+      },
+    ]);
+  });
+});
+
+describe('toDomesticBookingItems', () => {
+  it('reuses attested quote weights instead of the hardcoded 1 kg fallback', () => {
+    expect(
+      toDomesticBookingItems(
+        [{ name: 'Widget', quantity: 1, price: 5000 }],
+        [{ name: 'Widget', quantity: 1, weight: 2.5, value: 5000 }]
+      )
+    ).toEqual([
+      {
+        name: 'Widget',
+        description: 'Widget',
+        quantity: 1,
+        weight: 2.5,
+        value: 5000,
+      },
+    ]);
+  });
+
+  it('falls back to order items when the quote has no attested lines', () => {
+    expect(
+      toDomesticBookingItems([{ name: 'Widget', quantity: 1, price: 5000 }], [])
+    ).toEqual([
+      {
+        name: 'Widget',
+        description: 'Widget',
+        quantity: 1,
+        weight: 1,
+        value: 5000,
       },
     ]);
   });

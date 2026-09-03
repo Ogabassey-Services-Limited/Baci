@@ -39,7 +39,6 @@ import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { isGo54Configured, registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { persistMerchantWalletAssignmentEvent } from '@/lib/merchant-wallet-payment-accounts';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackMerchantWalletDva } from '@/lib/payments/confirm-paystack-merchant-wallet-dva';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
@@ -54,6 +53,7 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { handlePaystackMerchantWalletAssignmentFailure } from '@/lib/paystack-merchant-wallet-assignment-failure-webhook';
+import { persistMerchantWalletAssignmentEvent } from '@/lib/persist-merchant-wallet-assignment-event';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -660,6 +660,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           handled: 'merchant_wallet_assignment',
+        });
+      }
+      if (assignment.kind === 'conflict') {
+        return NextResponse.json({
+          success: true,
+          handled: 'merchant_wallet_alias_conflict',
         });
       }
       if (assignment.kind === 'ignored') {

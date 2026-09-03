@@ -50,7 +50,7 @@ vi.mock('@/lib/payments/process-merchant-invoice-partial-payment', () => ({
 vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
   runPaidOrderSideEffects: mockRunPaidOrderSideEffects,
 }));
-vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
+vi.mock('@/lib/persist-merchant-wallet-assignment-event', () => ({
   persistMerchantWalletAssignmentEvent:
     mockPersistMerchantWalletAssignmentEvent,
 }));
@@ -6438,6 +6438,96 @@ describe('POST /api/payments/webhook', () => {
       handled: 'merchant_wallet_assignment',
     });
     expect(mockPersistMerchantWalletAssignmentEvent).toHaveBeenCalled();
+  });
+
+  it('acknowledges an alias-conflicted assignment after the pending request is failed', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'conflict',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      handled: 'merchant_wallet_alias_conflict',
+    });
+  });
+
+  it('acknowledges an alias-conflicted assignment after the pending request is failed', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'conflict',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      handled: 'merchant_wallet_alias_conflict',
+    });
+  });
+
+  it('acknowledges an alias-conflicted assignment after the pending request is failed', async () => {
+    mockPersistMerchantWalletAssignmentEvent.mockResolvedValue({
+      kind: 'conflict',
+    });
+    const body = {
+      event: 'dedicatedaccount.assign.success',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        dedicated_account: { account_number: '1234567890', currency: 'NGN' },
+      },
+    };
+    const response = await POST(
+      createMockRequest(body, {
+        'x-paystack-signature': createSignature(
+          JSON.stringify(body),
+          'test-paystack-secret'
+        ),
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      handled: 'merchant_wallet_alias_conflict',
+    });
   });
 
   it('handles a signed dedicated-account assignment failure by marking the request retryable', async () => {

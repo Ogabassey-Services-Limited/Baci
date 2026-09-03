@@ -1,83 +1,73 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(),
+const { persistAdminGiglQuote } = vi.hoisted(() => ({
   persistAdminGiglQuote: vi.fn(),
 }));
 
 vi.mock('server-only', () => ({}));
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: mocks.createAdminClient,
-}));
 vi.mock('./persist-admin-gigl-quote', () => ({
-  persistAdminGiglQuote: mocks.persistAdminGiglQuote,
+  persistAdminGiglQuote,
 }));
 
 import { persistRefreshedShippingQuote } from './persist-refreshed-shipping-quote';
 
+const checkoutQuote = {
+  id: 'q1',
+  provider: 'GIGL' as const,
+  serviceTier: 'GoStandard',
+  carrierName: 'GIG Logistics',
+  displayName: 'GIG Logistics',
+  estimatedDays: 2,
+  price: 11_000,
+  currency: 'NGN',
+  pickupIncluded: true,
+  insuranceIncluded: false,
+  expiresAt: new Date('2026-01-01'),
+  rawResponse: { secret: 'never persisted' },
+};
+
 describe('persistRefreshedShippingQuote', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.persistAdminGiglQuote.mockResolvedValue({ error: null });
+    persistAdminGiglQuote.mockResolvedValue({ error: null });
   });
 
-  it('uses the trusted server writer for refreshed quote economics', async () => {
-    const upsert = vi.fn().mockResolvedValue({ error: null });
-    mocks.createAdminClient.mockReturnValue({
-      from: vi.fn().mockReturnValue({ upsert }),
-    });
+  it('persists checkout refreshes through the merchant-owned RPC', async () => {
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({ error: null }),
+    };
 
     await expect(
-      persistRefreshedShippingQuote(
-        {
-          id: 'q1',
-          provider: 'GIGL',
-          serviceTier: 'GoStandard',
-          carrierName: 'GIG Logistics',
-          displayName: 'GIG Logistics',
-          estimatedDays: 2,
-          price: 11_000,
-          currency: 'NGN',
-          pickupIncluded: true,
-          insuranceIncluded: false,
-          expiresAt: new Date('2026-01-01'),
-          rawResponse: { secret: 'never persisted' },
-        },
-        {
-          merchantId: 'm1',
-          sessionId: 's1',
-          quoteRequest: {} as never,
-        }
-      )
+      persistRefreshedShippingQuote(supabase as never, checkoutQuote, {
+        merchantId: 'm1',
+        sessionId: 's1',
+        quoteRequest: {} as never,
+      })
     ).resolves.toEqual({ error: null });
 
-    expect(mocks.createAdminClient).toHaveBeenCalledOnce();
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'q1',
-        provider_metadata: null,
-      }),
-      { onConflict: 'id' }
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_refreshed_merchant_shipping_quote',
+      {
+        p_quote: expect.objectContaining({
+          id: 'q1',
+          provider_metadata: null,
+        }),
+      }
     );
+    expect(persistAdminGiglQuote).not.toHaveBeenCalled();
   });
 
   it('writes an order-scoped attestation for Admin GIGL wallet refreshes', async () => {
+    const supabase = { rpc: vi.fn() };
+
     await expect(
       persistRefreshedShippingQuote(
+        supabase as never,
         {
+          ...checkoutQuote,
           id: 'q2',
-          provider: 'GIGL',
-          serviceTier: 'GoStandard',
-          carrierName: 'GIG Logistics',
-          displayName: 'GIG Logistics',
-          estimatedDays: 2,
           price: 12_000,
-          currency: 'NGN',
-          pickupIncluded: true,
-          insuranceIncluded: false,
           providerRateId: 'GIGL_4_0',
-          expiresAt: new Date('2026-01-01'),
-          rawResponse: { ignored: true },
           providerCost: 10_000,
           platformMargin: 2_000,
           marginBasisPoints: 2_000,
@@ -106,7 +96,7 @@ describe('persistRefreshedShippingQuote', () => {
       )
     ).resolves.toEqual({ error: null });
 
-    expect(mocks.persistAdminGiglQuote).toHaveBeenCalledWith({
+    expect(persistAdminGiglQuote).toHaveBeenCalledWith({
       quote: expect.objectContaining({
         id: 'q2',
         provider: 'GIGL',
@@ -126,6 +116,6 @@ describe('persistRefreshedShippingQuote', () => {
         }),
       },
     });
-    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });

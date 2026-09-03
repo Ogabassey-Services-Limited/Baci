@@ -80,11 +80,20 @@ export function getDispatchPhoneFromOrder(
 export function getOrderGiglInitialAddress(order: {
   customer_phone?: string | null;
   shipping_address?:
-    | { address?: string | null; city?: string | null; state?: string | null }
+    | {
+        address?: string | null;
+        city?: string | null;
+        state?: string | null;
+        phone?: string | null;
+      }
     | string
     | null;
 }) {
   const address = order.shipping_address;
+  const recipientPhone =
+    typeof address === 'object' && address?.phone?.trim()
+      ? address.phone.trim()
+      : order.customer_phone?.trim();
   return {
     ...(typeof address === 'string'
       ? { address }
@@ -93,6 +102,6 @@ export function getOrderGiglInitialAddress(order: {
           ...(address?.city ? { city: address.city } : {}),
           ...(address?.state ? { state: address.state } : {}),
         }),
-    ...(order.customer_phone ? { phone: order.customer_phone } : {}),
+    ...(recipientPhone ? { phone: recipientPhone } : {}),
   };
 }

@@ -11,9 +11,9 @@ vi.mock('@/lib/paystack', () => ({
 
 import {
   getMerchantWalletAccount,
-  persistMerchantWalletAssignmentEvent,
   requestMerchantWalletAccount,
 } from './merchant-wallet-payment-accounts';
+import { persistMerchantWalletAssignmentEvent } from './persist-merchant-wallet-assignment-event';
 
 type Row = Record<string, unknown>;
 function client(
@@ -461,6 +461,43 @@ describe('merchant wallet payment-account provisioning', () => {
     expect(supabase.getRequestStatusFilters()).toEqual([
       ['pending', 'fulfilled'],
     ]);
+  });
+  it('fails the pending request when assignment hits PAYSTACK_DVA_ALIAS_CONFLICT', async () => {
+    const supabase = client([], {
+      assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'pending' }],
+    });
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'PAYSTACK_DVA_ALIAS_CONFLICT' },
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+    (supabase as { rpc: typeof rpc }).rpc = rpc;
+    const payload = {
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          request_id: 'r',
+          merchant_id: 'm',
+        },
+        account_number: '1234567890',
+        currency: 'NGN',
+      },
+    };
+
+    expect(
+      (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
+    ).toBe('conflict');
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'reject_merchant_wallet_funding_alias_conflict',
+      {
+        p_request_id: 'r',
+        p_merchant_id: 'm',
+        p_account_number: '1234567890',
+      }
+    );
   });
   it('allows a later retry after a provider failure is transitioned to failed', async () => {
     customer.mockResolvedValueOnce({ success: false }).mockResolvedValueOnce({

@@ -314,6 +314,61 @@ describe('bookOrderShipment', () => {
     );
   });
 
+  it('books domestic items using the attested quote weights', async () => {
+    vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
+
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      quote: {
+        data: {
+          ...validQuote,
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'domestic',
+            sender: {
+              name: 'Test Store',
+              phone: '08098765432',
+              address: '456 Market Rd',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            receiver: {
+              name: 'Jane Doe',
+              phone: '08012345678',
+              address: '123 Main St',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            items: [
+              {
+                name: 'Widget',
+                quantity: 2,
+                weight: 2.5,
+                value: 5000,
+              },
+            ],
+          },
+        },
+        error: null,
+      },
+      merchant: { data: validMerchant, error: null },
+      shipmentInsert: { data: { id: 'shipment-1' }, error: null },
+    });
+
+    await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'TOPSHIP',
+      expect.objectContaining({
+        items: [expect.objectContaining({ name: 'Widget', weight: 2.5 })],
+      })
+    );
+  });
+
   it('rejects a domestic booking when the order receiver changed after quoting', async () => {
     const supabase = createMockSupabase({
       order: { data: validOrder, error: null },

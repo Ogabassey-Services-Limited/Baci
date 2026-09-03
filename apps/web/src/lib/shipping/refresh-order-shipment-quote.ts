@@ -38,7 +38,7 @@ export type RefreshOrderShipmentQuoteOptions = {
 };
 
 export async function refreshOrderShipmentQuote(
-  _supabase: SupabaseClient,
+  supabase: SupabaseClient,
   quote: OrderShipmentQuoteRecord,
   provider: ShippingProviderCode,
   senderOverride?: ShippingAddress,
@@ -126,6 +126,7 @@ export async function refreshOrderShipmentQuote(
   };
 
   const { error: upsertError } = await persistRefreshedShippingQuote(
+    supabase,
     replacement,
     {
       merchantId: quote.merchant_id,

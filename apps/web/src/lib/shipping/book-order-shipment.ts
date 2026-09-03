@@ -19,8 +19,8 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
+  toDomesticBookingItems,
   toQuoteComparableOrderItems,
-  toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import {
@@ -212,7 +212,7 @@ export async function bookOrderShipment(
           orderItems,
           effectiveQuoteRequest.items
         )
-      : toShipmentItems(orderItems);
+      : toDomesticBookingItems(orderItems, effectiveQuoteRequest?.items);
 
   const bookingRequest = buildOrderShipmentBookingRequest({
     items,

@@ -203,4 +203,16 @@ describe('order-shipment', () => {
       })
     ).toEqual({ address: '1 Allen Avenue', phone: '08010000000' });
   });
+
+  it('prefers the shipping recipient phone over the customer phone', () => {
+    expect(
+      getOrderGiglInitialAddress({
+        customer_phone: '08010000000',
+        shipping_address: {
+          address: '1 Allen Avenue',
+          phone: '08020000000',
+        },
+      })
+    ).toEqual({ address: '1 Allen Avenue', phone: '08020000000' });
+  });
 });

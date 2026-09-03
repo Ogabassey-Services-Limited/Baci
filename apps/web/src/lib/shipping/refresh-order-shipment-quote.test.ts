@@ -77,15 +77,8 @@ function createQuote(overrides?: {
 function createSupabase(
   upsertError: { code: string; message: string } | null = null
 ) {
-  adminMocks.createAdminClient.mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: upsertError }),
-    }),
-  });
   return {
-    from: vi.fn().mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: upsertError }),
-    }),
+    rpc: vi.fn().mockResolvedValue({ error: upsertError }),
   };
 }
 
@@ -142,7 +135,13 @@ describe('refreshOrderShipmentQuote', () => {
       expect.objectContaining({ sender: correctedSender })
     );
     expect(result.id).toBe('quote-refreshed');
-    expect(adminMocks.createAdminClient).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_refreshed_merchant_shipping_quote',
+      expect.objectContaining({
+        p_quote: expect.objectContaining({ id: 'quote-refreshed' }),
+      })
+    );
+    expect(adminMocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('attests a refreshed Admin GIGL quote to the wallet order', async () => {

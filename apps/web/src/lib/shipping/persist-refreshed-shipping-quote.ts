@@ -1,17 +1,17 @@
 import 'server-only';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { toShippingQuoteUpsert } from '@/app/api/shipping/quotes/shipping-quote-persistence';
 import type { QuoteRequest, ShippingQuote } from '@/lib/shipping/types';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { persistAdminGiglQuote } from './persist-admin-gigl-quote';
 
 /**
- * Persist a provider-refreshed quote through the trusted server writer. The
- * authenticated shipping_quotes projection deliberately cannot write pricing
- * economics or provider metadata, while this helper receives only the
- * provider result produced by the server-side quote client.
+ * Persist a provider-refreshed quote. Wallet GIGL replacements stay on the
+ * attested admin writer; checkout/book refreshes use the merchant-owned RPC
+ * so this helper never constructs a service-role client.
  */
 export async function persistRefreshedShippingQuote(
+  supabase: SupabaseClient,
   quote: ShippingQuote,
   context: {
     merchantId?: string | null;
@@ -42,9 +42,9 @@ export async function persistRefreshedShippingQuote(
     return { error };
   }
 
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('shipping_quotes')
-    .upsert(persisted, { onConflict: 'id' });
+  const { error } = await supabase.rpc(
+    'persist_refreshed_merchant_shipping_quote' as never,
+    { p_quote: persisted } as never
+  );
   return { error };
 }
