@@ -1,4 +1,5 @@
 import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
+import { REPAIR_PICKUP_DECLARED_VALUE } from './repair-pickup-constants';
 import { resolveRepairPickupLocation } from './resolve-repair-pickup-location';
 
 /**
@@ -27,6 +28,7 @@ export type PickupFailureReason =
   | 'gigl_unavailable'
   | 'quote_increased'
   | 'booking_failed'
+  | 'provider_rejected'
   | 'shipment_save_failed';
 
 export interface BookRepairPickupSuccess {
@@ -100,6 +102,11 @@ const FAILURE_COPY: Record<
       'GIG Logistics could not confirm the pickup. Check the GIGL account balance and booking details, or arrange pickup manually.',
     canRetryManually: true,
   },
+  provider_rejected: {
+    message:
+      'GIG Logistics rejected this pickup request. Review the booking details or arrange pickup manually.',
+    canRetryManually: true,
+  },
   shipment_save_failed: {
     message:
       'The courier was booked but the shipment could not be saved. Please review before retrying.',
@@ -149,17 +156,14 @@ export function buildPickupItems(repair: RepairPickupSource): ShipmentItem[] {
   const label =
     `${repair.device_type ?? ''} ${repair.device_model ?? ''}`.trim();
   const name = label || 'Device for repair';
-  const declaredValue = Number(repair.quoted_price);
   return [
     {
       name,
       description: name,
       quantity: 1,
       weight: 1,
-      value:
-        Number.isFinite(declaredValue) && declaredValue > 0
-          ? declaredValue
-          : 50_000,
+      // Ignore catalog quoted_price so estimate → pay → book stay rate-aligned.
+      value: REPAIR_PICKUP_DECLARED_VALUE,
     },
   ];
 }

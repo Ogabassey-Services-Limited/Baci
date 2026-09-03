@@ -35,7 +35,9 @@ async function setPickupPaymentStatus(
     .update({ pickup_payment_status: status })
     .eq('id', claim.repairId)
     .eq('merchant_id', claim.merchantId)
-    .eq('pickup_payment_reference', claim.reference);
+    .eq('pickup_payment_reference', claim.reference)
+    // Never let a slower duplicate webhook overwrite a completed booking.
+    .neq('pickup_payment_status', 'booked');
 
   if (error) {
     console.error('Repair pickup payment status update failed:', error);

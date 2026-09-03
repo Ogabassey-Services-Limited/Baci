@@ -230,7 +230,11 @@ export async function bookRepairPickup(
         claim.lockToken
       );
       if (released) {
-        return pickupFailure('booking_failed');
+        return pickupFailure(
+          error.code === 'GIGL_BOOKING_VALIDATION_FAILED'
+            ? 'provider_rejected'
+            : 'booking_failed'
+        );
       }
     }
 

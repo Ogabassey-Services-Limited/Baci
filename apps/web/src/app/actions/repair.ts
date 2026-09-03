@@ -8,7 +8,10 @@ import {
   createRepairBooking,
 } from '@/lib/repairs/create-repair-core';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
-import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
+import {
+  REPAIR_PICKUP_DECLARED_VALUE,
+  REPAIR_PICKUP_PROVIDER,
+} from '@/lib/repairs/repair-pickup-constants';
 import { shippingService } from '@/lib/shipping';
 import { createClient } from '@/lib/supabase/server';
 import { isValidMerchantIdentifier } from '@/lib/validation';
@@ -149,7 +152,7 @@ export async function calculateRepairShipping(
             name: 'Device for Repair',
             quantity: 1,
             weight: 1,
-            value: 50000,
+            value: REPAIR_PICKUP_DECLARED_VALUE,
             category: 'gadgets',
           },
         ],

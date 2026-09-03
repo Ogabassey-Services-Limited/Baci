@@ -267,4 +267,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260903080000_repair_pickup_receiver_projection.sql',
     sha256: '2f2b7e04b00178923b6d610574df5c7c615de141d93744448e78d1822be18394',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260903090000_repair_pickup_terminal_payment_capture.sql',
+    sha256: '63e0e3d1cd4a5452eae9560162d510cf67ac183ea7fad46eddc79d66b63942e7',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

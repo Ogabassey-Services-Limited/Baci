@@ -121,6 +121,76 @@ BEGIN
 END;
 $test$;
 
+-- Late Paystack settlement after staff cancelled the repair must still capture
+-- the payment for refund/review instead of raising forever.
+INSERT INTO public.repairs (
+  id,
+  merchant_id,
+  customer_name,
+  customer_email,
+  customer_phone,
+  device_type,
+  device_model,
+  issue_description,
+  service_type,
+  pickup_address,
+  status
+)
+VALUES (
+  '73a63d82-0000-4000-8000-000000000003',
+  '73a63d82-0000-4000-8000-000000000001',
+  'Grace Hopper',
+  'grace@example.com',
+  '+2348098765432',
+  'Laptop',
+  'MacBook Pro',
+  'Battery swells after charging.',
+  'pickup',
+  '8 Broad Street, Lagos, Lagos, Nigeria',
+  'cancelled'
+);
+
+DO $test$
+DECLARE
+  v_confirmed boolean;
+BEGIN
+  SELECT confirmation.confirmed
+  INTO v_confirmed
+  FROM public.confirm_repair_pickup_payment(
+    '73a63d82-0000-4000-8000-000000000003',
+    '73a63d82-0000-4000-8000-000000000001',
+    'RPU-SQLREGRESSIONTERM',
+    9100,
+    'NGN',
+    '{"status":"success"}'::jsonb
+  ) AS confirmation;
+
+  IF v_confirmed IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'terminal repair pickup payment was not captured';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.repairs AS repair
+    WHERE repair.id = '73a63d82-0000-4000-8000-000000000003'
+      AND repair.pickup_payment_status = 'review'
+      AND repair.pickup_payment_reference = 'RPU-SQLREGRESSIONTERM'
+      AND repair.pickup_fee = 9100
+      AND repair.status = 'cancelled'
+  ) THEN
+    RAISE EXCEPTION 'terminal repair pickup payment was not marked for review';
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM public.transactions AS transaction
+    WHERE transaction.gateway_reference = 'RPU-SQLREGRESSIONTERM'
+  ) <> 1 THEN
+    RAISE EXCEPTION 'terminal repair pickup payment transaction missing';
+  END IF;
+END;
+$test$;
+
 RESET ROLE;
 
 DO $test$

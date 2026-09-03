@@ -29,6 +29,7 @@ VALUES
     true
   );
 
+-- Merchants auto-create a feature-settings row; shape repair_settings in place.
 INSERT INTO public.merchant_feature_settings (merchant_id, repair_settings)
 VALUES
   (
@@ -65,7 +66,9 @@ VALUES
       'state', 'FCT',
       'country', 'Nigeria'
     )
-  );
+  )
+ON CONFLICT (merchant_id) DO UPDATE
+SET repair_settings = EXCLUDED.repair_settings;
 
 SET LOCAL ROLE anon;
 SELECT pg_catalog.set_config('request.jwt.claim.role', 'anon', true);

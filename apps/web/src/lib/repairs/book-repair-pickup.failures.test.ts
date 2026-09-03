@@ -53,7 +53,7 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'booking_failed',
+        reason: 'provider_rejected',
         canRetryManually: true,
       });
       expect(
