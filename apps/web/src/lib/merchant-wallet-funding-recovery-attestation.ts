@@ -1,15 +1,6 @@
 import { createHmac } from 'node:crypto';
 
-function resolveMerchantWalletFundingRecoveryHmacSecret(): string {
-  const secret =
-    process.env.MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET?.trim();
-  if (!secret) {
-    throw new Error(
-      'MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET is not configured'
-    );
-  }
-  return secret;
-}
+import { resolveMerchantWalletFundingRecoveryHmacSecret } from './provision-merchant-wallet-funding-recovery-hmac';
 
 export function createMerchantWalletFundingRecoveryAttestation(input: {
   requestId: string;

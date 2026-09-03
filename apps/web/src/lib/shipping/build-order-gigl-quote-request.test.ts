@@ -132,7 +132,8 @@ describe('buildOrderGiglQuoteRequest', () => {
           countryCode: 'CA',
         },
       },
-      sender
+      sender,
+      async () => ({ p1: { commodity_code: '851712' } })
     );
 
     expect(result).toMatchObject({
@@ -152,12 +153,57 @@ describe('buildOrderGiglQuoteRequest', () => {
           country: 'Canada',
         },
       },
-      sender
+      sender,
+      async () => ({ p1: { commodity_code: '851712' } })
     );
 
     expect(result).toMatchObject({
       ok: true,
       request: { shipmentType: 'international' },
+    });
+  });
+
+  it('propagates product HS codes for international Admin quotes', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          address: '1 King St',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+        },
+      },
+      sender,
+      async () => ({ p1: { commodity_code: '851712' } })
+    );
+
+    expect(result.ok && result.request.items[0]).toMatchObject({
+      hsCode: '851712',
+    });
+  });
+
+  it('rejects international Admin quotes when product HS codes are missing', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          address: '1 King St',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+        },
+      },
+      sender,
+      async () => ({ p1: { commodity_code: null } })
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'ORDER_SHIPPING_HS_CODE_REQUIRED',
+      status: 422,
     });
   });
 });

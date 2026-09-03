@@ -19,6 +19,10 @@ import {
   selectEligibleAdminGiglQuote,
   toAdminPublicQuote,
 } from './admin-order-gigl-quote.helpers';
+import {
+  buildAdminOrderGiglProductLookup,
+  mapAdminOrderGiglQuoteItems,
+} from './admin-order-gigl-quote-items';
 import { resolveAdminGiglEligibility } from './resolve-admin-gigl-eligibility';
 import { toShippingQuoteUpsert } from './shipping-quote-persistence';
 
@@ -41,7 +45,7 @@ type AdminInput = {
 };
 
 const orderSelect =
-  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit))';
+  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, commodity_code))';
 
 export async function postAdminOrderGiglQuote(
   request: NextRequest,
@@ -153,19 +157,14 @@ export async function postAdminOrderGiglQuote(
       { error: senderResult.error },
       { status: senderResult.status }
     );
-  const rawItems = (order.order_items ?? []).map((item) => ({
-    ...item,
-    weight_value:
-      (item as { product?: { weight_value?: number | null } | null }).product
-        ?.weight_value ?? null,
-    weight_unit:
-      (item as { product?: { weight_unit?: string | null } | null }).product
-        ?.weight_unit ?? null,
-  }));
+  const rawItems = mapAdminOrderGiglQuoteItems(order.order_items ?? []);
+  const productLookup = buildAdminOrderGiglProductLookup(
+    order.order_items ?? []
+  );
   const built = await buildOrderGiglQuoteRequest(
     { ...order, order_items: rawItems },
     senderResult.sender,
-    async () => ({}),
+    async () => productLookup,
     validatedInput.data.receiver
   );
   if (!built.ok) {

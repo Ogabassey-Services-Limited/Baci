@@ -18,10 +18,15 @@ type OrderLike = {
   shipping_address?: unknown;
   order_items?: OrderItem[] | null;
 };
-type ProductLookup = (
-  ids: string[]
-) => Promise<
-  Record<string, { weight_value?: number | null; weight_unit?: string | null }>
+type ProductLookup = (ids: string[]) => Promise<
+  Record<
+    string,
+    {
+      weight_value?: number | null;
+      weight_unit?: string | null;
+      commodity_code?: string | null;
+    }
+  >
 >;
 
 export type OrderGiglQuoteBuildResult =
@@ -31,7 +36,8 @@ export type OrderGiglQuoteBuildResult =
       code:
         | 'ORDER_SHIPPING_ADDRESS_INCOMPLETE'
         | 'ORDER_SHIPPING_ITEMS_EMPTY'
-        | 'ORDER_SHIPPING_ITEM_INVALID';
+        | 'ORDER_SHIPPING_ITEM_INVALID'
+        | 'ORDER_SHIPPING_HS_CODE_REQUIRED';
       missing?: string[];
       status: number;
     };
@@ -174,11 +180,20 @@ export async function buildOrderGiglQuoteRequest(
       weightKg(item.weight_value, item.weight_unit) ??
       weightKg(product?.weight_value, product?.weight_unit) ??
       DEFAULT_ORDER_ITEM_WEIGHT_KG;
+    const hsCode = product?.commodity_code?.trim() || undefined;
+    if (shipmentType === 'international' && !hsCode) {
+      return {
+        ok: false,
+        code: 'ORDER_SHIPPING_HS_CODE_REQUIRED',
+        status: 422,
+      };
+    }
     items.push({
       name: String(item.name ?? 'Item'),
       quantity,
       weight,
       value: Number(item.price ?? 0),
+      ...(hsCode ? { hsCode } : {}),
     });
   }
   return {

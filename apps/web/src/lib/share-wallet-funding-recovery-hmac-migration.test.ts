@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -20,5 +20,21 @@ describe('share wallet funding recovery hmac migration', () => {
     );
     expect(sql).toContain('TO service_role;');
     expect(sql).not.toContain('gen_random_bytes');
+    expect(
+      existsSync(
+        resolve(
+          process.cwd(),
+          'src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts'
+        )
+      )
+    ).toBe(true);
+    expect(
+      existsSync(
+        resolve(
+          process.cwd(),
+          'src/lib/provision-merchant-wallet-funding-recovery-hmac.ts'
+        )
+      )
+    ).toBe(true);
   });
 });

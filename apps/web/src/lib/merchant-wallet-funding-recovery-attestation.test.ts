@@ -8,7 +8,10 @@ describe('createMerchantWalletFundingRecoveryAttestation', () => {
   });
 
   it('HMACs the recovery payload with the configured funding-recovery secret', () => {
-    vi.stubEnv('MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET', 'test-secret');
+    vi.stubEnv(
+      'MERCHANT_WALLET_FUNDING_RECOVERY_HMAC_SECRET',
+      'test-secret-at-least-32-characters!!'
+    );
     const attestedAtIso = '2026-09-03T20:00:00.000Z';
     const attestation = createMerchantWalletFundingRecoveryAttestation({
       requestId: 'r1',
@@ -23,7 +26,7 @@ describe('createMerchantWalletFundingRecoveryAttestation', () => {
     });
 
     expect(attestation).toBe(
-      createHmac('sha256', 'test-secret')
+      createHmac('sha256', 'test-secret-at-least-32-characters!!')
         .update(
           [
             'r1',
