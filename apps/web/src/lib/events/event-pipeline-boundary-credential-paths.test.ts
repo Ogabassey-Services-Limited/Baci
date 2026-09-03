@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { eventPipelineJumiaCredentialPaths } from './event-pipeline-jumia-credential-paths';
+import { eventPipelineShippingCredentialPaths } from './event-pipeline-shipping-credential-paths';
 
 const modulePath = resolve(
   process.cwd(),
@@ -247,6 +248,7 @@ describe('event pipeline credential-path authority', () => {
         'apps/web/src/env.ts',
       ],
       ...eventPipelineJumiaCredentialPaths,
+      ...eventPipelineShippingCredentialPaths,
     ]);
   });
 });

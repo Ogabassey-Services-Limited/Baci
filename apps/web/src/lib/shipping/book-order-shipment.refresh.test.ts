@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { shippingQuoteEnvTestMock } from '@/lib/shipping/shipping-quote-env.test-mock';
+
+vi.mock('@/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/env')>();
+  return { ...actual, ...shippingQuoteEnvTestMock };
+});
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {

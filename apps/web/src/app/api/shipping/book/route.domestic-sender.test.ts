@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { shippingQuoteEnvTestMock } from '@/lib/shipping/shipping-quote-env.test-mock';
 import {
   buildDomesticSenderBookingRequest,
   buildDomesticSenderSupabaseMock,
   domesticSenderShipmentInsertPayloads,
 } from './route.domestic-sender.test-fixtures';
+
+vi.mock('@/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/env')>();
+  return { ...actual, ...shippingQuoteEnvTestMock };
+});
 
 const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();

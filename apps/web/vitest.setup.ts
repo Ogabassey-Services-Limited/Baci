@@ -92,17 +92,6 @@ process.env.NEXT_PUBLIC_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
-process.env.SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 's'.repeat(32);
-
-vi.mock('@/env', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/env')>();
-  return {
-    ...actual,
-    getSupabaseServiceRoleKey: () =>
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || 's'.repeat(32),
-  };
-});
 
 if (typeof window !== 'undefined') {
   // Radix FocusScope creates CustomEvent from the global constructor; jsdom
