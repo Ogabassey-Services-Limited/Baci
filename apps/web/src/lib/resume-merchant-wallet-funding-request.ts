@@ -4,9 +4,11 @@ import {
   type DedicatedAccountResponse,
   getDedicatedAccounts,
 } from '@/lib/paystack';
+import { createServiceClient } from '@/lib/supabase/service';
 import { logMerchantWalletProvisioningError } from './merchant-wallet-provisioning-logging';
 
 const STALE_PENDING_MS = 15 * 60 * 1000;
+const REQUEST_CLOCK_SKEW_MS = 2 * 60 * 1000;
 
 type MerchantIdentity = {
   id: string;
@@ -16,18 +18,41 @@ type MerchantIdentity = {
   phone?: string;
 };
 
-function pickRecoverableAccount(
-  accounts: DedicatedAccountResponse[] | undefined
+function metadataMatchesRequest(
+  metadata: Record<string, unknown> | null | undefined,
+  requestId: string
+): boolean {
+  if (!metadata || typeof metadata !== 'object') return false;
+  return (
+    metadata.source === 'merchant_wallet_funding' &&
+    metadata.request_id === requestId
+  );
+}
+
+export function pickRecoverableFundingAccount(
+  accounts: DedicatedAccountResponse[] | undefined,
+  request: { id: string; created_at?: string | null }
 ): DedicatedAccountResponse | null {
   if (!accounts?.length) return null;
-  const match = accounts.find(
-    (account) =>
-      account.active === true &&
-      account.assigned === true &&
-      account.currency === 'NGN' &&
-      /^\d{10,20}$/.test(account.account_number)
-  );
-  return match ?? null;
+  const requestCreatedMs = Date.parse(String(request.created_at ?? ''));
+  const candidates = accounts.filter((account) => {
+    if (
+      account.active !== true ||
+      account.assigned !== true ||
+      account.currency !== 'NGN' ||
+      !/^\d{10,20}$/.test(account.account_number)
+    ) {
+      return false;
+    }
+    if (metadataMatchesRequest(account.metadata, request.id)) {
+      return true;
+    }
+    if (!Number.isFinite(requestCreatedMs)) return false;
+    const accountCreatedMs = Date.parse(account.created_at);
+    if (!Number.isFinite(accountCreatedMs)) return false;
+    return accountCreatedMs >= requestCreatedMs - REQUEST_CLOCK_SKEW_MS;
+  });
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 export async function resumeMerchantWalletFundingRequest(
@@ -74,11 +99,16 @@ export async function resumeMerchantWalletFundingRequest(
   }
 
   const existing = await getDedicatedAccounts(customer.data.customer_code);
-  const account = existing.success
-    ? pickRecoverableAccount(existing.data)
-    : null;
+  if (!existing.success) {
+    // Authoritative listing failed: keep the pending request so a later consent
+    // can probe again instead of provisioning a second DVA.
+    return { status: 'pending', account: null, requestId: request.id };
+  }
+
+  const account = pickRecoverableFundingAccount(existing.data, request);
   if (account) {
-    const { data: persisted, error: persistError } = await supabase.rpc(
+    const assignmentClient = createServiceClient();
+    const { data: persisted, error: persistError } = await assignmentClient.rpc(
       'persist_merchant_wallet_payment_account',
       {
         p_request_id: request.id,

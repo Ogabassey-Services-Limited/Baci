@@ -18,10 +18,4 @@ describe('recover wallet funding and block booked rebinding migration', () => {
     expect(sql).toContain("charge.status = 'booked'");
     expect(sql).toContain("RAISE EXCEPTION 'order_already_shipped_or_booked'");
   });
-
-  it('lets authenticated merchant owners complete funding recovery persists', () => {
-    expect(sql).toContain("v_role <> 'service_role'");
-    expect(sql).toContain('merchant.user_id = (SELECT auth.uid())');
-    expect(sql).toContain('TO service_role, authenticated');
-  });
 });

@@ -7,13 +7,13 @@ import { GIGL_WALLET_SHIPPING_PENDING_SOURCES } from './supabase-history-replay-
 describe('GIGL wallet replay sources', () => {
   it('keeps every branch migration in the explicit pending registry input', () => {
     const migrations = GIGL_WALLET_SHIPPING_PENDING_SOURCES.split('\n');
-    expect(migrations).toHaveLength(41);
+    expect(migrations).toHaveLength(42);
     expect(migrations.at(-1)).toContain(
-      '20260903210000_recover_wallet_funding_and_block_booked_rebinding.sql'
+      '20260903211000_revoke_authenticated_wallet_account_persist.sql'
     );
     const filenames = migrations.map((entry) => entry.split(' ')[1]);
     expect(filenames).toEqual([...filenames].sort());
-    expect(new Set(filenames).size).toBe(41);
+    expect(new Set(filenames).size).toBe(42);
 
     for (const entry of migrations) {
       const [digest, filename] = entry.split(' ');
