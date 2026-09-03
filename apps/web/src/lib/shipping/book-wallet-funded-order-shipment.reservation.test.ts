@@ -106,7 +106,7 @@ describe('wallet-funded shipment orchestration — reservation', () => {
     ]);
   });
 
-  it('resumes an existing reservation before refreshing an expired quote', async () => {
+  it('rotates an existing reservation before refreshing an expired quote', async () => {
     const from = vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -116,7 +116,9 @@ describe('wallet-funded shipment orchestration — reservation', () => {
       }),
     }));
     const supabase = { from } as unknown as typeof supabaseFixture;
-    const prepareQuote = vi.fn().mockResolvedValue('q-replacement');
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(new Error('quote replacement required'));
     const book = vi.fn().mockResolvedValue({ shipmentId: 's-existing' });
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
       charge: {
@@ -128,24 +130,32 @@ describe('wallet-funded shipment orchestration — reservation', () => {
       token: 'r'.repeat(64),
     });
 
-    await bookWalletOrCustomerCheckout(
-      supabase,
-      'm1',
-      'o1',
-      'q-expired',
-      'merchant_wallet',
-      book,
-      undefined,
-      prepareQuote
-    );
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabase,
+        'm1',
+        'o1',
+        'q-expired',
+        'merchant_wallet',
+        book,
+        undefined,
+        prepareQuote
+      )
+    ).rejects.toThrow('quote replacement required');
 
     expect(from).toHaveBeenCalledWith('merchant_shipping_charges');
-    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(prepareQuote).toHaveBeenCalledOnce();
     expect(charge.reserveMerchantShippingCharge).toHaveBeenCalledWith(
       supabase,
       'o1',
       'q-expired'
     );
-    expect(book).toHaveBeenCalledWith('q-expired');
+    expect(charge.refundMerchantShippingCharge).toHaveBeenCalledWith(
+      supabase,
+      'charge-existing',
+      'r'.repeat(64),
+      'QUOTE_REFRESH_FAILED'
+    );
+    expect(book).not.toHaveBeenCalled();
   });
 });

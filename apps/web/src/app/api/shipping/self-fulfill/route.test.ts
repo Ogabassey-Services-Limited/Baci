@@ -217,6 +217,35 @@ describe('Self-fulfill API routes', () => {
     );
   });
 
+  it('clears an unbooked GIG wallet quote when the merchant switches to self fulfillment', async () => {
+    const { supabase, updateOrder } = createSupabaseMock();
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        carrierName: 'Dispatch Rider',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selected_quote_id: null,
+        shipping_funding_source: null,
+        shipping_platform_margin: null,
+        shipping_platform_retained_amount: 0,
+        shipping_pricing_version: null,
+        shipping_provider_cost: null,
+      })
+    );
+  });
+
   it('returns 401 when api auth fails', async () => {
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: 'Unauthorized',

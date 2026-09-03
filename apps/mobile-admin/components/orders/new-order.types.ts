@@ -9,6 +9,11 @@ export interface ShippingAddress {
   address: string;
   city?: string;
   state?: string;
+  country?: string;
+  countryCode?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export type ProductMatchStatus = 'custom' | 'linked' | 'unreviewed';
@@ -35,6 +40,13 @@ export interface CustomerInfo {
   email: string;
   phone: string;
   address: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  countryCode?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface DeliveryInfo {
@@ -43,6 +55,11 @@ export interface DeliveryInfo {
   address: string;
   city: string;
   state: string;
+  country?: string;
+  countryCode?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface NewCustomerDraft {
@@ -53,6 +70,13 @@ export interface NewCustomerDraft {
   phone: string;
   email: string;
   address: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  countryCode?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface CustomItemDraft {
@@ -76,7 +100,7 @@ export type SelectableCustomer = Pick<
   | 'email'
   | 'phone'
   | 'address'
->;
+> & { city?: string | null; state?: string | null };
 
 export type SelectableOrderProduct = SelectableManualOrderProduct;
 

@@ -60,9 +60,11 @@ export type OrderGiglMissingField = NonNullable<
 
 export interface OrderGiglReceiver {
   address: string;
-  city: string;
-  state: string;
+  city?: string;
+  state?: string;
   phone: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export class OrderGiglShippingError extends Error {
@@ -103,12 +105,16 @@ async function parseResponse<T>(response: Response, schema: z.ZodType<T>) {
 export async function getOrderGiglQuote(
   orderId: string,
   receiver?: OrderGiglReceiver,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  preview = false
 ) {
   const response = await createAuthenticatedFetch(
     `${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/shipping/gigl-quote`,
     {
-      body: JSON.stringify(receiver ? { receiver } : {}),
+      body: JSON.stringify({
+        ...(receiver ? { receiver } : {}),
+        ...(preview ? { preview: true } : {}),
+      }),
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
       signal,

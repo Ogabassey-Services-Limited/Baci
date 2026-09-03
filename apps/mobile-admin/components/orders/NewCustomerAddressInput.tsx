@@ -1,10 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, Text, View } from 'react-native';
+import { Keyboard, Text, View } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import { SheetTextInput } from '@/components/ui/SheetTextInput';
 import type { ThemeColors } from '@/constants/theme';
+import { fetchGoogleAddressDetails } from './google-address-details';
+import { NewCustomerAddressSuggestions } from './NewCustomerAddressSuggestions';
 import { customerCreateStyles as customerStyles } from './NewOrderCustomerCreateView.styles';
 import {
   type AddressSuggestion,
@@ -39,6 +41,7 @@ export function NewCustomerAddressInput({
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
+  const selectionSequenceRef = useRef(0);
 
   useEffect(() => {
     if (!(hasGoogleMapsApiKey && googleMapsApiKey) || !isFocused) {
@@ -123,7 +126,18 @@ export function NewCustomerAddressInput({
   }, []);
 
   const handleAddressChange = (text: string) => {
-    setNewCustomer((previous) => ({ ...previous, address: text }));
+    selectionSequenceRef.current += 1;
+    setNewCustomer((previous) => ({
+      ...previous,
+      address: text,
+      city: '',
+      state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
+    }));
   };
 
   const handleAddressFocus = () => {
@@ -153,10 +167,34 @@ export function NewCustomerAddressInput({
     setSuggestions([]);
     setIsFocused(false);
     Keyboard.dismiss();
+    const selectionSequence = selectionSequenceRef.current + 1;
+    selectionSequenceRef.current = selectionSequence;
     setNewCustomer((previous) => ({
       ...previous,
       address: suggestion.description,
+      city: '',
+      state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
     }));
+    if (googleMapsApiKey && suggestion.placeId) {
+      fetchGoogleAddressDetails({
+        googleMapsApiKey,
+        placeId: suggestion.placeId,
+      })
+        .then((details) => {
+          if (!details) return;
+          setNewCustomer((previous) =>
+            selectionSequenceRef.current === selectionSequence
+              ? { ...previous, ...details }
+              : previous
+          );
+        })
+        .catch(() => undefined);
+    }
     onAddressBlur?.();
   };
 
@@ -206,64 +244,12 @@ export function NewCustomerAddressInput({
             ]}
             value={address}
           />
-          {isFocused && suggestions.length > 0 ? (
-            <View
-              accessibilityLabel="Address suggestions"
-              accessibilityRole="list"
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderRadius: 12,
-                borderWidth: 1,
-                marginTop: 8,
-                overflow: 'hidden',
-              }}
-            >
-              {suggestions.map((suggestion) => (
-                <Pressable
-                  accessibilityLabel={`Use address ${suggestion.description}`}
-                  accessibilityRole="button"
-                  key={suggestion.placeId}
-                  onPress={() => handleSuggestionPress(suggestion)}
-                  style={({ pressed }) => [
-                    {
-                      borderBottomColor: colors.border,
-                      borderBottomWidth: 1,
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                    },
-                    pressed && { backgroundColor: colors.backgroundLight },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={{ color: colors.text, fontWeight: '600' }}
-                  >
-                    {suggestion.mainText}
-                  </Text>
-                  {suggestion.secondaryText ? (
-                    <Text
-                      numberOfLines={1}
-                      style={{ color: colors.textSecondary, marginTop: 2 }}
-                    >
-                      {suggestion.secondaryText}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              ))}
-              <View
-                style={{
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  paddingVertical: 10,
-                }}
-              >
-                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                  Powered by Google
-                </Text>
-              </View>
-            </View>
+          {isFocused ? (
+            <NewCustomerAddressSuggestions
+              colors={colors}
+              onSelect={handleSuggestionPress}
+              suggestions={suggestions}
+            />
           ) : null}
         </View>
       ) : (

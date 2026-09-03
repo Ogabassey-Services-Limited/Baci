@@ -15,12 +15,14 @@ type ReleaseLock = () => Promise<void>;
 type PrepareQuote = () => Promise<string>;
 type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
-
+type ChargeReservation = Awaited<
+  ReturnType<typeof reserveMerchantShippingCharge>
+>;
 async function hasReservedMerchantShippingCharge(
   supabase: SupabaseClient,
   orderId: string,
   quoteId: string
-): Promise<boolean> {
+): Promise<boolean | null> {
   if (typeof supabase.from !== 'function') return false;
   try {
     const { data, error } = await supabase
@@ -30,13 +32,36 @@ async function hasReservedMerchantShippingCharge(
       .eq('shipping_quote_id', quoteId)
       .eq('status', 'reserved')
       .maybeSingle();
-    if (error) return false;
+    if (error) return null;
     return Boolean(data?.id);
   } catch {
-    return false;
+    return null;
   }
 }
-
+async function cleanupPreSubmissionReservation(
+  supabase: SupabaseClient,
+  reservation: ChargeReservation,
+  reasonCode: string,
+  releaseLock?: ReleaseLock
+): Promise<void> {
+  try {
+    await refundMerchantShippingCharge(
+      supabase,
+      reservation.charge.chargeId,
+      reservation.token,
+      reasonCode
+    );
+  } catch {
+    console.error('Wallet shipping refund failed during cleanup.');
+  }
+  if (releaseLock) {
+    try {
+      await releaseLock();
+    } catch {
+      console.error('Booking lock release failed during cleanup.');
+    }
+  }
+}
 export async function bookWalletFundedOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
@@ -47,8 +72,7 @@ export async function bookWalletFundedOrderShipment(
   prepareQuote?: PrepareQuote,
   readExistingShipment?: ReadExistingShipment
 ): Promise<BookOrderShipmentResult> {
-  // Retain the merchant context in this route-level contract; owner checks are
-  // enforced by every wallet RPC before it can mutate state.
+  // Wallet RPCs enforce merchant-owner or orders.fulfill/orders.edit access.
   if (!merchantId) {
     throw new OrderShipmentBookingError(
       'Merchant context is required.',
@@ -75,19 +99,34 @@ export async function bookWalletFundedOrderShipment(
     }
   }
   let preparedQuoteId = quoteId;
-  // If a prior attempt already reserved funds for this quote, resume that
-  // charge instead of refreshing (refresh would fail on active-charge replace).
-  const shouldPrepareQuote =
-    Boolean(prepareQuote) &&
-    !(await hasReservedMerchantShippingCharge(supabase, orderId, quoteId));
-  if (shouldPrepareQuote && prepareQuote) {
+  let reservation: ChargeReservation | undefined;
+  const reservedChargeState = await hasReservedMerchantShippingCharge(
+    supabase,
+    orderId,
+    quoteId
+  );
+  if (reservedChargeState !== false) {
+    reservation = await reserveMerchantShippingCharge(
+      supabase,
+      orderId,
+      quoteId
+    );
+  }
+  const resumedExistingReservation = Boolean(reservation);
+  if (prepareQuote && (!reservation || reservedChargeState !== false)) {
     try {
       preparedQuoteId = await prepareQuote();
     } catch (error) {
-      // Quote preparation runs after the order booking lock is claimed but
-      // before any wallet reservation. Release that lock while preserving the
-      // original refresh/provider error for the caller.
-      if (releaseLock) {
+      if (reservation) {
+        await cleanupPreSubmissionReservation(
+          supabase,
+          reservation,
+          error instanceof OrderShipmentBookingError
+            ? error.code
+            : 'QUOTE_REFRESH_FAILED',
+          releaseLock
+        );
+      } else if (releaseLock) {
         try {
           await releaseLock();
         } catch (releaseError) {
@@ -100,13 +139,32 @@ export async function bookWalletFundedOrderShipment(
       throw error;
     }
   }
-  const { charge, token } = await reserveMerchantShippingCharge(
-    supabase,
-    orderId,
-    preparedQuoteId
-  );
-  // A prior confirmation may have completed successfully. Recover the
-  // shipment persisted on the charge instead of re-entering provider booking.
+  if (!reservation) {
+    reservation = await reserveMerchantShippingCharge(
+      supabase,
+      orderId,
+      preparedQuoteId
+    );
+  }
+  if (
+    resumedExistingReservation &&
+    reservation.charge.status === 'reserved' &&
+    preparedQuoteId !== quoteId
+  ) {
+    const quoteChangedError = new OrderShipmentBookingError(
+      'The shipping quote changed or expired. Please get a new quote and confirm shipping before booking.',
+      409,
+      'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED'
+    );
+    await cleanupPreSubmissionReservation(
+      supabase,
+      reservation,
+      quoteChangedError.code,
+      releaseLock
+    );
+    throw quoteChangedError;
+  }
+  const { charge, token } = reservation;
   if (charge.status === 'booked') {
     try {
       return await recoverBookedWalletShipment(

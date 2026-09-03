@@ -215,4 +215,22 @@ describe('order-shipment', () => {
       })
     ).toEqual({ address: '1 Allen Avenue', phone: '08020000000' });
   });
+
+  it('preserves paired Google coordinates for a coordinate-only shipping address', () => {
+    expect(
+      getOrderGiglInitialAddress({
+        customer_phone: '08010000000',
+        shipping_address: {
+          address: 'Google place',
+          latitude: 6.6018,
+          longitude: 3.3515,
+        },
+      })
+    ).toEqual({
+      address: 'Google place',
+      phone: '08010000000',
+      latitude: 6.6018,
+      longitude: 3.3515,
+    });
+  });
 });

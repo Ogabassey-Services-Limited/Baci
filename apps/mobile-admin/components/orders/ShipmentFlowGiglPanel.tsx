@@ -101,7 +101,7 @@ export function ShipmentFlowGiglPanel({
       <ShipmentOptionCard
         colors={colors}
         description={description}
-        disabled={!quote}
+        disabled={loading}
         icon="paper-plane-outline"
         onPress={onModeChange}
         selected={selected}
@@ -146,7 +146,8 @@ export function ShipmentFlowGiglPanel({
         <ActionButton label="Retry quote" onPress={onRetryQuote} />
       ) : null}
 
-      {quote &&
+      {selected &&
+      quote &&
       wallet &&
       !wallet.canBook &&
       !fundingAccount &&

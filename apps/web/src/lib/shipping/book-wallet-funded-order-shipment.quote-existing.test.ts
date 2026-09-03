@@ -45,7 +45,7 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
     expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
   });
 
-  it('skips quote refresh when a reserved wallet charge already exists', async () => {
+  it('refunds a resumed reservation when quote refresh fails before submission', async () => {
     const prepareQuote = vi
       .fn()
       .mockRejectedValue(new Error('refresh would replace active charge'));
@@ -79,24 +79,32 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
       shipmentStatus: 'booked' as const,
     });
 
-    await bookWalletOrCustomerCheckout(
-      supabase as never,
-      'm1',
-      'o1',
-      'q1',
-      'merchant_wallet',
-      book,
-      undefined,
-      prepareQuote
-    );
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabase as never,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        undefined,
+        prepareQuote
+      )
+    ).rejects.toThrow('refresh would replace active charge');
 
-    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(prepareQuote).toHaveBeenCalledOnce();
     expect(charge.reserveMerchantShippingCharge).toHaveBeenCalledWith(
       supabase,
       'o1',
       'q1'
     );
-    expect(book).toHaveBeenCalledWith('q1');
+    expect(charge.refundMerchantShippingCharge).toHaveBeenCalledWith(
+      supabase,
+      'charge-reserved',
+      'r'.repeat(64),
+      'QUOTE_REFRESH_FAILED'
+    );
+    expect(book).not.toHaveBeenCalled();
   });
 
   it('returns an existing booked shipment before preparing a quote', async () => {

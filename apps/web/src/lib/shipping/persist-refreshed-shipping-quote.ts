@@ -3,42 +3,41 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toShippingQuoteUpsert } from '@/app/api/shipping/quotes/shipping-quote-persistence';
 import type { QuoteRequest, ShippingQuote } from '@/lib/shipping/types';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createShippingQuoteRouteProof } from './shipping-quote-route-proof';
 
 /**
  * Persist a provider-refreshed quote.
- * - Checkout/book refreshes use the service-role writer so callers cannot forge
- *   quote economics through PostgREST.
- * - Admin wallet refreshes stay on the caller-bound order attestation RPC.
+ * Every refresh is order-scoped and carries a server HMAC over the complete
+ * replacement quote. There is deliberately no service-role fallback here:
+ * this helper is reachable from authenticated booking routes only.
  */
 export async function persistRefreshedShippingQuote(
   supabase: SupabaseClient,
   quote: ShippingQuote,
   context: {
-    merchantId?: string | null;
+    merchantId: string;
     sessionId: string;
     quoteRequest: QuoteRequest;
-    /** Order identity for an Admin wallet refresh, bound by the server RPC. */
-    orderId?: string;
+    orderId: string;
   }
 ): Promise<{ error: { code?: string; message?: string } | null }> {
-  const persisted = toShippingQuoteUpsert(quote, context);
-
-  if (quote.provider === 'GIGL' && context.orderId && context.merchantId) {
-    const { error } = await supabase.rpc(
-      'persist_refreshed_order_shipping_quote' as never,
-      {
-        p_order_id: context.orderId,
-        p_quote: persisted,
-      } as never
-    );
-    return { error };
+  if (!context.orderId || !context.merchantId) {
+    throw new Error('order-scoped shipping quote refresh requires identity');
   }
-
-  const admin = createAdminClient();
-  const { error } = await admin.rpc(
-    'persist_refreshed_merchant_shipping_quote' as never,
-    { p_quote: persisted } as never
+  const persisted = toShippingQuoteUpsert(quote, context);
+  const persistedProof = createShippingQuoteRouteProof({
+    action: 'persist_refreshed_order_shipping_quote',
+    merchantId: context.merchantId,
+    subjectId: context.orderId,
+    payload: { order_id: context.orderId, quote: persisted },
+  });
+  const { error } = await supabase.rpc(
+    'persist_refreshed_order_shipping_quote' as never,
+    {
+      p_order_id: context.orderId,
+      p_quote: persisted,
+      p_route_proof: persistedProof,
+    } as never
   );
   return { error };
 }

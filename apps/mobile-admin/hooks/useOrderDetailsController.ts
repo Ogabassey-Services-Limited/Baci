@@ -86,6 +86,7 @@ export function useOrderDetailsController() {
       giglEligible: giglEligibility.isEligible,
       merchant,
       order,
+      pendingShipmentMode: uiState.pendingShipmentMode,
       providerLabel,
       shipmentFlowStep: uiState.shipmentFlowStep,
       showShipmentFlow: uiState.showShipmentFlow,

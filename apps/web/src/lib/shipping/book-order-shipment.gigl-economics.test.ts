@@ -175,7 +175,7 @@ describe('GIGL booking economics', () => {
   it.each([
     'customer_checkout',
     'merchant_wallet',
-  ] as const)('persists the protected economics snapshot for %s bookings', async (fundingSource) => {
+  ] as const)('leaves economics stamping to the database trigger for %s bookings', async (fundingSource) => {
     let insertedShipment: unknown;
     const { supabase } = createSupabase(null, {
       fundingSource,
@@ -186,12 +186,8 @@ describe('GIGL booking economics', () => {
 
     await bookOrderShipment(supabase, 'merchant-1', 'order-1');
 
-    expect(insertedShipment).toEqual(
-      expect.objectContaining({
-        provider_cost: 1000,
-        platform_margin: 100,
-      })
-    );
+    expect(insertedShipment).not.toHaveProperty('provider_cost');
+    expect(insertedShipment).not.toHaveProperty('platform_margin');
   });
 
   it('stops before provider booking when the metadata lookup fails', async () => {

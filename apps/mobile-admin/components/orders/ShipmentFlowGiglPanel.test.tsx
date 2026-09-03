@@ -84,6 +84,7 @@ describe('ShipmentFlowGiglPanel', () => {
     render(
       <ShipmentFlowGiglPanel
         {...base}
+        selected
         fundingAccount={{
           accountName: 'BACI / Store',
           accountNumber: '1234567890',
@@ -112,8 +113,17 @@ describe('ShipmentFlowGiglPanel', () => {
     expect(screen.getByText(/temporarily unavailable/)).toBeTruthy();
   });
 
+  it('allows explicit GIGL selection to start a quote when none is precomputed', () => {
+    render(<ShipmentFlowGiglPanel {...base} quote={null} state="idle" />);
+
+    const option = screen.getByRole('radio', { name: /Ship with GIG/ });
+    expect(option.getAttribute('aria-disabled')).toBeNull();
+    fireEvent.click(option);
+    expect(actions.onModeChange).toHaveBeenCalledOnce();
+  });
+
   it('disables duplicate funding consent while provisioning is in flight', () => {
-    render(<ShipmentFlowGiglPanel {...base} state="funding" />);
+    render(<ShipmentFlowGiglPanel {...base} selected state="funding" />);
     expect(screen.getByRole('button', { name: 'Fund wallet' })).toHaveProperty(
       'disabled',
       true
@@ -121,11 +131,21 @@ describe('ShipmentFlowGiglPanel', () => {
   });
 
   it('offers a funding status refresh while DVA provisioning is pending', () => {
-    render(<ShipmentFlowGiglPanel {...base} state="funding_pending" />);
+    render(
+      <ShipmentFlowGiglPanel {...base} selected state="funding_pending" />
+    );
     expect(screen.queryByRole('button', { name: 'Fund wallet' })).toBeNull();
     fireEvent.click(
       screen.getByRole('button', { name: 'Check funding status' })
     );
     expect(actions.onRefreshFundingAccount).toHaveBeenCalledOnce();
+  });
+
+  it('keeps funding actions hidden while the preview is shown for Self Fulfill', () => {
+    render(<ShipmentFlowGiglPanel {...base} selected={false} />);
+    expect(screen.queryByRole('button', { name: 'Fund wallet' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: "I've transferred" })
+    ).toBeNull();
   });
 });

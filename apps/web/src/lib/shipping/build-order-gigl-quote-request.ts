@@ -1,5 +1,7 @@
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from './types';
 
+const DEFAULT_ORDER_ITEM_WEIGHT_KG = 0.1;
+
 type OrderItem = {
   name?: string | null;
   quantity?: number | null;
@@ -43,6 +45,23 @@ function weightKg(value: unknown, unit: unknown): number | null {
   return n * factor;
 }
 
+function finiteCoordinate(
+  value: unknown,
+  minimum: number,
+  maximum: number
+): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= minimum && value <= maximum
+      ? value
+      : undefined;
+  }
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= minimum && parsed <= maximum
+    ? parsed
+    : undefined;
+}
+
 function readAddress(raw: unknown, order: OrderLike): ShippingAddress {
   const a =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
@@ -56,6 +75,8 @@ function readAddress(raw: unknown, order: OrderLike): ShippingAddress {
     country: String(a.country ?? 'Nigeria'),
     countryCode: String(a.countryCode ?? a.country_code ?? 'NG'),
     postalCode: typeof a.postalCode === 'string' ? a.postalCode : undefined,
+    latitude: finiteCoordinate(a.latitude, -90, 90),
+    longitude: finiteCoordinate(a.longitude, -180, 180),
   };
 }
 
@@ -66,6 +87,12 @@ function isNigeriaDestination(address: ShippingAddress): boolean {
   const country = String(address.country ?? '')
     .trim()
     .toLowerCase();
+
+  // Older manually created Nigerian orders may have stored blank country
+  // metadata. Admin GIGL is already restricted to Nigerian merchants, so keep
+  // those addresses on the domestic path while still rejecting any explicit
+  // foreign country or country code below.
+  if (!country && !countryCode) return true;
 
   if (
     country &&
@@ -94,11 +121,30 @@ export async function buildOrderGiglQuoteRequest(
   lookupProducts: ProductLookup = async () => ({}),
   receiverOverride?: Partial<ShippingAddress>
 ): Promise<OrderGiglQuoteBuildResult> {
+  const storedReceiver = readAddress(order.shipping_address, order);
+  const overrideAddressChanged =
+    receiverOverride?.address !== undefined &&
+    String(receiverOverride.address).trim() !==
+      String(storedReceiver.address).trim();
+  const overrideHasCompleteCoordinates =
+    finiteCoordinate(receiverOverride?.latitude, -90, 90) !== undefined &&
+    finiteCoordinate(receiverOverride?.longitude, -180, 180) !== undefined;
   const receiver = {
-    ...readAddress(order.shipping_address, order),
+    ...storedReceiver,
     ...receiverOverride,
+    ...(overrideAddressChanged && !overrideHasCompleteCoordinates
+      ? { latitude: undefined, longitude: undefined }
+      : {}),
   };
-  const required = ['address', 'city', 'state', 'phone'] as const;
+  const shipmentType = isNigeriaDestination(receiver)
+    ? 'domestic'
+    : 'international';
+  const hasFiniteCoordinates =
+    Number.isFinite(receiver.latitude) && Number.isFinite(receiver.longitude);
+  const required =
+    shipmentType === 'domestic' && hasFiniteCoordinates
+      ? (['address', 'phone'] as const)
+      : (['address', 'city', 'state', 'phone'] as const);
   const missing = required.filter((key) => !String(receiver[key] ?? '').trim());
   if (missing.length)
     return {
@@ -127,7 +173,7 @@ export async function buildOrderGiglQuoteRequest(
     const weight =
       weightKg(item.weight_value, item.weight_unit) ??
       weightKg(product?.weight_value, product?.weight_unit) ??
-      1;
+      DEFAULT_ORDER_ITEM_WEIGHT_KG;
     items.push({
       name: String(item.name ?? 'Item'),
       quantity,
@@ -142,9 +188,7 @@ export async function buildOrderGiglQuoteRequest(
       sender,
       receiver,
       items,
-      shipmentType: isNigeriaDestination(receiver)
-        ? 'domestic'
-        : 'international',
+      shipmentType,
       deliveryPreference: 'door',
     },
   };

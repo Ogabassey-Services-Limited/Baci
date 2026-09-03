@@ -33,7 +33,7 @@ export type OrderShipmentQuoteRecord = {
 
 export type RefreshOrderShipmentQuoteOptions = {
   allowRefresh?: boolean;
-  /** Order identity required to retain Admin wallet quote attestation. */
+  /** Order identity required by the proof-bound quote persistence RPC. */
   orderId?: string;
 };
 
@@ -73,6 +73,14 @@ export async function refreshOrderShipmentQuote(
       'The saved shipping quote has expired and cannot be refreshed.',
       400,
       'QUOTE_REFRESH_UNAVAILABLE'
+    );
+  }
+
+  if (!options.orderId || !quote.merchant_id) {
+    throw new OrderShipmentBookingError(
+      'A refresh must be bound to the order being booked.',
+      400,
+      'QUOTE_REFRESH_ORDER_REQUIRED'
     );
   }
 
@@ -130,9 +138,9 @@ export async function refreshOrderShipmentQuote(
     replacement,
     {
       merchantId: quote.merchant_id,
-      sessionId: options.orderId ?? persistedQuoteRequest.sessionId,
+      sessionId: options.orderId,
       quoteRequest: persistedQuoteRequest,
-      ...(options.orderId ? { orderId: options.orderId } : {}),
+      orderId: options.orderId,
     }
   );
 

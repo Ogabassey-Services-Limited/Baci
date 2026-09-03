@@ -3,11 +3,16 @@
  * Fetches quotes from all providers and ranks them for display
  */
 
+import {
+  getNoProviderWarning,
+  selectQuoteProviders,
+} from './provider-allowlist';
 import type { ShippingProviderRegistry } from './providers/base';
 import type {
   DeliveryTier,
   QuoteRequest,
   QuoteResponse,
+  ShippingProviderCode,
   ShippingQuote,
 } from './types';
 import { mapToDeliveryTier, TIER_DISPLAY_NAMES } from './types';
@@ -188,11 +193,18 @@ export class QuoteAggregator {
   /**
    * Get aggregated quotes from all enabled providers
    */
-  async getQuotes(request: QuoteRequest): Promise<QuoteResponse> {
-    const providers =
+  async getQuotes(
+    request: QuoteRequest,
+    allowedProviderCodes?: readonly ShippingProviderCode[]
+  ): Promise<QuoteResponse> {
+    const availableProviders =
       request.shipmentType === 'international'
         ? this.registry.getInternational()
         : this.registry.getDomestic();
+    const { providers, isRestricted } = selectQuoteProviders(
+      availableProviders,
+      allowedProviderCodes
+    );
 
     if (providers.length === 0) {
       // Surface the empty registry instead of serving a silent empty list —
@@ -201,7 +213,7 @@ export class QuoteAggregator {
         shipmentType: request.shipmentType ?? 'domestic',
       });
       return this.createFallbackResponse(request.sessionId, [
-        'No shipping providers are currently enabled',
+        getNoProviderWarning(isRestricted),
       ]);
     }
 

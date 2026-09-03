@@ -29,6 +29,9 @@ interface CreateNewOrderCustomerActionsParams {
     first_name: string;
     last_name: string;
     phone: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
   }) => Promise<SelectableCustomer>;
   merchantId?: string;
   newCustomer: NewCustomerDraft;
@@ -56,6 +59,13 @@ function normalizeNewCustomerDraft(newCustomer: NewCustomerDraft) {
     firstName: sanitizeCustomerName(newCustomer.firstName),
     lastName: sanitizeCustomerName(newCustomer.lastName),
     phone: newCustomer.phone ? sanitizePhone(newCustomer.phone) : '',
+    city: newCustomer.city?.trim() ?? '',
+    state: newCustomer.state?.trim() ?? '',
+    country: newCustomer.country?.trim() ?? '',
+    countryCode: newCustomer.countryCode?.trim() ?? '',
+    postalCode: newCustomer.postalCode?.trim() ?? '',
+    latitude: newCustomer.latitude,
+    longitude: newCustomer.longitude,
   };
 }
 
@@ -93,6 +103,8 @@ export function createNewOrderCustomerActions({
       id: item.id,
       name: getCustomerDisplayName(item),
       phone: item.phone || '',
+      city: item.city || '',
+      state: item.state || '',
     });
     setShowCustomerModal(false);
     setCustomerSearch('');
@@ -181,9 +193,22 @@ export function createNewOrderCustomerActions({
         first_name: isCompany ? '' : normalizedCustomer.firstName,
         last_name: isCompany ? '' : normalizedCustomer.lastName,
         phone: normalizedCustomer.phone,
+        city: normalizedCustomer.city || undefined,
+        state: normalizedCustomer.state || undefined,
+        zip_code: normalizedCustomer.postalCode || undefined,
       });
 
       handleSelectCustomer(customer);
+      setCustomer((previous) => ({
+        ...previous,
+        city: normalizedCustomer.city,
+        state: normalizedCustomer.state,
+        country: normalizedCustomer.country,
+        countryCode: normalizedCustomer.countryCode,
+        postalCode: normalizedCustomer.postalCode,
+        latitude: normalizedCustomer.latitude,
+        longitude: normalizedCustomer.longitude,
+      }));
       setIsCreatingCustomer(false);
       resetNewCustomerForm();
       setSelectedCountryCode(DEFAULT_COUNTRY_CODE);

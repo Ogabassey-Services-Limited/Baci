@@ -2,12 +2,16 @@ import type { Order } from '@baci/shared';
 import { useOrderGiglShipping } from '@/hooks/orders/useOrderGiglShipping';
 import type { Merchant } from '@/hooks/useMerchant';
 import { getOrderGiglShippingVisibility } from '@/lib/order-gigl-shipping-visibility';
-import { getOrderGiglInitialAddress } from '@/lib/order-shipment';
+import {
+  getOrderGiglInitialAddress,
+  type ShipmentCompletionMode,
+} from '@/lib/order-shipment';
 
 interface UseOrderDetailsGiglShippingParams {
   giglEligible: boolean;
   merchant: Merchant | null;
   order: Order | undefined;
+  pendingShipmentMode: ShipmentCompletionMode;
   providerLabel: string | null;
   shipmentFlowStep: string;
   showShipmentFlow: boolean;
@@ -18,6 +22,7 @@ export function useOrderDetailsGiglShipping({
   giglEligible,
   merchant,
   order,
+  pendingShipmentMode,
   providerLabel,
   shipmentFlowStep,
   showShipmentFlow,
@@ -38,6 +43,7 @@ export function useOrderDetailsGiglShipping({
       !providerBookingAvailable,
     initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
     orderId: order?.id ?? '',
+    preview: pendingShipmentMode !== 'provider',
   });
   const giglShipping =
     isMerchantOwner && giglEligible ? giglShippingState : undefined;

@@ -45,36 +45,55 @@ export interface OrderGiglInitialAddress {
   city?: string | null;
   state?: string | null;
   phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface OrderGiglShippingParams {
   enabled: boolean;
   initialAddress?: OrderGiglInitialAddress;
   orderId: string;
+  preview?: boolean;
 }
 
 export function toOrderGiglAddressDraft(
   address?: OrderGiglInitialAddress
 ): Partial<OrderGiglReceiver> {
+  const latitude =
+    typeof address?.latitude === 'number' && Number.isFinite(address.latitude)
+      ? address.latitude
+      : undefined;
+  const longitude =
+    typeof address?.longitude === 'number' && Number.isFinite(address.longitude)
+      ? address.longitude
+      : undefined;
+  const hasCoordinates = latitude !== undefined && longitude !== undefined;
   return {
     ...(address?.address ? { address: address.address } : {}),
     ...(address?.city ? { city: address.city } : {}),
     ...(address?.state ? { state: address.state } : {}),
     ...(address?.phone ? { phone: address.phone } : {}),
+    ...(hasCoordinates ? { latitude, longitude } : {}),
   };
 }
 
 export function toCompleteOrderGiglReceiver(
   draft: Partial<OrderGiglReceiver>
 ): OrderGiglReceiver | undefined {
-  if (!draft.address || !draft.city || !draft.state || !draft.phone) {
+  const hasCoordinates =
+    Number.isFinite(draft.latitude) && Number.isFinite(draft.longitude);
+  const hasLocality = Boolean(draft.city && draft.state);
+  if (!draft.address || !draft.phone || (!hasLocality && !hasCoordinates)) {
     return undefined;
   }
   return {
     address: draft.address,
-    city: draft.city,
-    state: draft.state,
+    ...(draft.city ? { city: draft.city } : {}),
+    ...(draft.state ? { state: draft.state } : {}),
     phone: draft.phone,
+    ...(hasCoordinates
+      ? { latitude: draft.latitude, longitude: draft.longitude }
+      : {}),
   };
 }
 

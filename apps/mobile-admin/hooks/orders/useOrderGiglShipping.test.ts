@@ -108,6 +108,41 @@ describe('useOrderGiglShipping', () => {
     });
   });
 
+  it('uses a non-mutating preview request before provider fulfillment is selected', async () => {
+    const { result: hook } = renderHook(
+      () =>
+        useOrderGiglShipping({
+          enabled: true,
+          orderId: 'order-1',
+          preview: true,
+        }),
+      { wrapper }
+    );
+    await flushPromises();
+    expect(api.getQuote).toHaveBeenCalledOnce();
+    expect(api.getQuote.mock.calls[0]?.[3]).toBe(true);
+    expect(hook.current.quote?.price).toBe(11000);
+  });
+
+  it('retries with a mutating bind request after provider fulfillment is selected', async () => {
+    type Props = { preview: boolean };
+    const { rerender } = renderHook(
+      ({ preview }: Props) =>
+        useOrderGiglShipping({
+          enabled: true,
+          orderId: 'order-1',
+          preview,
+        }),
+      { initialProps: { preview: true }, wrapper }
+    );
+    await flushPromises();
+    rerender({ preview: false });
+    await flushPromises();
+    expect(api.getQuote).toHaveBeenCalledTimes(2);
+    expect(api.getQuote.mock.calls[0]?.[3]).toBe(true);
+    expect(api.getQuote.mock.calls[1]).toHaveLength(3);
+  });
+
   it('renders only server-reported missing fields and retries with completed address', async () => {
     api.getQuote
       .mockRejectedValueOnce({

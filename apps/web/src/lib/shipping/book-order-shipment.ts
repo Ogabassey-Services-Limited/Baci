@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { resolveAdminGiglBookingContext } from '@/lib/shipping/admin-gigl-booking-context';
 import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { attachBookingQuoteMetadata } from '@/lib/shipping/attach-booking-quote-metadata';
 import type { BookOrderRecord } from '@/lib/shipping/book-order-shipment-types';
@@ -15,7 +16,6 @@ import {
 } from '@/lib/shipping/international-quote-order-guard';
 import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
-  buildReceiver,
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
@@ -28,11 +28,8 @@ import {
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
-import { resolveShipmentEconomics } from '@/lib/shipping/resolve-shipment-economics';
 import type { ShippingAddress } from '@/lib/shipping/types';
-
 export type BookOrderShipmentResult = ReusableOrderShipmentResult;
-
 export async function bookOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
@@ -48,7 +45,6 @@ export async function bookOrderShipment(
     .eq('merchant_id', merchantId)
     .single();
   const typedOrder = order as BookOrderRecord | null;
-
   if (orderError || !typedOrder) {
     throw new OrderShipmentBookingError(
       'Order not found',
@@ -161,9 +157,12 @@ export async function bookOrderShipment(
     bookingQuote,
     typedOrder.shipping_provider,
     merchantSender,
-    typedOrder.shipping_funding_source === 'merchant_wallet'
-      ? { allowRefresh: false }
-      : undefined
+    {
+      orderId: typedOrder.id,
+      ...(typedOrder.shipping_funding_source === 'merchant_wallet'
+        ? { allowRefresh: false }
+        : {}),
+    }
   );
   if (typedOrder.shipping_funding_source !== 'merchant_wallet') {
     assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
@@ -172,7 +171,11 @@ export async function bookOrderShipment(
     resolvedQuote.quote_request
   );
   const effectiveQuoteRequest = resolvedQuoteRequest ?? storedQuoteRequest;
-  const orderReceiver = buildReceiver(typedOrder);
+  const bookingContext = resolveAdminGiglBookingContext(
+    typedOrder.shipping_provider,
+    typedOrder,
+    effectiveQuoteRequest
+  );
   if (isInternationalQuote && effectiveQuoteRequest) {
     assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
   } else if (effectiveQuoteRequest) {
@@ -183,23 +186,19 @@ export async function bookOrderShipment(
     assertQuoteItemsMatchOrder(
       effectiveQuoteRequest,
       toQuoteComparableOrderItems(typedOrder.order_items, {
-        // Domestic quote construction uses 1 kg when the product has no
-        // recorded weight. Reuse that same attested default for the booking
-        // guard so a tampered quote cannot change the shipment payload.
-        defaultWeight: 1,
+        defaultWeight: bookingContext.defaultWeight,
       })
     );
   }
-
   const receiver =
     isInternationalQuote && effectiveQuoteRequest
       ? {
           ...effectiveQuoteRequest.receiver,
-          name: orderReceiver.name,
-          email: orderReceiver.email,
-          phone: orderReceiver.phone,
+          name: bookingContext.receiver.name,
+          email: bookingContext.receiver.email,
+          phone: bookingContext.receiver.phone,
         }
-      : orderReceiver;
+      : bookingContext.receiver;
   const sender =
     isInternationalQuote && effectiveQuoteRequest?.sender
       ? effectiveQuoteRequest.sender
@@ -218,7 +217,6 @@ export async function bookOrderShipment(
           effectiveQuoteRequest.items
         )
       : toDomesticBookingItems(orderItems, effectiveQuoteRequest?.items);
-
   const bookingRequest = buildOrderShipmentBookingRequest({
     items,
     orderId: typedOrder.id,
@@ -226,15 +224,9 @@ export async function bookOrderShipment(
     receiver,
     sender,
   });
-
   const result = await shippingService.bookShipment(
     typedOrder.shipping_provider,
     bookingRequest
-  );
-  const economics = resolveShipmentEconomics(
-    result.provider,
-    resolvedQuote,
-    typedOrder
   );
   const { data: shipment, error: shipmentError } = await supabase
     .from('shipments')
@@ -259,8 +251,6 @@ export async function bookOrderShipment(
       pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
       label_url: result.labelUrl,
       provider_response: result.rawResponse,
-      provider_cost: economics.provider_cost,
-      platform_margin: economics.platform_margin,
     })
     .select('id')
     .single();

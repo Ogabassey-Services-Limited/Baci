@@ -84,6 +84,53 @@ describe('order GIG shipping API', () => {
     );
   });
 
+  it('posts paired coordinates for a coordinate-only Google address', async () => {
+    fetchMock.mockResolvedValue(response(quotePayload));
+    await getOrderGiglQuote('order-1', {
+      address: 'Google place',
+      phone: '0801',
+      latitude: 6.6018,
+      longitude: 3.3515,
+    });
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      body: JSON.stringify({
+        receiver: {
+          address: 'Google place',
+          phone: '0801',
+          latitude: 6.6018,
+          longitude: 3.3515,
+        },
+      }),
+    });
+  });
+
+  it('marks preview requests so the server can avoid quote mutation', async () => {
+    fetchMock.mockResolvedValue(response(quotePayload));
+    await getOrderGiglQuote(
+      'order-1',
+      {
+        address: 'Google place',
+        phone: '0801',
+        latitude: 6.6,
+        longitude: 3.35,
+      },
+      undefined,
+      true
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      body: JSON.stringify({
+        receiver: {
+          address: 'Google place',
+          phone: '0801',
+          latitude: 6.6,
+          longitude: 3.35,
+        },
+        preview: true,
+      }),
+    });
+  });
+
   it('preserves server missing-field details on quote errors', async () => {
     fetchMock.mockResolvedValue(
       response(

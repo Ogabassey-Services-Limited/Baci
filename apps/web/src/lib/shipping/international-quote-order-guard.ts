@@ -9,6 +9,8 @@ type OrderShippingAddress = {
   countryCode?: string | null;
   postal_code?: string | null;
   postalCode?: string | null;
+  latitude?: unknown;
+  longitude?: unknown;
 };
 
 type OrderItemRecord = {
@@ -40,6 +42,66 @@ function matchesOptionalText(
   if (!hasOrderValue && !hasQuoteValue) return true;
   if (!hasOrderValue || !hasQuoteValue) return false;
   return normalizeText(orderValue) === normalizeText(quoteValue);
+}
+
+const COORDINATE_TOLERANCE = 1e-6;
+
+type CoordinateReading =
+  | { status: 'absent' | 'invalid' }
+  | { status: 'valid'; value: number };
+
+function readCoordinate(
+  value: unknown,
+  minimum: number,
+  maximum: number
+): CoordinateReading {
+  if (value === null || value === undefined) return { status: 'absent' };
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim().length > 0
+        ? Number(value.trim())
+        : undefined;
+  if (
+    numericValue === undefined ||
+    !Number.isFinite(numericValue) ||
+    numericValue < minimum ||
+    numericValue > maximum
+  ) {
+    return { status: 'invalid' };
+  }
+  return { status: 'valid', value: numericValue };
+}
+
+function matchesCoordinatePair(
+  orderAddress: OrderShippingAddress,
+  quoteAddress: QuoteRequest['receiver']
+): boolean {
+  const orderLatitude = readCoordinate(orderAddress.latitude, -90, 90);
+  const orderLongitude = readCoordinate(orderAddress.longitude, -180, 180);
+  const quoteLatitude = readCoordinate(quoteAddress.latitude, -90, 90);
+  const quoteLongitude = readCoordinate(quoteAddress.longitude, -180, 180);
+  const orderHasNoCoordinates =
+    orderLatitude.status === 'absent' && orderLongitude.status === 'absent';
+  const quoteHasNoCoordinates =
+    quoteLatitude.status === 'absent' && quoteLongitude.status === 'absent';
+
+  if (orderHasNoCoordinates && quoteHasNoCoordinates) return true;
+  if (
+    orderLatitude.status !== 'valid' ||
+    orderLongitude.status !== 'valid' ||
+    quoteLatitude.status !== 'valid' ||
+    quoteLongitude.status !== 'valid'
+  ) {
+    return false;
+  }
+
+  return (
+    Math.abs(orderLatitude.value - quoteLatitude.value) <=
+      COORDINATE_TOLERANCE &&
+    Math.abs(orderLongitude.value - quoteLongitude.value) <=
+      COORDINATE_TOLERANCE
+  );
 }
 
 function normalizeAmount(value: number | string | null | undefined) {
@@ -111,7 +173,8 @@ export function assertQuoteReceiverMatchesOrder(
     !matchesOptionalText(
       orderAddress.postalCode ?? orderAddress.postal_code,
       quoteRequest.receiver.postalCode
-    )
+    ) ||
+    !matchesCoordinatePair(orderAddress, quoteRequest.receiver)
   ) {
     throwMismatch(
       'The saved shipping quote no longer matches this order destination. Please get a new quote before shipping.',

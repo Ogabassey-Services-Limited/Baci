@@ -112,6 +112,42 @@ describe('QuoteAggregator', () => {
     expect(response.quotes.all).toHaveLength(0);
     expect(response.warnings).toEqual(['GIG Logistics: upstream unavailable']);
   });
+
+  it('calls only providers enabled by the merchant', async () => {
+    const giglGetQuotes = vi.fn(() => Promise.resolve([successfulQuote]));
+    const topshipGetQuotes = vi.fn(() => Promise.resolve([]));
+    const registry = new ShippingProviderRegistry();
+    registry.register(createProvider({ getQuotes: giglGetQuotes }));
+    registry.register(
+      createProvider({
+        code: 'TOPSHIP',
+        name: 'Topship',
+        getQuotes: topshipGetQuotes,
+      })
+    );
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes(quoteRequest, ['GIGL']);
+
+    expect(giglGetQuotes).toHaveBeenCalledOnce();
+    expect(topshipGetQuotes).not.toHaveBeenCalled();
+    expect(response.quotes.all).toHaveLength(1);
+  });
+
+  it('does not call any carrier when the merchant disables every provider', async () => {
+    const getQuotes = vi.fn(() => Promise.resolve([successfulQuote]));
+    const registry = new ShippingProviderRegistry();
+    registry.register(createProvider({ getQuotes }));
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes(quoteRequest, []);
+
+    expect(getQuotes).not.toHaveBeenCalled();
+    expect(response.quotes.all).toEqual([]);
+    expect(response.warnings).toEqual([
+      'No carrier shipping providers are enabled for this store',
+    ]);
+  });
 });
 
 describe('rankQuotes', () => {

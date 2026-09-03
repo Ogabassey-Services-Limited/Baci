@@ -20,7 +20,15 @@ import { toShippingQuoteUpsert } from './shipping-quote-persistence';
 
 type AdminInput = {
   admin_order_id: string;
-  receiver?: { address: string; city: string; state: string; phone: string };
+  preview?: boolean;
+  receiver?: {
+    address: string;
+    city?: string;
+    state?: string;
+    phone: string;
+    latitude?: number;
+    longitude?: number;
+  };
 };
 
 export function selectEligibleAdminGiglQuote(quotes: ShippingQuote[]) {
@@ -92,6 +100,7 @@ export async function postAdminOrderGiglQuote(
     resolvedInput = {
       admin_order_id:
         resolvedInput?.admin_order_id ?? headerOrderId ?? parsedOrderId ?? '',
+      preview: resolvedInput?.preview ?? parsed.data.preview,
       receiver: resolvedInput?.receiver ?? parsed.data.receiver,
     };
   }
@@ -103,6 +112,7 @@ export async function postAdminOrderGiglQuote(
     );
   }
   const adminOrderId = validatedInput.data.admin_order_id;
+  const isPreview = validatedInput.data.preview === true;
 
   const access = await getUserAccess(auth.supabase);
   if (
@@ -206,6 +216,32 @@ export async function postAdminOrderGiglQuote(
       { error: 'No eligible GIGL address-delivery quote' },
       { status: 503 }
     );
+  if (isPreview) {
+    const { data: wallet, error: walletError } = await auth.supabase.rpc(
+      'get_wallet_summary',
+      { p_merchant_id: access.merchantId }
+    );
+    if (walletError) {
+      return NextResponse.json(
+        { error: 'Unable to load wallet' },
+        { status: 500 }
+      );
+    }
+    const walletRow = (Array.isArray(wallet) ? wallet[0] : wallet) as {
+      available_balance?: number | string | null;
+    } | null;
+    const { availableBalance, shortfall, canBook } =
+      calculateAdminWalletFunding(
+        quote.price,
+        Number(walletRow?.available_balance ?? 0)
+      );
+    return NextResponse.json({
+      quote: publicQuote(quote),
+      availableBalance,
+      shortfall,
+      canBook,
+    });
+  }
   const quoteRequest = {
     ...built.request,
     admin_order_provenance: 'server_gigl_v1' as const,

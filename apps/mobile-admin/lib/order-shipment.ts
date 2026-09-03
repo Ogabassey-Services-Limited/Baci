@@ -85,11 +85,25 @@ export function getOrderGiglInitialAddress(order: {
         city?: string | null;
         state?: string | null;
         phone?: string | null;
+        latitude?: number | null;
+        longitude?: number | null;
       }
     | string
     | null;
 }) {
   const address = order.shipping_address;
+  const coordinateAddress =
+    typeof address === 'object' && address !== null ? address : undefined;
+  const latitude =
+    typeof coordinateAddress?.latitude === 'number' &&
+    Number.isFinite(coordinateAddress.latitude)
+      ? coordinateAddress.latitude
+      : undefined;
+  const longitude =
+    typeof coordinateAddress?.longitude === 'number' &&
+    Number.isFinite(coordinateAddress.longitude)
+      ? coordinateAddress.longitude
+      : undefined;
   const recipientPhone =
     typeof address === 'object' && address?.phone?.trim()
       ? address.phone.trim()
@@ -103,5 +117,8 @@ export function getOrderGiglInitialAddress(order: {
           ...(address?.state ? { state: address.state } : {}),
         }),
     ...(recipientPhone ? { phone: recipientPhone } : {}),
+    ...(latitude !== undefined && longitude !== undefined
+      ? { latitude, longitude }
+      : {}),
   };
 }

@@ -7,46 +7,15 @@ import type {
 } from '@/lib/shipping/types';
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import { matchesGiglProviderRate } from './matches-gigl-provider-rate';
+import { OrderShipmentBookingError } from './order-shipment-booking-error';
 
-type OrderShippingAddress = {
-  address?: string | null;
-  city?: string | null;
-  country?: string | null;
-  countryCode?: string | null;
-  postalCode?: string | null;
-  state?: string | null;
-  phone?: string | null;
-};
+export { OrderShipmentBookingError };
 
 type OrderItemRecord = {
   name: string | null;
   quantity: number | null;
   price: number | string | null;
 };
-
-type OrderRecord = {
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  shipping_address: OrderShippingAddress | null;
-};
-
-export class OrderShipmentBookingError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code: string,
-    readonly providerReference?: string,
-    readonly details?: {
-      availableBalance: number;
-      chargedAmount: number;
-      shortfall: number;
-    }
-  ) {
-    super(message);
-    this.name = 'OrderShipmentBookingError';
-  }
-}
 
 export function isShippingProviderCode(
   value: string | null | undefined
@@ -253,32 +222,6 @@ export function selectPreferredQuote(
   );
 }
 
-export function buildReceiver(order: OrderRecord): ShippingAddress {
-  const shippingAddress = order.shipping_address ?? {};
-  const address = shippingAddress.address?.trim();
-  const city = shippingAddress.city?.trim();
-  const state = shippingAddress.state?.trim();
-
-  if (!address || !city || !state) {
-    throw new OrderShipmentBookingError(
-      'This order is missing a complete shipping address.',
-      400,
-      'INCOMPLETE_SHIPPING_ADDRESS'
-    );
-  }
-
-  return {
-    name: order.customer_name || 'Customer',
-    email: order.customer_email || undefined,
-    phone: order.customer_phone || shippingAddress.phone || '',
-    address,
-    city,
-    state,
-    country: shippingAddress.country?.trim() || 'Nigeria',
-    countryCode: shippingAddress.countryCode?.trim() || 'NG',
-    postalCode: shippingAddress.postalCode?.trim() || undefined,
-  };
-}
-
+export { buildOrderShipmentReceiver as buildReceiver } from './build-order-shipment-receiver';
 export { deriveMerchantLocation } from './merchant-location';
 export { domesticSendersDiffer } from './merchant-sender-comparison';

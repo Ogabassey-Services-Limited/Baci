@@ -39,6 +39,41 @@ describe('order GIG shipping state', () => {
     expect(toCompleteOrderGiglReceiver(draft)).toBeUndefined();
   });
 
+  it('accepts a coordinate-only Google address and forwards its paired coordinates', () => {
+    const draft = toOrderGiglAddressDraft({
+      address: 'Google place',
+      phone: '0801',
+      latitude: 6.6018,
+      longitude: 3.3515,
+    });
+
+    expect(draft).toEqual({
+      address: 'Google place',
+      phone: '0801',
+      latitude: 6.6018,
+      longitude: 3.3515,
+    });
+    expect(toCompleteOrderGiglReceiver(draft)).toEqual(draft);
+  });
+
+  it('rejects incomplete or non-finite coordinate pairs', () => {
+    expect(
+      toCompleteOrderGiglReceiver({
+        address: 'Google place',
+        phone: '0801',
+        latitude: 6.6018,
+      })
+    ).toBeUndefined();
+    expect(
+      toCompleteOrderGiglReceiver({
+        address: 'Google place',
+        phone: '0801',
+        latitude: Number.NaN,
+        longitude: 3.3515,
+      })
+    ).toBeUndefined();
+  });
+
   it('invalidates every order and wallet view after observed funding', () => {
     const invalidateQueries = vi.fn();
     invalidateOrderGiglFundingQueries(

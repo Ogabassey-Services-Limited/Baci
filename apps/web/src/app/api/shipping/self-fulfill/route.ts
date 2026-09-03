@@ -134,6 +134,12 @@ export async function POST(request: NextRequest) {
         self_fulfillment_data: selfFulfillmentData,
         tracking_number: data.trackingNumber,
         shipping_provider: data.carrierName || 'Self-Delivery',
+        selected_quote_id: null,
+        shipping_funding_source: null,
+        shipping_provider_cost: null,
+        shipping_platform_margin: null,
+        shipping_pricing_version: null,
+        shipping_platform_retained_amount: 0,
       })
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId);

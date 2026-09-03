@@ -53,11 +53,27 @@ export function NewOrderAddressInput({
           }}
           onPress={(data, details = null) => {
             if (!details) {
+              setDeliveryInfo((previous) => ({
+                ...previous,
+                address: data.description,
+                city: '',
+                state: '',
+                country: '',
+                countryCode: '',
+                postalCode: '',
+                latitude: undefined,
+                longitude: undefined,
+              }));
               return;
             }
 
             let foundCity = '';
             let foundState = '';
+            let foundCountry = '';
+            let foundCountryCode = '';
+            let foundPostalCode = '';
+            let latitude: number | undefined;
+            let longitude: number | undefined;
             details.address_components?.forEach((component) => {
               if (component.types.includes('locality')) {
                 foundCity = component.long_name;
@@ -65,13 +81,26 @@ export function NewOrderAddressInput({
               if (component.types.includes('administrative_area_level_1')) {
                 foundState = component.long_name;
               }
+              if (component.types.includes('country')) {
+                foundCountry = component.long_name;
+                foundCountryCode = component.short_name;
+              }
+              if (component.types.includes('postal_code'))
+                foundPostalCode = component.long_name;
             });
+            latitude = details.geometry?.location?.lat;
+            longitude = details.geometry?.location?.lng;
 
             setDeliveryInfo((previous) => ({
               ...previous,
               address: data.description,
               city: foundCity,
               state: foundState,
+              country: foundCountry,
+              countryCode: foundCountryCode,
+              postalCode: foundPostalCode,
+              latitude,
+              longitude,
             }));
           }}
           placeholder="Enter delivery address"
@@ -100,7 +129,17 @@ export function NewOrderAddressInput({
           }}
           textInputProps={{
             onChangeText: (text) =>
-              setDeliveryInfo((previous) => ({ ...previous, address: text })),
+              setDeliveryInfo((previous) => ({
+                ...previous,
+                address: text,
+                city: '',
+                state: '',
+                country: '',
+                countryCode: '',
+                postalCode: '',
+                latitude: undefined,
+                longitude: undefined,
+              })),
             placeholderTextColor: colors.textMuted,
             style: {
               backgroundColor: colors.background,
@@ -119,7 +158,17 @@ export function NewOrderAddressInput({
         <>
           <TextInput
             onChangeText={(text) =>
-              setDeliveryInfo((previous) => ({ ...previous, address: text }))
+              setDeliveryInfo((previous) => ({
+                ...previous,
+                address: text,
+                city: '',
+                state: '',
+                country: '',
+                countryCode: '',
+                postalCode: '',
+                latitude: undefined,
+                longitude: undefined,
+              }))
             }
             placeholder="Enter delivery address"
             placeholderTextColor={colors.textMuted}

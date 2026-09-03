@@ -191,6 +191,11 @@ describe('NewOrderAddressInput', () => {
       name: '',
       phone: '',
       state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
     });
   });
 

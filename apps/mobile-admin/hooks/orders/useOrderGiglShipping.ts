@@ -31,6 +31,7 @@ export function useOrderGiglShipping({
   enabled,
   initialAddress,
   orderId,
+  preview = false,
 }: OrderGiglShippingParams) {
   const queryClient = useQueryClient();
   const [quote, setQuote] = useState<OrderGiglQuote | null>(null);
@@ -50,6 +51,7 @@ export function useOrderGiglShipping({
   const pollerRef = useRef<OrderGiglFundingPoller | null>(null);
   const confirmationRef = useRef(false);
   const enabledRef = useRef(enabled);
+  const previewRef = useRef(preview);
   const appActiveRef = useRef(true);
   const orderIdRef = useRef(orderId);
   const requestQuoteRef = useRef<(() => Promise<unknown>) | null>(null);
@@ -58,9 +60,15 @@ export function useOrderGiglShipping({
     refreshFundingAccount,
     reset: resetFunding,
     startFunding,
-  } = useOrderGiglFunding({ enabled, orderId, setError, setState });
+  } = useOrderGiglFunding({
+    enabled: enabled && !preview,
+    orderId,
+    setError,
+    setState,
+  });
 
   enabledRef.current = enabled;
+  previewRef.current = preview;
   quoteRef.current = quote;
 
   const stopPolling = () => {
@@ -97,11 +105,10 @@ export function useOrderGiglShipping({
     setState('loading');
     setError(null);
     try {
-      const result = await getOrderGiglQuote(
-        orderId,
-        toCompleteOrderGiglReceiver(addressRef.current),
-        controller.signal
-      );
+      const receiver = toCompleteOrderGiglReceiver(addressRef.current);
+      const result = previewRef.current
+        ? await getOrderGiglQuote(orderId, receiver, controller.signal, true)
+        : await getOrderGiglQuote(orderId, receiver, controller.signal);
       if (!controller.signal.aborted && isValid()) {
         applyQuoteResult(result);
         return result;
@@ -262,7 +269,7 @@ export function useOrderGiglShipping({
       controllerRef.current?.abort();
       stopPolling();
     };
-  }, [enabled, orderId]);
+  }, [enabled, orderId, preview]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: stopPolling only mutates stable refs
   useEffect(() => {

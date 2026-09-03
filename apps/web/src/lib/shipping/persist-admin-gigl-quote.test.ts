@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+vi.mock('@/env', () => ({
+  getSupabaseServiceRoleKey: () => 's'.repeat(32),
+}));
 
 import { persistAdminGiglQuote } from './persist-admin-gigl-quote';
 
@@ -25,6 +28,10 @@ describe('persistAdminGiglQuote', () => {
     expect(rpc).toHaveBeenCalledWith('persist_authenticated_admin_gigl_quote', {
       p_quote: quote,
       p_attestation: attestation,
+      p_route_proof: expect.objectContaining({
+        action: 'persist_authenticated_admin_gigl_quote',
+        subject_id: 'order-1',
+      }),
     });
   });
 

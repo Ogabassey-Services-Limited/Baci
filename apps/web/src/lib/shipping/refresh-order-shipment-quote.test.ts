@@ -14,13 +14,8 @@ vi.mock('@/lib/shipping', () => ({
 
 vi.mock('server-only', () => ({}));
 
-const adminMocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(),
-  adminRpc: vi.fn(),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: adminMocks.createAdminClient,
+vi.mock('@/env', () => ({
+  getSupabaseServiceRoleKey: () => 's'.repeat(32),
 }));
 
 const { refreshOrderShipmentQuote } = await import(
@@ -31,8 +26,6 @@ const { shippingService } = await import('@/lib/shipping');
 function createSupabase(
   upsertError: { code: string; message: string } | null = null
 ) {
-  adminMocks.adminRpc.mockResolvedValue({ error: upsertError });
-  adminMocks.createAdminClient.mockReturnValue({ rpc: adminMocks.adminRpc });
   return {
     rpc: vi.fn().mockResolvedValue({ error: upsertError }),
   };
@@ -41,8 +34,6 @@ function createSupabase(
 describe('refreshOrderShipmentQuote', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adminMocks.adminRpc.mockResolvedValue({ error: null });
-    adminMocks.createAdminClient.mockReturnValue({ rpc: adminMocks.adminRpc });
     vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
       {
         id: 'quote-refreshed',
@@ -84,7 +75,8 @@ describe('refreshOrderShipmentQuote', () => {
       supabase as never,
       quote,
       'GIGL',
-      correctedSender
+      correctedSender,
+      { orderId: 'order-1' }
     );
 
     expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
@@ -92,14 +84,25 @@ describe('refreshOrderShipmentQuote', () => {
       expect.objectContaining({ sender: correctedSender })
     );
     expect(result.id).toBe('quote-refreshed');
-    expect(adminMocks.createAdminClient).toHaveBeenCalledWith();
-    expect(supabase.rpc).not.toHaveBeenCalled();
-    expect(adminMocks.adminRpc).toHaveBeenCalledWith(
-      'persist_refreshed_merchant_shipping_quote',
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_refreshed_order_shipping_quote',
       expect.objectContaining({
         p_quote: expect.objectContaining({ id: 'quote-refreshed' }),
       })
     );
+  });
+
+  it('fails closed before the provider when no order identity is supplied', async () => {
+    const quote = createRefreshOrderQuote({ sender: storedSender });
+    await expect(
+      refreshOrderShipmentQuote(
+        createSupabase() as never,
+        quote,
+        'GIGL',
+        correctedSender
+      )
+    ).rejects.toMatchObject({ code: 'QUOTE_REFRESH_ORDER_REQUIRED' });
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
   });
 
   it('attests a refreshed Admin GIGL quote to the wallet order', async () => {
@@ -123,7 +126,6 @@ describe('refreshOrderShipmentQuote', () => {
     );
 
     expect(result.id).toBe('quote-refreshed');
-    expect(adminMocks.createAdminClient).not.toHaveBeenCalled();
     expect(supabase.rpc).toHaveBeenCalledWith(
       'persist_refreshed_order_shipping_quote',
       expect.objectContaining({
@@ -218,7 +220,8 @@ describe('refreshOrderShipmentQuote', () => {
       createSupabase() as never,
       quote,
       'GIGL',
-      correctedSender
+      correctedSender,
+      { orderId: 'order-1' }
     );
 
     expect(result.id).toBe('selected-centre');
@@ -238,7 +241,8 @@ describe('refreshOrderShipmentQuote', () => {
       createSupabase() as never,
       quote,
       'GIGL',
-      correctedSender
+      correctedSender,
+      { orderId: 'order-1' }
     );
 
     expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
@@ -259,7 +263,8 @@ describe('refreshOrderShipmentQuote', () => {
           createSupabase(upsertError) as never,
           quote,
           'GIGL',
-          correctedSender
+          correctedSender,
+          { orderId: 'order-1' }
         )
       ).rejects.toMatchObject({
         code: 'QUOTE_REFRESH_PERSIST_FAILED',
