@@ -1,0 +1,174 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { handleRepairPickupPayment } from './handle-repair-pickup-payment';
+import {
+  createRepairPickupPaymentMetadata,
+  createRepairPickupPaymentSupabase,
+  repairPickupPaymentTestMerchantId,
+  repairPickupPaymentTestReference,
+  repairPickupPaymentTestRepairId,
+  repairPickupPaymentTestSecret,
+} from './handle-repair-pickup-payment.test-support';
+
+const mocks = vi.hoisted(() => ({ bookRepairPickup: vi.fn() }));
+
+vi.mock('@/lib/repairs/book-repair-pickup', () => ({
+  bookRepairPickup: mocks.bookRepairPickup,
+}));
+
+describe('handleRepairPickupPayment fulfillment outcomes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.PAYSTACK_SECRET_KEY = repairPickupPaymentTestSecret;
+  });
+
+  it('marks an ambiguous provider result for review without retrying the webhook', async () => {
+    const { client, firstEq, secondEq, thirdEq, neq, update } =
+      createRepairPickupPaymentSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'shipment_save_failed',
+      message: 'Shipment persistence is ambiguous',
+      canRetryManually: false,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 200,
+      body: {
+        message: 'Repair pickup payment confirmed; shipment requires review',
+      },
+    });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
+    expect(firstEq).toHaveBeenCalledWith('id', repairPickupPaymentTestRepairId);
+    expect(secondEq).toHaveBeenCalledWith(
+      'merchant_id',
+      repairPickupPaymentTestMerchantId
+    );
+    expect(thirdEq).toHaveBeenCalledWith(
+      'pickup_payment_reference',
+      repairPickupPaymentTestReference
+    );
+    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+  });
+
+  it('marks carrier availability failures retrying and asks Paystack to retry', async () => {
+    const { client, update } = createRepairPickupPaymentSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'gigl_unavailable',
+      message: 'GIGL temporarily unavailable',
+      canRetryManually: true,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({ handled: true, status: 503 });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
+  });
+
+  it('asks Paystack to retry when local shipment insert fails before booking', async () => {
+    const { client, update } = createRepairPickupPaymentSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'booking_failed',
+      message: 'Shipment insert failed before GIGL booking',
+      canRetryManually: true,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({ handled: true, status: 503 });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
+  });
+
+  it('does not ask Paystack to retry definitive GIGL booking rejections', async () => {
+    const { client, update, neq } = createRepairPickupPaymentSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'provider_rejected',
+      message: 'GIGL rejected the pickup',
+      canRetryManually: true,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({
+      handled: true,
+      status: 200,
+      body: {
+        message: 'Repair pickup payment confirmed; shipment requires review',
+      },
+    });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
+    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+  });
+
+  it('asks Paystack to retry when definitive failure review state cannot be persisted', async () => {
+    const { client, neq } = createRepairPickupPaymentSupabase();
+    neq.mockResolvedValueOnce({ error: { message: 'write failed' } });
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'quote_increased',
+      message: 'Quote increased',
+      canRetryManually: false,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({
+      handled: true,
+      status: 503,
+      body: {
+        message:
+          'Repair pickup payment confirmed; review state persistence will retry',
+      },
+    });
+  });
+});

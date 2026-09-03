@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   repairBookingSearchParamsSchema,
+  repairMerchantIdentifierSchema,
   repairMerchantIdSchema,
   repairPlaceDetailsSchema,
 } from './repair-actions';
@@ -18,6 +19,25 @@ describe('repairMerchantIdSchema', () => {
     expect(repairMerchantIdSchema.safeParse('not-a-uuid').success).toBe(false);
     expect(repairMerchantIdSchema.safeParse('').success).toBe(false);
     expect(repairMerchantIdSchema.safeParse(42).success).toBe(false);
+  });
+});
+
+describe('repairMerchantIdentifierSchema', () => {
+  it('trims and lowercases a valid storefront identifier', () => {
+    const result = repairMerchantIdentifierSchema.safeParse('  OgaBassey  ');
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected identifier to parse');
+    expect(result.data).toBe('ogabassey');
+  });
+
+  it('rejects blank, oversized, or non-string identifiers', () => {
+    expect(repairMerchantIdentifierSchema.safeParse('').success).toBe(false);
+    expect(repairMerchantIdentifierSchema.safeParse('   ').success).toBe(false);
+    expect(repairMerchantIdentifierSchema.safeParse(42).success).toBe(false);
+    expect(
+      repairMerchantIdentifierSchema.safeParse('a'.repeat(121)).success
+    ).toBe(false);
   });
 });
 

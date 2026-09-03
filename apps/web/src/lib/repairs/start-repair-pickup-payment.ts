@@ -12,7 +12,10 @@ import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-c
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createClient } from '@/lib/supabase/server';
 import { repairBookingSchema } from '@/lib/validations/repair';
-import { repairMerchantIdSchema } from '@/schemas/repair-actions';
+import {
+  repairMerchantIdentifierSchema,
+  repairMerchantIdSchema,
+} from '@/schemas/repair-actions';
 
 const createReference = customAlphabet(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
@@ -65,9 +68,12 @@ export async function startRepairPickupPayment({
   }
 
   const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
+  const parsedMerchantIdentifier =
+    repairMerchantIdentifierSchema.safeParse(merchantIdentifier);
   const parsed = repairBookingSchema.safeParse(data);
   if (
     !parsedMerchantId.success ||
+    !parsedMerchantIdentifier.success ||
     !parsed.success ||
     parsed.data.serviceType !== 'pickup'
   ) {
@@ -96,7 +102,7 @@ export async function startRepairPickupPayment({
     supabase,
     {
       merchantId: parsedMerchantId.data,
-      merchantSlug: merchantIdentifier.toLowerCase(),
+      merchantSlug: parsedMerchantIdentifier.data,
     },
     'id, slug, is_published'
   );

@@ -141,11 +141,24 @@ export async function handleRepairPickupPayment({
     claim,
     shouldRetry ? 'retrying' : 'review'
   );
-  if (!(statusUpdated || shouldRetry)) {
+  if (!statusUpdated) {
+    // Fail closed so Paystack keeps redelivering until review/retrying is
+    // durable. Do not ACK a definitive fulfillment failure while the repair
+    // is still only marked paid.
     console.error('Repair pickup review state could not be persisted:', {
       reference,
       repairId: claim.repairId,
+      shouldRetry,
     });
+    return {
+      handled: true,
+      status: 503,
+      body: {
+        message: shouldRetry
+          ? 'Repair pickup payment confirmed; shipment booking will retry'
+          : 'Repair pickup payment confirmed; review state persistence will retry',
+      },
+    };
   }
 
   return {
