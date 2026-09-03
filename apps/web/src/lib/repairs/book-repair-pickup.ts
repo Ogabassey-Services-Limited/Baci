@@ -209,7 +209,13 @@ export async function bookRepairPickup(
 
   if (linkError) {
     console.error('Repair pickup booked but link failed:', linkError);
-    return pickupFailure('shipment_save_failed');
+    await releaseRepairPickupBookingClaim(
+      supabase,
+      merchantId,
+      repairId,
+      claim.lockToken
+    );
+    return pickupFailure('booking_failed');
   }
 
   const linkedRepair = Array.isArray(linkedRepairData)
@@ -219,7 +225,13 @@ export async function bookRepairPickup(
     console.error(
       'Repair pickup reservation could not be linked to the claimed repair'
     );
-    return pickupFailure('shipment_save_failed');
+    await releaseRepairPickupBookingClaim(
+      supabase,
+      merchantId,
+      repairId,
+      claim.lockToken
+    );
+    return pickupFailure('booking_failed');
   }
 
   let booking: ShipmentBookingResult;

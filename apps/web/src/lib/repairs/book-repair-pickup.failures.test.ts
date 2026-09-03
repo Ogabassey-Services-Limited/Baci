@@ -217,7 +217,8 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'shipment_save_failed',
+        reason: 'booking_failed',
+        canRetryManually: true,
       });
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
@@ -235,8 +236,8 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'shipment_save_failed',
-        canRetryManually: false,
+        reason: 'booking_failed',
+        canRetryManually: true,
       });
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
