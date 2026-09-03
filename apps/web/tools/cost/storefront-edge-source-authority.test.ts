@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventory.test-support';
@@ -132,6 +132,38 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     expect(snapshot.routeSources.map(({ sourcePath }) => sourcePath)).toContain(
       metadataPath
     );
+  });
+
+  it('ignores internal API route drift outside the reviewed storefront inventory', async () => {
+    // Arrange
+    const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-internal-'));
+    temporaryRoots.push(repoRoot);
+    const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);
+    const internalRoute = join(
+      repoRoot,
+      'apps/web/src/app/api/internal/builder-ai-attestation-smoke/route.ts'
+    );
+    await mkdir(dirname(internalRoute), { recursive: true });
+    await writeFile(
+      internalRoute,
+      'export async function POST() { return new Response(null, { status: 404 }); }\n'
+    );
+
+    // Act
+    const snapshot = await readStorefrontEdgeSourceAuthority({
+      apiRoot,
+      originMainSha,
+      repoRoot,
+      routeRoots,
+      routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
+    });
+
+    // Assert
+    expect(snapshot.apiSources.map(({ sourcePath }) => sourcePath)).toEqual([
+      'apps/web/src/app/api/events/route.ts',
+      'apps/web/src/app/api/orders/[id]/route.ts',
+      'apps/web/src/app/api/orders/route.ts',
+    ]);
   });
 
   it('rejects changed routing-input bytes', async () => {

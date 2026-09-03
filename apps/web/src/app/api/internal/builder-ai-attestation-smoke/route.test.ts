@@ -82,8 +82,8 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
     expect(seams.smoke).not.toHaveBeenCalled();
   });
 
-  it('allows list-delete, provider smoke, and persistence time within route headroom', () => {
-    expect(BUILDER_AI_ATTESTATION_MAX_WORK_MS).toBe(54_000);
+  it('allows paginated list-delete, provider smoke, and persistence time within route headroom', () => {
+    expect(BUILDER_AI_ATTESTATION_MAX_WORK_MS).toBe(62_000);
     expect(maxDuration * 1000).toBeGreaterThan(
       BUILDER_AI_ATTESTATION_MAX_WORK_MS
     );

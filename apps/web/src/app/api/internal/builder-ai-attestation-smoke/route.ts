@@ -5,10 +5,11 @@ import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-
 import { smokeBuilderAiBootstrapProviders } from '@/lib/builder-ai/smoke-builder-ai-bootstrap-providers';
 import { createBuilderAiVercelBootstrapClient } from '@/lib/builder-ai/vercel-builder-ai-bootstrap';
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const CONTROL_PLANE_CALL_LIMIT_MS = 8_000;
-const MAX_CONTROL_PLANE_CALLS = 3;
+const MAX_CONTROL_PLANE_LIST_PAGES = 2;
+const MAX_CONTROL_PLANE_CALLS = MAX_CONTROL_PLANE_LIST_PAGES + 2; // paginated list pages + delete + persistence
 const PROVIDER_SMOKE_LIMIT_MS = 30_000;
 export const BUILDER_AI_ATTESTATION_MAX_WORK_MS =
   CONTROL_PLANE_CALL_LIMIT_MS * MAX_CONTROL_PLANE_CALLS +

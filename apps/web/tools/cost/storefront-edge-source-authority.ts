@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-allowlist';
 import { isStorefrontStaticMetadataFile } from './storefront-edge-static-metadata-file';
 
 type SourceFile = Readonly<{
@@ -30,7 +31,7 @@ function isIncludedRouteSource(sourcePath: string) {
 }
 
 function isIncludedApiSource(sourcePath: string) {
-  return /\/route\.(?:ts|tsx|js|jsx)$/.test(sourcePath);
+  return isStorefrontRequiredApiSourcePath(sourcePath);
 }
 
 async function listCurrentSources(
