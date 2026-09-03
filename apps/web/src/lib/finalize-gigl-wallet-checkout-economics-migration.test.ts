@@ -10,6 +10,14 @@ const migration = readFileSync(
   'utf8'
 );
 
+const ownerOnlyReservationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260903137000_enforce_owner_only_wallet_shipping_reservation.sql'
+  ),
+  'utf8'
+);
+
 describe('final GIGL wallet checkout economics migration', () => {
   it('rejects every non-pending account request except an exact fulfilled replay', () => {
     const pendingGuard = migration.indexOf(
@@ -64,5 +72,35 @@ describe('final GIGL wallet checkout economics migration', () => {
     expect(settlementSql).toContain('o.shipping_platform_retained_amount');
     expect(settlementSql).not.toContain('FROM public.shipping_quotes');
     expect(settlementSql).not.toContain('THEN sq.price');
+  });
+
+  it('keeps wallet reservation owner-only after the order lock', () => {
+    const lock = ownerOnlyReservationMigration.indexOf(
+      "'merchant-shipping-order:' || p_order_id"
+    );
+    const orderRead = ownerOnlyReservationMigration.indexOf(
+      'SELECT * INTO v_order'
+    );
+    const ownerGuard = ownerOnlyReservationMigration.indexOf(
+      'FROM public.merchants AS merchant'
+    );
+    const quoteRead = ownerOnlyReservationMigration.indexOf(
+      'FROM public.shipping_quotes'
+    );
+    const functionEnd = ownerOnlyReservationMigration.indexOf(
+      '\n$$;',
+      ownerGuard
+    );
+
+    expect(lock).toBeGreaterThanOrEqual(0);
+    expect(orderRead).toBeGreaterThan(lock);
+    expect(ownerGuard).toBeGreaterThan(orderRead);
+    expect(ownerGuard).toBeLessThan(quoteRead);
+    expect(ownerOnlyReservationMigration).toContain(
+      'merchant.user_id = (SELECT auth.uid())'
+    );
+    expect(
+      ownerOnlyReservationMigration.slice(ownerGuard, functionEnd)
+    ).not.toContain('check_staff_permission');
   });
 });

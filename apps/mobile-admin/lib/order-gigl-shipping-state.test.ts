@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  getOrderGiglAddressSignature,
   invalidateOrderGiglFundingQueries,
   isOrderGiglQuoteFresh,
   toCompleteOrderGiglReceiver,
@@ -21,6 +22,22 @@ const quote = {
 };
 
 describe('order GIG shipping state', () => {
+  it('changes the address signature when only Google coordinates change', () => {
+    const first = getOrderGiglAddressSignature({
+      address: '1 Allen Avenue',
+      latitude: 6.601,
+      longitude: 3.351,
+      phone: '0801',
+    });
+    const second = getOrderGiglAddressSignature({
+      address: '1 Allen Avenue',
+      latitude: 6.602,
+      longitude: 3.352,
+      phone: '0801',
+    });
+    expect(second).not.toBe(first);
+  });
+
   it('treats quotes inside the submit safety window as stale', () => {
     expect(
       isOrderGiglQuoteFresh(quote, Date.parse('2026-09-01T17:59:29Z'))
@@ -68,7 +85,7 @@ describe('order GIG shipping state', () => {
       toCompleteOrderGiglReceiver({
         address: 'Google place',
         phone: '0801',
-        latitude: Number.NaN,
+        latitude: 91,
         longitude: 3.3515,
       })
     ).toBeUndefined();

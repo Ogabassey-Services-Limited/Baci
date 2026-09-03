@@ -83,10 +83,12 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '12 Allen Avenue',
+          city: '',
           email: 'ada@example.com',
           id: 'customer-1',
           name: 'Ada Lovelace',
           phone: '08012345678',
+          state: '',
         },
         input: {
           address: '12 Allen Avenue',
@@ -103,10 +105,12 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
+          city: '',
           email: 'merchant-owner@example.com',
           id: 'customer-2',
           name: 'merchant-owner',
           phone: '',
+          state: '',
         },
         input: {
           address: null,
@@ -123,10 +127,12 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
+          city: '',
           email: '',
           id: 'customer-3',
           name: '08099999999',
           phone: '08099999999',
+          state: '',
         },
         input: {
           address: null,
@@ -143,10 +149,12 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
+          city: '',
           email: '',
           id: 'customer-4',
           name: 'Unknown',
           phone: '',
+          state: '',
         },
         input: {
           address: null,

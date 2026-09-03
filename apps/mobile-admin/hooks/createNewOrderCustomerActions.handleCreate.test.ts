@@ -297,12 +297,14 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
       last_name: 'Lovelace',
       phone: '08012345678',
     });
-    expect(setCustomer).toHaveBeenCalledWith({
+    expect(setCustomer).toHaveBeenNthCalledWith(1, {
       address: '12 Allen Avenue',
+      city: '',
       email: 'ada@example.com',
       id: 'customer-99',
       name: 'Ada Lovelace',
       phone: '08012345678',
+      state: '',
     });
     expect(setShowCustomerModal).toHaveBeenCalledWith(false);
     expect(setCustomerSearch).toHaveBeenCalledWith('');
@@ -348,12 +350,14 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
       last_name: '',
       phone: '08012345678',
     });
-    expect(setCustomer).toHaveBeenCalledWith({
+    expect(setCustomer).toHaveBeenNthCalledWith(1, {
       address: '',
+      city: '',
       email: 'ops@acme.com',
       id: 'customer-77',
       name: 'Acme Ltd',
       phone: '08012345678',
+      state: '',
     });
   });
 

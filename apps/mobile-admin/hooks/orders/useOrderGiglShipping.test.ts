@@ -143,6 +143,33 @@ describe('useOrderGiglShipping', () => {
     expect(api.getQuote.mock.calls[1]).toHaveLength(3);
   });
 
+  it('requotes when only the saved Google coordinates change', async () => {
+    type Props = { latitude: number; longitude: number };
+    const { rerender } = renderHook(
+      ({ latitude, longitude }: Props) =>
+        useOrderGiglShipping({
+          enabled: true,
+          initialAddress: {
+            address: '1 Allen Avenue',
+            latitude,
+            longitude,
+            phone: '0801',
+          },
+          orderId: 'order-1',
+        }),
+      { initialProps: { latitude: 6.601, longitude: 3.351 }, wrapper }
+    );
+    await flushPromises();
+    rerender({ latitude: 6.602, longitude: 3.352 });
+    await flushPromises();
+
+    expect(api.getQuote).toHaveBeenCalledTimes(2);
+    expect(api.getQuote.mock.calls[1]?.[1]).toMatchObject({
+      latitude: 6.602,
+      longitude: 3.352,
+    });
+  });
+
   it('renders only server-reported missing fields and retries with completed address', async () => {
     api.getQuote
       .mockRejectedValueOnce({

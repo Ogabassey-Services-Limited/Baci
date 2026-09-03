@@ -5,15 +5,16 @@ import {
   OrderGiglFundingPoller,
   type OrderGiglPollContext,
 } from '@/lib/order-gigl-funding-poller';
+import { resolveOrderGiglQuoteFailure } from '@/lib/order-gigl-quote-failure';
 import {
   getMerchantWalletSummary,
   getOrderGiglQuote,
   type OrderGiglMissingField,
   type OrderGiglQuote,
   type OrderGiglReceiver,
-  OrderGiglShippingError,
 } from '@/lib/order-gigl-shipping';
 import {
+  getOrderGiglAddressSignature,
   invalidateOrderGiglFundingQueries,
   isOrderGiglQuoteFresh,
   type OrderGiglShippingParams,
@@ -47,6 +48,7 @@ export function useOrderGiglShipping({
   );
   const [state, setState] = useState<OrderGiglShippingState>('idle');
   const [error, setError] = useState<string | null>(null);
+  const initialAddressSignature = getOrderGiglAddressSignature(initialAddress);
   const controllerRef = useRef<AbortController | null>(null);
   const pollerRef = useRef<OrderGiglFundingPoller | null>(null);
   const confirmationRef = useRef(false);
@@ -115,25 +117,14 @@ export function useOrderGiglShipping({
       }
     } catch (requestError: unknown) {
       if (controller.signal.aborted || !isValid()) return;
-      if (
-        requestError instanceof OrderGiglShippingError ||
-        (requestError &&
-          typeof requestError === 'object' &&
-          'code' in requestError)
-      ) {
-        const typed = requestError as OrderGiglShippingError;
-        if (typed.code === 'ORDER_SHIPPING_ADDRESS_INCOMPLETE') {
-          invalidateQuote();
-          setMissingFields(typed.missing ?? []);
-          setState('missing_address');
-          return;
-        }
+      const failure = resolveOrderGiglQuoteFailure(requestError);
+      if (failure.kind === 'missing_address') {
+        invalidateQuote();
+        setMissingFields(failure.missing);
+        setState('missing_address');
+        return;
       }
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'GIG shipping is temporarily unavailable.'
-      );
+      setError(failure.message);
       setState('error');
     }
     return null;
@@ -254,6 +245,8 @@ export function useOrderGiglShipping({
   }, [
     initialAddress?.address,
     initialAddress?.city,
+    initialAddress?.latitude,
+    initialAddress?.longitude,
     initialAddress?.phone,
     initialAddress?.state,
   ]);
@@ -269,7 +262,7 @@ export function useOrderGiglShipping({
       controllerRef.current?.abort();
       stopPolling();
     };
-  }, [enabled, orderId, preview]);
+  }, [enabled, initialAddressSignature, orderId, preview]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: stopPolling only mutates stable refs
   useEffect(() => {

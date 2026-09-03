@@ -13,6 +13,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerLightHaptic } from '@/components/ui/haptics';
 import { useTheme } from '@/hooks/useTheme';
+import { recordAdminTabPress } from '@/lib/admin-tab-double-tap';
+import { scrollAdminTabToTop } from '@/lib/admin-tab-scroll-to-top';
 import { withHexAlpha } from './AdminFloatingTabBar.colors';
 import { PRIMARY_ADMIN_TAB_ROUTE_NAMES } from './AdminFloatingTabBar.routes';
 import type { AdminFloatingTabOptions } from './AdminFloatingTabBarItem';
@@ -70,6 +72,7 @@ export function AdminFloatingTabBar({
   const lastTargetIndexRef = useRef(targetIndexValue);
   const confirmedRouteIndexRef = useRef(targetIndexValue);
   const pressInHandledRouteKeyRef = useRef<string | null>(null);
+  const lastFocusedPressRef = useRef({ at: 0, routeKey: '' });
   const bottomInset = insets.bottom > 0 ? insets.bottom : 10;
   const capsuleBackgroundColor = isDark
     ? colors.primaryLight
@@ -220,6 +223,17 @@ export function AdminFloatingTabBar({
             }
 
             commitTabSelection(!isFocused);
+            if (!isFocused) return;
+
+            const press = recordAdminTabPress(
+              lastFocusedPressRef.current,
+              route.key,
+              Date.now()
+            );
+            lastFocusedPressRef.current = press.nextPress;
+            if (press.isDoubleTap) {
+              scrollAdminTabToTop(route.name);
+            }
           };
 
           const handlePressOut = () => {

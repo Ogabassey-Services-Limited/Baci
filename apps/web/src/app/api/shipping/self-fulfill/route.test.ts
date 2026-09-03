@@ -263,6 +263,7 @@ describe('Self-fulfill API routes', () => {
 
     expect(response.status).toBe(401);
     expect(payload).toEqual({ error: 'Unauthorized' });
+    expect(checkCsrfProtection).not.toHaveBeenCalled();
   });
 
   it('returns 400 when post payload contains unexpected fields', async () => {
