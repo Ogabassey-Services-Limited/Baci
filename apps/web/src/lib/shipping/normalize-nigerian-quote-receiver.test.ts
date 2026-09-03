@@ -13,9 +13,15 @@ const receiver = {
 
 describe('normalizeNigerianQuoteReceiver', () => {
   it('repairs a postal code supplied as state using the known city', () => {
-    expect(normalizeNigerianQuoteReceiver(receiver, 'domestic').state).toBe(
-      'Lagos'
+    const result = normalizeNigerianQuoteReceiver(
+      {
+        ...receiver,
+        address: '2 Olaide Tomori Street, Ikeja, Nigeria',
+      },
+      'domestic'
     );
+
+    expect(result.state).toBe('Lagos');
   });
 
   it('repairs a malformed state from a canonical state in the address', () => {
