@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest';
+import { REPAIR_PICKUP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-repair-pickup-pending-sources';
+
+describe('repair pickup pending replay sources', () => {
+  it('registers the latest repair pickup migrations', () => {
+    expect(REPAIR_PICKUP_PENDING_REPLAY_SOURCE_ROWS.split('\n')).toEqual([
+      'a2564ae0e2e8a9e6c18c40bb663c537b66c9ea9e1a04650aa3a75bb53ec55ba4 20260901220400_atomic_rejected_repair_pickup_release.sql',
+      '463de825f1f49bfda0dd0c80750ebeef3a56081dd42cde906f32cabb29760fa1 20260902054000_paid_repair_pickup_fulfillment.sql',
+      '8132d6b3999d05fef55cefacbd4227e4ee0a927e3a21d3cd987b03b6d460ffb5 20260902054100_index_repair_pickup_transactions.sql',
+      '2f2b7e04b00178923b6d610574df5c7c615de141d93744448e78d1822be18394 20260903080000_repair_pickup_receiver_projection.sql',
+      '63e0e3d1cd4a5452eae9560162d510cf67ac183ea7fad46eddc79d66b63942e7 20260903090000_repair_pickup_terminal_payment_capture.sql',
+      '3d2460d7eaa216de4c57d30243cd4c5f28ff62518a1389c56b4637ebb9118513 20260903095000_repair_pickup_receiver_server_only.sql',
+      '773f87796d2a77154a80327be336c05b8d847c4c1230000eb1e78a65e8552627 20260903100000_repair_pickup_receiver_storefront_grants.sql',
+      '65195182dbf9d362caf85ab6a5fbff488ce52243f1d70a24261d5a36e7954cb4 20260903101500_secure_repair_pickup_receiver_capability.sql',
+      '750215e8fb5f767f0ad55a6a4399e74d2666b4f480ca4c597e3c8387faf018b5 20260903120000_exclude_repair_pickup_from_merchant_sales.sql',
+    ]);
+  });
+});
