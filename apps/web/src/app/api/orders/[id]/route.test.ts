@@ -109,6 +109,7 @@ type ExistingOrder = {
   shipping_provider: string | null;
   tracking_number: string | null;
   shipment_id: string | null;
+  shipping_address?: Record<string, unknown> | null;
 };
 
 type UpdatedOrder = {
@@ -481,7 +482,8 @@ describe('PATCH /api/orders/[id]', () => {
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
-      'order-1'
+      'order-1',
+      'quote-1'
     );
     expect(ordersUpdate).toHaveBeenCalledWith({
       selected_quote_id: 'quote-2',
@@ -493,6 +495,108 @@ describe('PATCH /api/orders/[id]', () => {
       tracking_number: 'TRACK-1',
     });
     expect(payload).toEqual({ order: updatedOrder });
+  });
+
+  it('invalidates a bound quote when the shipping address is edited', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+      shipping_address: {
+        address: '1 Old Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'processing',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(ordersUpdate).toHaveBeenCalledWith({
+      selected_quote_id: null,
+      shipping_address: {
+        address: '2 New Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+  });
+
+  it('requires re-quoting instead of shipping after editing a bound address', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_status: 'shipped',
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'SHIPPING_QUOTE_INVALIDATED',
+    });
+    expect(ordersUpdate).not.toHaveBeenCalled();
+    expect(bookOrderShipment).not.toHaveBeenCalled();
   });
 
   it('persists paid provider shipment status before inventory confirmation and booking', async () => {
@@ -933,7 +1037,8 @@ describe('PATCH /api/orders/[id]', () => {
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
-      'order-1'
+      'order-1',
+      'quote-1'
     );
     expect(response.status).toBe(409);
     expect(payload).toEqual({
@@ -998,7 +1103,8 @@ describe('PATCH /api/orders/[id]', () => {
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
-      'order-1'
+      'order-1',
+      'quote-1'
     );
     expect(response.status).toBe(500);
     expect(payload).toEqual({ error: 'Internal server error' });

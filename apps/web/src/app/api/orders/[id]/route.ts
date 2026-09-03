@@ -154,7 +154,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, tracking_number, shipment_id'
+        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -240,6 +240,22 @@ export async function PATCH(
     }
     if (shipping_address !== undefined) {
       updates.shipping_address = shipping_address;
+      if (existingOrder.selected_quote_id) {
+        // A shipping quote is calculated for a specific destination. Any
+        // address edit invalidates that binding so a later wallet/provider
+        // booking cannot charge or dispatch using stale destination pricing.
+        if (shipping_status === 'shipped') {
+          return NextResponse.json(
+            {
+              error:
+                'Changing the shipping address requires a new shipping quote before shipping.',
+              code: 'SHIPPING_QUOTE_INVALIDATED',
+            },
+            { status: 409 }
+          );
+        }
+        updates.selected_quote_id = null;
+      }
     }
 
     const needsProviderShipmentBooking =
@@ -247,7 +263,8 @@ export async function PATCH(
       !existingOrder.tracking_number &&
       !existingOrder.shipment_id &&
       isShippingProviderCode(existingOrder.shipping_provider) &&
-      Boolean(existingOrder.selected_quote_id);
+      Boolean(existingOrder.selected_quote_id) &&
+      shipping_address === undefined;
 
     const needsPreUpdateInventoryConfirmation =
       isPaidStatusUpdate(updates.payment_status) &&

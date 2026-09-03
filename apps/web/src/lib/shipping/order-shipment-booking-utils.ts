@@ -35,7 +35,8 @@ export class OrderShipmentBookingError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly code: string
+    readonly code: string,
+    readonly providerReference?: string
   ) {
     super(message);
     this.name = 'OrderShipmentBookingError';
@@ -107,6 +108,9 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
       quoteRequest.shipmentType === 'international'
         ? 'international'
         : 'domestic',
+    ...(quoteRequest.admin_order_provenance === 'server_gigl_v1'
+      ? { admin_order_provenance: 'server_gigl_v1' as const }
+      : {}),
     sender: isShippingAddress(quoteRequest.sender)
       ? {
           ...quoteRequest.sender,

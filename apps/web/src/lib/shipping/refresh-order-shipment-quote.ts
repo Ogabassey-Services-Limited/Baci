@@ -33,6 +33,8 @@ export type OrderShipmentQuoteRecord = {
 
 export type RefreshOrderShipmentQuoteOptions = {
   allowRefresh?: boolean;
+  /** Order identity required to retain Admin wallet quote attestation. */
+  orderId?: string;
 };
 
 export async function refreshOrderShipmentQuote(
@@ -127,8 +129,9 @@ export async function refreshOrderShipmentQuote(
     replacement,
     {
       merchantId: quote.merchant_id,
-      sessionId: persistedQuoteRequest.sessionId,
+      sessionId: options.orderId ?? persistedQuoteRequest.sessionId,
       quoteRequest: persistedQuoteRequest,
+      ...(options.orderId ? { orderId: options.orderId } : {}),
     }
   );
 

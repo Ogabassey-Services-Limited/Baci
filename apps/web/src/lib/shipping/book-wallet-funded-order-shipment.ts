@@ -138,7 +138,10 @@ export async function bookWalletFundedOrderShipment(
         token,
         error instanceof OrderShipmentBookingError
           ? error.code
-          : 'UNKNOWN_PROVIDER_FAILURE'
+          : 'UNKNOWN_PROVIDER_FAILURE',
+        error instanceof OrderShipmentBookingError
+          ? error.providerReference
+          : undefined
       );
     }
     throw error;

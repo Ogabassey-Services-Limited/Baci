@@ -2,16 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
 import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { attachBookingQuoteMetadata } from '@/lib/shipping/attach-booking-quote-metadata';
+import type { BookOrderRecord } from '@/lib/shipping/book-order-shipment-types';
 import { buildOrderShipmentBookingRequest } from '@/lib/shipping/build-order-shipment-booking-request';
 import {
   findReusableOrderShipment,
   type ReusableOrderShipmentResult,
 } from '@/lib/shipping/find-reusable-order-shipment';
-import { assertInternationalQuoteMatchesOrder } from '@/lib/shipping/international-quote-order-guard';
 import {
-  type InternationalShipmentOrderItem,
-  toInternationalShipmentItemsFromOrder,
-} from '@/lib/shipping/international-shipment-items';
+  assertInternationalQuoteMatchesOrder,
+  assertQuoteReceiverMatchesOrder,
+} from '@/lib/shipping/international-quote-order-guard';
+import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   buildReceiver,
   isShippingProviderCode,
@@ -25,28 +26,8 @@ import {
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
+import { resolveShipmentEconomics } from '@/lib/shipping/resolve-shipment-economics';
 import type { ShippingAddress } from '@/lib/shipping/types';
-
-type OrderRecord = {
-  id: string;
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  shipping_fee: number | string | null;
-  selected_quote_id: string | null;
-  shipping_provider: string | null;
-  shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
-  shipping_address: {
-    address?: string | null;
-    city?: string | null;
-    country?: string | null;
-    countryCode?: string | null;
-    postalCode?: string | null;
-    state?: string | null;
-    phone?: string | null;
-  } | null;
-  order_items: InternationalShipmentOrderItem[] | null;
-};
 
 export type BookOrderShipmentResult = ReusableOrderShipmentResult;
 
@@ -59,12 +40,12 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, shipping_provider_cost, shipping_platform_margin, shipping_pricing_version, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .single();
-  const typedOrder = order as OrderRecord | null;
+  const typedOrder = order as BookOrderRecord | null;
 
   if (orderError || !typedOrder) {
     throw new OrderShipmentBookingError(
@@ -192,6 +173,11 @@ export async function bookOrderShipment(
   const orderReceiver = buildReceiver(typedOrder);
   if (isInternationalQuote && effectiveQuoteRequest) {
     assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
+  } else if (effectiveQuoteRequest) {
+    // Domestic quotes are destination-bound too. Revalidate the current order
+    // receiver against the quote's attested request before wallet charging or
+    // provider dispatch.
+    assertQuoteReceiverMatchesOrder(effectiveQuoteRequest, typedOrder);
   }
 
   const receiver =
@@ -234,6 +220,11 @@ export async function bookOrderShipment(
     typedOrder.shipping_provider,
     bookingRequest
   );
+  const economics = resolveShipmentEconomics(
+    result.provider,
+    resolvedQuote,
+    typedOrder
+  );
   const { data: shipment, error: shipmentError } = await supabase
     .from('shipments')
     .insert({
@@ -257,6 +248,8 @@ export async function bookOrderShipment(
       pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
       label_url: result.labelUrl,
       provider_response: result.rawResponse,
+      provider_cost: economics.provider_cost,
+      platform_margin: economics.platform_margin,
     })
     .select('id')
     .single();
@@ -266,7 +259,8 @@ export async function bookOrderShipment(
     throw new OrderShipmentBookingError(
       `Shipment booked with ${result.provider} but could not be saved locally. Tracking: ${result.trackingNumber}`,
       500,
-      'SHIPMENT_SAVE_FAILED'
+      'SHIPMENT_SAVE_FAILED',
+      result.providerShipmentId || result.trackingNumber
     );
   }
 

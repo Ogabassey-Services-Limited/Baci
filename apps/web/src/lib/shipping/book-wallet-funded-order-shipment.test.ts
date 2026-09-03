@@ -345,6 +345,46 @@ describe('wallet-funded shipment orchestration', () => {
     ).toHaveBeenCalled();
   });
 
+  it('persists provider reference when local shipment save fails after provider booking', async () => {
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c-provider-ref',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 'p'.repeat(64),
+    });
+    const providerSaveFailure = new OrderShipmentBookingError(
+      'Shipment booked with GIGL but could not be saved locally. Tracking: TRK-1',
+      500,
+      'SHIPMENT_SAVE_FAILED',
+      'provider-shipment-1'
+    );
+    const book = vi.fn().mockRejectedValue(providerSaveFailure);
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book
+      )
+    ).rejects.toMatchObject({ code: 'SHIPMENT_SAVE_FAILED' });
+
+    expect(
+      charge.markMerchantShippingChargeForReconciliation
+    ).toHaveBeenCalledWith(
+      expect.anything(),
+      'c-provider-ref',
+      'p'.repeat(64),
+      'SHIPMENT_SAVE_FAILED',
+      'provider-shipment-1'
+    );
+  });
+
   it('releases the booking lock only for definitive failures', async () => {
     const release = vi.fn().mockResolvedValue(undefined);
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({

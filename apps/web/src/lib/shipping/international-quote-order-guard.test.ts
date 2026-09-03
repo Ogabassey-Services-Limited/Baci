@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { assertInternationalQuoteMatchesOrder } from './international-quote-order-guard';
+import {
+  assertInternationalQuoteMatchesOrder,
+  assertQuoteReceiverMatchesOrder,
+} from './international-quote-order-guard';
 import type { QuoteRequest } from './types';
 
 const quoteRequest: QuoteRequest = {
@@ -127,5 +130,60 @@ describe('assertInternationalQuoteMatchesOrder', () => {
         order_items: [{ name: 'Phone', quantity: 2, price: 100_000 }],
       })
     ).toThrow('no longer matches this order');
+  });
+});
+
+describe('assertQuoteReceiverMatchesOrder', () => {
+  it('treats omitted order country fields as the domestic Nigeria defaults', () => {
+    const domesticQuote: QuoteRequest = {
+      ...quoteRequest,
+      shipmentType: 'domestic',
+      receiver: {
+        ...quoteRequest.receiver,
+        country: 'Nigeria',
+        countryCode: 'NG',
+        city: 'Lagos',
+        state: 'Lagos',
+        postalCode: undefined,
+      },
+    };
+
+    expect(() =>
+      assertQuoteReceiverMatchesOrder(domesticQuote, {
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      })
+    ).not.toThrow();
+  });
+
+  it('rejects a domestic quote when the order destination changed', () => {
+    const domesticQuote: QuoteRequest = {
+      ...quoteRequest,
+      shipmentType: 'domestic',
+      receiver: {
+        ...quoteRequest.receiver,
+        country: 'Nigeria',
+        countryCode: 'NG',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+
+    expect(() =>
+      assertQuoteReceiverMatchesOrder(domesticQuote, {
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Abuja',
+          state: 'FCT',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'SHIPPING_QUOTE_RECEIVER_MISMATCH' })
+    );
   });
 });

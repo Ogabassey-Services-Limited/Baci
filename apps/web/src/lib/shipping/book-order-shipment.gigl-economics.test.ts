@@ -25,7 +25,13 @@ const { resolveBookingMerchantSender } = await import(
 
 type BookingSupabase = Parameters<typeof bookOrderShipment>[0];
 
-function createSupabase(rpcError: Error | null = null) {
+function createSupabase(
+  rpcError: Error | null = null,
+  options: {
+    fundingSource?: 'customer_checkout' | 'merchant_wallet';
+    onShipmentInsert?: (payload: unknown) => void;
+  } = {}
+) {
   const order = {
     id: 'order-1',
     customer_name: 'Jane Doe',
@@ -34,7 +40,10 @@ function createSupabase(rpcError: Error | null = null) {
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
-    shipping_funding_source: 'customer_checkout',
+    shipping_funding_source: options.fundingSource ?? 'customer_checkout',
+    shipping_provider_cost: 1000,
+    shipping_platform_margin: 100,
+    shipping_pricing_version: 'gigl_platform_margin_v1',
     shipping_address: {
       address: '123 Main St',
       city: 'Lagos',
@@ -97,13 +106,16 @@ function createSupabase(rpcError: Error | null = null) {
       }
       if (table === 'shipments') {
         return {
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: 'shipment-1' },
-                error: null,
+          insert: vi.fn((payload: unknown) => {
+            options.onShipmentInsert?.(payload);
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'shipment-1' },
+                  error: null,
+                }),
               }),
-            }),
+            };
           }),
         };
       }
@@ -158,6 +170,28 @@ describe('GIGL booking economics', () => {
       .calls[0]?.[1] as { quoteMetadata?: Record<string, unknown> };
     expect(bookingRequest.quoteMetadata).not.toHaveProperty('providerTariff');
     expect(bookingRequest.quoteMetadata).not.toHaveProperty('secretTariff');
+  });
+
+  it.each([
+    'customer_checkout',
+    'merchant_wallet',
+  ] as const)('persists the protected economics snapshot for %s bookings', async (fundingSource) => {
+    let insertedShipment: unknown;
+    const { supabase } = createSupabase(null, {
+      fundingSource,
+      onShipmentInsert: (payload) => {
+        insertedShipment = payload;
+      },
+    });
+
+    await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(insertedShipment).toEqual(
+      expect.objectContaining({
+        provider_cost: 1000,
+        platform_margin: 100,
+      })
+    );
   });
 
   it('stops before provider booking when the metadata lookup fails', async () => {

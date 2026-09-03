@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertQuoteReceiverMatchesOrder } from './international-quote-order-guard';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
@@ -21,7 +22,7 @@ export async function refreshWalletOrderShipmentQuote(
 ): Promise<string> {
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, selected_quote_id, shipping_provider')
+    .select('id, selected_quote_id, shipping_provider, shipping_address')
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .single();
@@ -63,6 +64,19 @@ export async function refreshWalletOrderShipmentQuote(
     );
   }
 
+  const request = parseStoredQuoteRequest(storedQuote.quote_request);
+  if (!request) {
+    throw new OrderShipmentBookingError(
+      'The saved shipping quote has expired and cannot be refreshed.',
+      400,
+      'QUOTE_REFRESH_UNAVAILABLE'
+    );
+  }
+  // Wallet reservation happens after this prepare step. Reject a destination
+  // change here so the attested tariff cannot debit the wallet for a later
+  // receiver that the generic order update path still allows.
+  assertQuoteReceiverMatchesOrder(request, order);
+
   const metadata = await getShippingQuoteBookingMetadata(
     supabase,
     merchantId,
@@ -73,9 +87,8 @@ export async function refreshWalletOrderShipmentQuote(
     ...storedQuote,
     provider_metadata: metadata,
   } as OrderShipmentQuoteRecord;
-  const request = parseStoredQuoteRequest(quote.quote_request);
   let sender: ShippingAddress | undefined;
-  if (request?.shipmentType === 'domestic') {
+  if (request.shipmentType === 'domestic') {
     const senderResult = await resolveBookingMerchantSender(
       supabase,
       merchantId
@@ -94,7 +107,8 @@ export async function refreshWalletOrderShipmentQuote(
     supabase,
     quote,
     order.shipping_provider,
-    sender
+    sender,
+    { orderId }
   );
   if (refreshed.id === quoteId) return quoteId;
 

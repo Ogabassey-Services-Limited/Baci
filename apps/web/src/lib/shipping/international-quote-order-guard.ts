@@ -70,33 +70,39 @@ function matchesQuoteItem(
   );
 }
 
-function throwMismatch(): never {
-  throw new OrderShipmentBookingError(
-    'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
-    400,
-    'INTERNATIONAL_QUOTE_ORDER_MISMATCH'
-  );
+function throwMismatch(
+  message = 'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
+  code = 'INTERNATIONAL_QUOTE_ORDER_MISMATCH'
+): never {
+  throw new OrderShipmentBookingError(message, 400, code);
 }
 
-export function assertInternationalQuoteMatchesOrder(
+/**
+ * Verify that a quote's attested receiver still matches the order destination.
+ *
+ * Shipping quotes are calculated from the receiver address. This check is
+ * intentionally independent of shipment type so domestic bookings cannot use
+ * a quote calculated for a different address after an order edit.
+ */
+export function assertQuoteReceiverMatchesOrder(
   quoteRequest: QuoteRequest,
-  order: InternationalQuoteOrder
+  order: Pick<InternationalQuoteOrder, 'shipping_address'>
 ): void {
   const orderAddress = order.shipping_address;
-  if (!orderAddress) {
-    throwMismatch();
-  }
-
   if (
+    !orderAddress ||
     normalizeText(orderAddress.address) !==
       normalizeText(quoteRequest.receiver.address) ||
     normalizeText(orderAddress.city) !==
       normalizeText(quoteRequest.receiver.city) ||
     normalizeText(orderAddress.state) !==
       normalizeText(quoteRequest.receiver.state) ||
-    !matchesOptionalText(orderAddress.country, quoteRequest.receiver.country) ||
     !matchesOptionalText(
-      orderAddress.countryCode,
+      orderAddress.country || 'Nigeria',
+      quoteRequest.receiver.country
+    ) ||
+    !matchesOptionalText(
+      orderAddress.countryCode || 'NG',
       quoteRequest.receiver.countryCode
     ) ||
     !matchesOptionalText(
@@ -104,7 +110,27 @@ export function assertInternationalQuoteMatchesOrder(
       quoteRequest.receiver.postalCode
     )
   ) {
-    throwMismatch();
+    throwMismatch(
+      'The saved shipping quote no longer matches this order destination. Please get a new quote before shipping.',
+      'SHIPPING_QUOTE_RECEIVER_MISMATCH'
+    );
+  }
+}
+
+export function assertInternationalQuoteMatchesOrder(
+  quoteRequest: QuoteRequest,
+  order: InternationalQuoteOrder
+): void {
+  try {
+    assertQuoteReceiverMatchesOrder(quoteRequest, order);
+  } catch (error) {
+    if (
+      error instanceof OrderShipmentBookingError &&
+      error.code === 'SHIPPING_QUOTE_RECEIVER_MISMATCH'
+    ) {
+      throwMismatch();
+    }
+    throw error;
   }
 
   const orderItems = order.order_items ?? [];

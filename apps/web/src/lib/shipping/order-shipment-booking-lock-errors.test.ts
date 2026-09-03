@@ -34,6 +34,7 @@ describe('shouldReleaseBookingLock', () => {
       'MERCHANT_SENDER_REQUIRED',
       'MERCHANT_ORIGIN_MISSING',
       'INTERNATIONAL_QUOTE_SENDER_MISSING',
+      'SHIPPING_QUOTE_RECEIVER_MISMATCH',
       'GIGL_STATION_RESOLUTION_FAILED',
     ]) {
       expect(

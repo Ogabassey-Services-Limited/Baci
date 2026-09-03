@@ -35,6 +35,24 @@ describe('parseStoredQuoteRequest', () => {
   it('returns null when receiver data is incomplete', () => {
     expect(parseStoredQuoteRequest({ items: [] })).toBeNull();
   });
+
+  it('preserves trusted Admin order provenance during a quote refresh', () => {
+    expect(
+      parseStoredQuoteRequest({
+        sessionId: 'session-1',
+        shipmentType: 'domestic',
+        admin_order_provenance: 'server_gigl_v1',
+        receiver: {
+          name: 'Customer',
+          phone: '08000000001',
+          address: 'Receiver Road',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
+      })
+    ).toMatchObject({ admin_order_provenance: 'server_gigl_v1' });
+  });
 });
 
 describe('buildReceiver', () => {

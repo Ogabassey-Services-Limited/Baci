@@ -6,6 +6,10 @@ const migrationPath = resolve(
   process.cwd(),
   '../../supabase/migrations/20260902103000_sanitize_shipping_quote_booking_metadata.sql'
 );
+const directBookingMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260902104500_allow_direct_quote_metadata_lookup.sql'
+);
 
 describe('GIGL quote economics access migration', () => {
   it('removes the table-wide authenticated read grant', () => {
@@ -56,5 +60,17 @@ describe('GIGL quote economics access migration', () => {
     expect(sql).not.toMatch(
       /(?<!')\b(?:[a-z_][\w]*\.)?provider_metadata\b(?!\s*(?:->|->>|\)))/i
     );
+  });
+
+  it('allows an exact merchant quote lookup before selected_quote_id is persisted', () => {
+    const sql = readFileSync(directBookingMigrationPath, 'utf8');
+
+    expect(sql).toMatch(
+      /o\.selected_quote_id\s*=\s*sq\.id\s+OR\s+o\.selected_quote_id\s+IS\s+NULL/i
+    );
+    expect(sql).toMatch(/sq\.id\s*=\s*p_quote_id/i);
+    expect(sql).toMatch(/sq\.merchant_id\s*=\s*p_merchant_id/i);
+    expect(sql).toMatch(/public\.check_staff_permission\(/i);
+    expect(sql).not.toMatch(/GRANT\s+EXECUTE[^;]*anon/i);
   });
 });

@@ -8,6 +8,10 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
+vi.mock('@/lib/shipping/refresh-order-shipment-quote', async () => ({
+  refreshOrderShipmentQuote: vi.fn(async (_supabase, quote) => quote),
+}));
+
 vi.mock(
   '@/lib/shipping/order-shipment-booking-utils',
   async (importOriginal) => {
@@ -310,6 +314,56 @@ describe('bookOrderShipment', () => {
     );
   });
 
+  it('rejects a domestic booking when the order receiver changed after quoting', async () => {
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      quote: {
+        data: {
+          ...validQuote,
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'domestic',
+            sender: {
+              name: 'Test Store',
+              phone: '08098765432',
+              address: '456 Market Rd',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            receiver: {
+              name: 'Jane Doe',
+              phone: '08012345678',
+              address: '99 Old Address',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            items: [
+              {
+                name: 'Widget',
+                quantity: 2,
+                weight: 1,
+                value: 5000,
+              },
+            ],
+          },
+        },
+        error: null,
+      },
+      merchant: { data: validMerchant, error: null },
+    });
+
+    await expect(
+      bookOrderShipment(supabase, 'merchant-1', 'order-1')
+    ).rejects.toThrow(
+      'The saved shipping quote no longer matches this order destination.'
+    );
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
+
   it('persists provider station-pickup instructions with the shipment', async () => {
     const insertedShipments: unknown[] = [];
     vi.mocked(shippingService.bookShipment).mockResolvedValue({
@@ -423,7 +477,10 @@ describe('bookOrderShipment', () => {
 
     await expect(
       bookOrderShipment(supabase, 'merchant-1', 'order-1')
-    ).rejects.toThrow('could not be saved locally');
+    ).rejects.toMatchObject({
+      code: 'SHIPMENT_SAVE_FAILED',
+      providerReference: bookingResult.providerShipmentId,
+    });
   });
 
   it('returns the shipment when a booked quote cannot be marked used', async () => {

@@ -12,10 +12,14 @@ vi.mock('server-only', () => ({}));
 
 const adminMocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
+  persistAdminGiglQuote: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: adminMocks.createAdminClient,
+}));
+vi.mock('./persist-admin-gigl-quote', () => ({
+  persistAdminGiglQuote: adminMocks.persistAdminGiglQuote,
 }));
 
 const { refreshOrderShipmentQuote } = await import(
@@ -88,6 +92,7 @@ function createSupabase(
 describe('refreshOrderShipmentQuote', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    adminMocks.persistAdminGiglQuote.mockResolvedValue({ error: null });
     vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
       {
         id: 'quote-refreshed',
@@ -138,6 +143,45 @@ describe('refreshOrderShipmentQuote', () => {
     );
     expect(result.id).toBe('quote-refreshed');
     expect(adminMocks.createAdminClient).toHaveBeenCalledOnce();
+  });
+
+  it('attests a refreshed Admin GIGL quote to the wallet order', async () => {
+    const quote = {
+      ...createQuote({
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      quote_request: {
+        ...createQuote().quote_request,
+        admin_order_provenance: 'server_gigl_v1' as const,
+      },
+    };
+
+    const result = await refreshOrderShipmentQuote(
+      createSupabase() as never,
+      quote,
+      'GIGL',
+      correctedSender,
+      { orderId: 'order-1' }
+    );
+
+    expect(result.id).toBe('quote-refreshed');
+    expect(adminMocks.persistAdminGiglQuote).toHaveBeenCalledWith({
+      quote: expect.objectContaining({
+        id: 'quote-refreshed',
+        merchant_id: 'merchant-1',
+        session_id: 'order-1',
+        provider: 'GIGL',
+      }),
+      attestation: {
+        quote_id: 'quote-refreshed',
+        order_id: 'order-1',
+        merchant_id: 'merchant-1',
+        provider_rate_id: 'GIGL_4_0',
+        quote_request: expect.objectContaining({
+          admin_order_provenance: 'server_gigl_v1',
+        }),
+      },
+    });
   });
 
   it('fails before the provider when refresh is disabled for a stale wallet quote', async () => {
