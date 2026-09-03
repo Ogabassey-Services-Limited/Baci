@@ -2,10 +2,10 @@ import { screen, waitFor } from '@testing-library/react-native';
 import {
   mockTrackCheckoutStarted,
   renderCheckoutScreen,
-  renderCheckoutScreenView,
   setupCheckoutTest,
   teardownCheckoutTest,
 } from '../../__tests__/app/checkout.test-utils';
+import { renderCheckoutScreenView } from '../../__tests__/app/checkout-screen-view.test-utils';
 
 jest.mock('@/components/storefront/GadgetPattern', () => {
   const { Text } = jest.requireActual('react-native');

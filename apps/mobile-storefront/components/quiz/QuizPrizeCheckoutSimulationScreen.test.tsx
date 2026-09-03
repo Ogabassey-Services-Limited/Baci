@@ -1,12 +1,22 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { BackHandler, Platform } from 'react-native';
 import { QuizPrizeCheckoutSimulationScreen } from './QuizPrizeCheckoutSimulationScreen';
 
 const mockReplace = jest.fn();
+const mockDismissRecovery = jest.fn();
+const mockResetQuiz = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { replace: (...args: unknown[]) => mockReplace(...args) },
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('@/stores/quiz-store', () => ({
+  useQuizStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      dismissRecovery: mockDismissRecovery,
+      reset: mockResetQuiz,
+    }),
+}));
 jest.mock('@/components/checkout/CheckoutScreenView', () => ({
   CheckoutScreenView: ({
     prizeSimulation,
@@ -38,6 +48,8 @@ jest.mock('@/components/checkout/CheckoutScreenView', () => ({
 describe('QuizPrizeCheckoutSimulationScreen', () => {
   beforeEach(() => {
     mockReplace.mockClear();
+    mockDismissRecovery.mockClear();
+    mockResetQuiz.mockClear();
   });
 
   it('prices the test prize at zero and ends on a non-mutating confirmation', () => {
@@ -65,5 +77,51 @@ describe('QuizPrizeCheckoutSimulationScreen', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Back to quizzes' }));
     expect(mockReplace).toHaveBeenCalledWith('/quiz');
+  });
+
+  it('clears the quiz before Android back leaves the completed simulation', () => {
+    const originalPlatform = Platform.OS;
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    const addEventListener = jest.spyOn(BackHandler, 'addEventListener');
+    const remove = jest.fn();
+    addEventListener.mockReturnValue({ remove } as ReturnType<
+      typeof BackHandler.addEventListener
+    >);
+
+    try {
+      render(
+        <QuizPrizeCheckoutSimulationScreen
+          prize={{
+            condition: 'used',
+            id: 'product-1',
+            imageUrl: null,
+            name: 'iPhone XR',
+            variantId: null,
+          }}
+        />
+      );
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Complete simulation' })
+      );
+
+      const onBack = addEventListener.mock.calls[0]?.[1];
+      expect(onBack).toBeDefined();
+      act(() => {
+        expect(
+          onBack?.({ type: 'hardwareBackPress', timeStamp: Date.now() })
+        ).toBe(true);
+      });
+      expect(mockDismissRecovery).toHaveBeenCalledTimes(1);
+      expect(mockResetQuiz).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith('/quiz');
+    } finally {
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: originalPlatform,
+      });
+    }
   });
 });

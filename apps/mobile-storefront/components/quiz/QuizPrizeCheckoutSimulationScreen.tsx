@@ -1,7 +1,14 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  BackHandler,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { CheckoutScreenView } from '@/components/checkout/CheckoutScreenView';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
@@ -19,6 +26,20 @@ export function QuizPrizeCheckoutSimulationScreen({
   const colors = Colors[useColorScheme() ?? 'light'];
   const dismissRecovery = useQuizStore((state) => state.dismissRecovery);
   const resetQuiz = useQuizStore((state) => state.reset);
+
+  useEffect(() => {
+    if (!isComplete || Platform.OS !== 'android') return;
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        void dismissRecovery();
+        resetQuiz();
+        router.replace('/quiz');
+        return true;
+      }
+    );
+    return () => subscription.remove();
+  }, [dismissRecovery, isComplete, resetQuiz]);
 
   if (isComplete) {
     return (

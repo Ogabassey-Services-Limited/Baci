@@ -207,6 +207,7 @@ export function CheckoutScreenView({
             itemCount={items.reduce((acc, item) => acc + item.quantity, 0)}
             colors={colors}
             isDark={isDark}
+            isPrizeSimulation={Boolean(prizeSimulation)}
           />
 
           <CheckoutStepContent
@@ -224,7 +225,6 @@ export function CheckoutScreenView({
             step={step}
             subtotal={subtotal}
           />
-
           {step === 'payment' && !prizeSimulation ? (
             <DiscountCodeInput
               merchantId={CHECKOUT_MERCHANT_ID}
