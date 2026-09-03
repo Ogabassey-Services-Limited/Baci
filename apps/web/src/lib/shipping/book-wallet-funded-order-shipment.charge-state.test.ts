@@ -118,4 +118,55 @@ describe('wallet-funded shipment orchestration — charge state', () => {
     expect(book).not.toHaveBeenCalled();
     expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
   });
+
+  it('completes a provider_submitting charge when the shipment was already persisted', async () => {
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c7',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'provider_submitting',
+      },
+      token: 'i'.repeat(64),
+    });
+    vi.mocked(charge.completeMerchantShippingCharge).mockResolvedValue(
+      undefined as never
+    );
+    const book = vi.fn();
+    const existingShipment = {
+      shipmentId: 's-persisted',
+      provider: 'GIGL',
+      providerShipmentId: 'p-persisted',
+      shippingQuoteId: 'q1',
+      trackingNumber: 't-persisted',
+      carrierName: 'GIGL',
+      estimatedDeliveryDays: null,
+      labelUrl: null,
+      pickupScheduledAt: null,
+      status: 'booked',
+    };
+    const readExisting = vi.fn().mockResolvedValue(existingShipment);
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        undefined,
+        undefined,
+        readExisting
+      )
+    ).resolves.toMatchObject({ shipmentId: 's-persisted' });
+    expect(book).not.toHaveBeenCalled();
+    expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
+    expect(charge.completeMerchantShippingCharge).toHaveBeenCalledWith(
+      supabaseFixture,
+      'c7',
+      'i'.repeat(64),
+      's-persisted'
+    );
+  });
 });

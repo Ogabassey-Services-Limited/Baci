@@ -805,6 +805,7 @@ export async function createDedicatedAccount(
     phone?: string;
     firstName?: string;
     lastName?: string;
+    metadata?: Record<string, unknown>;
   } = {}
 ): Promise<PaystackResult<DedicatedAccountResponse>> {
   // Validate customer code format
@@ -816,7 +817,13 @@ export async function createDedicatedAccount(
     };
   }
 
-  const { preferredBank = 'wema-bank', phone, firstName, lastName } = options;
+  const {
+    preferredBank = 'wema-bank',
+    phone,
+    firstName,
+    lastName,
+    metadata,
+  } = options;
 
   const result = await paystackRequest<DedicatedAccountResponse>(
     '/dedicated_account',
@@ -828,6 +835,7 @@ export async function createDedicatedAccount(
         ...(phone && { phone }),
         ...(firstName && { first_name: firstName }),
         ...(lastName && { last_name: lastName }),
+        ...(metadata && { metadata }),
       }),
     }
   );

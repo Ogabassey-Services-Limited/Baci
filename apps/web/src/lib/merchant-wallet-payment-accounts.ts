@@ -153,6 +153,11 @@ export async function requestMerchantWalletAccount(
       firstName: merchant.firstName,
       lastName: merchant.lastName,
       phone: merchant.phone,
+      metadata: {
+        request_id: request.id,
+        merchant_id: merchant.id,
+        source: 'merchant_wallet_funding',
+      },
     });
   } catch (provisioningError: unknown) {
     logMerchantWalletProvisioningError(

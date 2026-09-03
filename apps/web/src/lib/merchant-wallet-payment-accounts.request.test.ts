@@ -55,6 +55,16 @@ describe('merchant wallet payment-account provisioning — request', () => {
         }),
       })
     );
+    expect(dva).toHaveBeenCalledWith(
+      'CUS',
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          request_id: 'req1',
+          merchant_id: 'm',
+          source: 'merchant_wallet_funding',
+        }),
+      })
+    );
   });
 
   it('reuses a pending request after duplicate insert', async () => {

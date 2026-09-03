@@ -168,13 +168,6 @@ export async function bookWalletFundedOrderShipment(
       'MERCHANT_WALLET_BOOKING_NOT_RETRYABLE'
     );
   }
-  if (charge.status === 'provider_submitting') {
-    throw new OrderShipmentBookingError(
-      'Shipment booking is already in progress.',
-      409,
-      'SHIPMENT_BOOKING_IN_PROGRESS'
-    );
-  }
   if (pendingExistingShipment) {
     return completePendingWalletExistingShipment(
       supabase,
@@ -183,6 +176,13 @@ export async function bookWalletFundedOrderShipment(
       charge.status,
       pendingExistingShipment,
       releaseLock
+    );
+  }
+  if (charge.status === 'provider_submitting') {
+    throw new OrderShipmentBookingError(
+      'Shipment booking is already in progress.',
+      409,
+      'SHIPMENT_BOOKING_IN_PROGRESS'
     );
   }
   let providerSubmissionStarted = false;
