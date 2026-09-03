@@ -276,7 +276,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
     expect(updates).toEqual([]);
   });
 
-  it('attaches a replacement quote then requires explicit reconfirmation', async () => {
+  it('attaches a replacement quote then requires explicit reconfirmation without changing the customer shipping fee', async () => {
     mocks.refreshOrderShipmentQuote.mockResolvedValue({
       ...storedQuote,
       id: 'quote-refreshed',
@@ -292,9 +292,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
       status: 409,
       code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
     });
-    expect(updates).toEqual([
-      { selected_quote_id: 'quote-refreshed', shipping_fee: 3200 },
-    ]);
+    expect(updates).toEqual([{ selected_quote_id: 'quote-refreshed' }]);
   });
 
   it('throws QUOTE_REFRESH_ORDER_UPDATE_FAILED when the order cannot be updated', async () => {

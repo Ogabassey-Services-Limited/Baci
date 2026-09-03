@@ -8,10 +8,10 @@ describe('merchant wallet payment-account provisioning — assignment metadata',
   it.each([
     {},
     { data: {} },
-  ])('reviews assignment metadata without an explicit source', async (payload) => {
+  ])('ignores assignment metadata without an explicit source', async (payload) => {
     expect(
       (await persistMerchantWalletAssignmentEvent(client(), payload)).kind
-    ).toBe('review');
+    ).toBe('ignored');
   });
 
   it('ignores assignment metadata from another source', async () => {
@@ -34,11 +34,9 @@ describe('merchant wallet payment-account provisioning — assignment metadata',
 
   it('reviews malformed account number and wrong currency', async () => {
     const base = {
-      metadata: {
-        source: 'merchant_wallet_funding',
-        request_id: 'r',
-        merchant_id: 'm',
-      },
+      source: 'merchant_wallet_funding',
+      request_id: 'r',
+      merchant_id: 'm',
     };
     expect(
       (

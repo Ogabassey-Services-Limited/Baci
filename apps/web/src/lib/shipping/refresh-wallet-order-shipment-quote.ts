@@ -131,7 +131,7 @@ export async function refreshWalletOrderShipmentQuote(
 
   const { error: updateError } = await supabase
     .from('orders')
-    .update({ selected_quote_id: refreshed.id, shipping_fee: refreshed.price })
+    .update({ selected_quote_id: refreshed.id })
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .eq('selected_quote_id', quoteId);
