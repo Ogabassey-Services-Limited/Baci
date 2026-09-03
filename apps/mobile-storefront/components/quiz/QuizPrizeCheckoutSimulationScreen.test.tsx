@@ -2,12 +2,12 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { BackHandler, Platform } from 'react-native';
 import { QuizPrizeCheckoutSimulationScreen } from './QuizPrizeCheckoutSimulationScreen';
 
-const mockReplace = jest.fn();
+const mockBack = jest.fn();
 const mockDismissRecovery = jest.fn();
 const mockResetQuiz = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { replace: (...args: unknown[]) => mockReplace(...args) },
+  router: { back: (...args: unknown[]) => mockBack(...args) },
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/stores/quiz-store', () => ({
@@ -47,7 +47,7 @@ jest.mock('@/components/checkout/CheckoutScreenView', () => ({
 
 describe('QuizPrizeCheckoutSimulationScreen', () => {
   beforeEach(() => {
-    mockReplace.mockClear();
+    mockBack.mockClear();
     mockDismissRecovery.mockClear();
     mockResetQuiz.mockClear();
   });
@@ -76,7 +76,7 @@ describe('QuizPrizeCheckoutSimulationScreen', () => {
     ).toBeOnTheScreen();
 
     fireEvent.press(screen.getByRole('button', { name: 'Back to quizzes' }));
-    expect(mockReplace).toHaveBeenCalledWith('/quiz');
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('clears the quiz before Android back leaves the completed simulation', () => {
@@ -116,7 +116,7 @@ describe('QuizPrizeCheckoutSimulationScreen', () => {
       });
       expect(mockDismissRecovery).toHaveBeenCalledTimes(1);
       expect(mockResetQuiz).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith('/quiz');
+      expect(mockBack).toHaveBeenCalledTimes(1);
     } finally {
       Object.defineProperty(Platform, 'OS', {
         configurable: true,

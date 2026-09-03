@@ -34,7 +34,7 @@ export function QuizPrizeCheckoutSimulationScreen({
       () => {
         void dismissRecovery();
         resetQuiz();
-        router.replace('/quiz');
+        router.back();
         return true;
       }
     );
@@ -63,7 +63,7 @@ export function QuizPrizeCheckoutSimulationScreen({
           onPress={() => {
             void dismissRecovery();
             resetQuiz();
-            router.replace('/quiz');
+            router.back();
           }}
           style={styles.button}
         >
