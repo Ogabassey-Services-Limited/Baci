@@ -8,6 +8,7 @@ const { customer, dva } = vi.hoisted(() => ({
 vi.mock('@/lib/paystack', () => ({
   createOrGetCustomer: customer,
   createDedicatedAccount: dva,
+  getDedicatedAccounts: vi.fn().mockResolvedValue({ success: true, data: [] }),
 }));
 
 import { requestMerchantWalletAccount } from './merchant-wallet-payment-accounts';
@@ -61,7 +62,12 @@ describe('merchant wallet payment-account provisioning — request', () => {
       client([], { insertError: new Error('duplicate') }),
       { id: 'm', email: 'e' }
     );
-    expect(result).toEqual({ status: 'pending', account: null });
+    expect(result).toEqual({
+      status: 'pending',
+      account: null,
+      requestId: 'pending',
+    });
+    expect(customer).toHaveBeenCalled();
   });
 
   it('fails safely when customer provisioning fails', async () => {

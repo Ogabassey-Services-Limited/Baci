@@ -56,6 +56,7 @@ const expectedCallers: Record<PrivilegedFunction, readonly string[]> = {
   getDedicatedAccounts: [
     'apps/web/src/lib/customer-wallet-payment-accounts.ts',
     'apps/web/src/lib/paystack.ts',
+    'apps/web/src/lib/resume-merchant-wallet-funding-request.ts',
   ],
 } as const;
 const definitionPaths = {

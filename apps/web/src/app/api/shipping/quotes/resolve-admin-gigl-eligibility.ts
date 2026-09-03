@@ -37,7 +37,8 @@ export async function resolveAdminGiglEligibility(
     };
   }
 
-  const country = merchant?.country?.trim().toUpperCase();
+  const country =
+    merchant?.country?.trim().toUpperCase() || (merchant ? 'NG' : undefined);
   const currency = merchant
     ? resolveMerchantCurrencyConfig(merchant).code
     : null;

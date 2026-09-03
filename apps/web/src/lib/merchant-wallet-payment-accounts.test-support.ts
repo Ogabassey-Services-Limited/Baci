@@ -49,7 +49,13 @@ export function client(
       ? { id: 'r', status: 'failed' }
       : (options.assignmentRequestSingle ??
         options.assignmentRequestRows?.[0] ??
-        (options.insertError ? { id: 'pending' } : null)),
+        (options.insertError
+          ? {
+              id: 'pending',
+              created_at: new Date().toISOString(),
+              status: 'pending',
+            }
+          : null)),
     error: options.assignmentRequestError ?? null,
   });
   // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.

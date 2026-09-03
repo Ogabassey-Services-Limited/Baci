@@ -53,10 +53,10 @@ const valid = (overrides: Record<string, unknown> = {}) => ({
 });
 describe('verified Paystack merchant-wallet assignment events', () => {
   beforeEach(() => vi.restoreAllMocks());
-  it('reviews missing payload data', async () => {
+  it('ignores missing payload data without wallet source', async () => {
     expect(
       (await persistMerchantWalletAssignmentEvent(supabase(), {})).kind
-    ).toBe('review');
+    ).toBe('ignored');
   });
   it('ignores unknown source metadata', async () => {
     expect(

@@ -47,4 +47,20 @@ describe('handleOrderDetailsProviderBookingError', () => {
     expect(refreshBalance).not.toHaveBeenCalled();
     expect(requestQuote).not.toHaveBeenCalled();
   });
+
+  it('swallows recovery refresh failures so callers can surface the booking error', async () => {
+    const refreshBalance = vi
+      .fn()
+      .mockRejectedValue(new Error('wallet summary failed'));
+
+    await expect(
+      handleOrderDetailsProviderBookingError(
+        new OrderStatusUpdateError(
+          'Insufficient merchant wallet balance.',
+          'MERCHANT_WALLET_INSUFFICIENT'
+        ),
+        { refreshBalance, requestQuote: vi.fn() }
+      )
+    ).resolves.toBeUndefined();
+  });
 });

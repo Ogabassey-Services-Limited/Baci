@@ -14,7 +14,7 @@ export function isGiglAdminShippingEligible({
   if (!settingsReady) return false;
 
   return (
-    country?.trim().toUpperCase() === 'NG' &&
+    (country?.trim().toUpperCase() || 'NG') === 'NG' &&
     payoutCurrency?.trim().toUpperCase() === 'NGN' &&
     (shippingProviders ?? []).some(
       (provider) => provider.trim().toLowerCase() === 'gigl'

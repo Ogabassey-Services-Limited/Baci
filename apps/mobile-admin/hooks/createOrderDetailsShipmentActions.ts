@@ -215,7 +215,11 @@ export function createOrderDetailsShipmentActions({
     try {
       await finalizeShipmentCompletion('provider');
     } catch (error: unknown) {
-      await onProviderBookingError?.(error);
+      try {
+        await onProviderBookingError?.(error);
+      } catch {
+        // Recovery refresh failures must not hide the original booking error.
+      }
       const code =
         error instanceof OrderStatusUpdateError ? error.code : undefined;
       Alert.alert(

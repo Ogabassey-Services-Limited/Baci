@@ -47,15 +47,15 @@ describe('buildOrderGiglQuoteRequest', () => {
       quantity: 2,
     });
   });
-  it('uses a 0.1 kilogram fallback for unusable product weight', async () => {
+  it('uses a 1 kilogram fallback for unusable product weight', async () => {
     const result = await buildOrderGiglQuoteRequest(base, sender, async () => ({
       p1: { weight_value: 0, weight_unit: 'kg' },
     }));
     expect(result.ok && result.request.items).toEqual([
-      expect.objectContaining({ name: 'iPhone 15', quantity: 1, weight: 0.1 }),
+      expect.objectContaining({ name: 'iPhone 15', quantity: 1, weight: 1 }),
     ]);
   });
-  it('uses 0.1 kilograms per unweighted item instead of inflating a two-item order', async () => {
+  it('uses 1 kilogram per unweighted item instead of collapsing a two-item order', async () => {
     const result = await buildOrderGiglQuoteRequest(
       {
         ...base,
@@ -68,11 +68,11 @@ describe('buildOrderGiglQuoteRequest', () => {
     );
 
     expect(result.ok && result.request.items).toEqual([
-      expect.objectContaining({ name: 'First item', quantity: 1, weight: 0.1 }),
+      expect.objectContaining({ name: 'First item', quantity: 1, weight: 1 }),
       expect.objectContaining({
         name: 'Second item',
         quantity: 1,
-        weight: 0.1,
+        weight: 1,
       }),
     ]);
     expect(
@@ -82,7 +82,7 @@ describe('buildOrderGiglQuoteRequest', () => {
             0
           )
         : null
-    ).toBe(0.2);
+    ).toBe(2);
   });
   it('falls back for unsupported units and rejects invalid quantities', async () => {
     const unsupported = await buildOrderGiglQuoteRequest(
@@ -94,7 +94,7 @@ describe('buildOrderGiglQuoteRequest', () => {
       },
       sender
     );
-    expect(unsupported.ok && unsupported.request.items[0].weight).toBe(0.1);
+    expect(unsupported.ok && unsupported.request.items[0].weight).toBe(1);
     const invalid = await buildOrderGiglQuoteRequest(
       { ...base, order_items: [{ ...base.order_items[0], quantity: 1.5 }] },
       sender

@@ -84,7 +84,28 @@ export async function POST(request: NextRequest) {
       { account: result.account, status: result.status },
       { status: result.status === 'pending' ? 202 : 200 }
     );
-  } catch {
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      error.message === 'FUNDING_REQUEST_EXPIRED_RETRY'
+    ) {
+      try {
+        const result = await requestMerchantWalletAccount(context.supabase, {
+          id: context.merchant.id,
+          email: context.merchant.email ?? context.user.email ?? '',
+          firstName: context.merchant.business_name,
+        });
+        return NextResponse.json(
+          { account: result.account, status: result.status },
+          { status: result.status === 'pending' ? 202 : 200 }
+        );
+      } catch {
+        return NextResponse.json(
+          { error: 'Unable to start funding account assignment' },
+          { status: 502 }
+        );
+      }
+    }
     return NextResponse.json(
       { error: 'Unable to start funding account assignment' },
       { status: 502 }

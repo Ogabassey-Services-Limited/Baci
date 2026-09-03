@@ -13,6 +13,17 @@ describe('isGiglAdminShippingEligible', () => {
     ).toBe(true);
   });
 
+  it('treats a legacy null country as Nigeria for eligible NGN merchants', () => {
+    expect(
+      isGiglAdminShippingEligible({
+        country: null,
+        payoutCurrency: 'NGN',
+        shippingProviders: ['gigl'],
+        settingsReady: true,
+      })
+    ).toBe(true);
+  });
+
   it.each([
     { country: 'GH', payoutCurrency: 'NGN', shippingProviders: ['gigl'] },
     { country: 'NG', payoutCurrency: 'GHS', shippingProviders: ['gigl'] },

@@ -42,6 +42,15 @@ describe('resolveAdminGiglEligibility', () => {
     ).resolves.toEqual({ ok: true });
   });
 
+  it('treats a legacy null country as Nigeria when payout currency is NGN', async () => {
+    await expect(
+      resolveAdminGiglEligibility(
+        client({ merchant: { country: null, payout_currency: 'NGN' } }),
+        'merchant-1'
+      )
+    ).resolves.toEqual({ ok: true });
+  });
+
   it('rejects a disabled provider or a non-Nigerian merchant', async () => {
     await expect(
       resolveAdminGiglEligibility(

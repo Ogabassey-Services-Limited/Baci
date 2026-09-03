@@ -1,6 +1,6 @@
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from './types';
 
-const DEFAULT_ORDER_ITEM_WEIGHT_KG = 0.1;
+const DEFAULT_ORDER_ITEM_WEIGHT_KG = 1;
 
 type OrderItem = {
   name?: string | null;

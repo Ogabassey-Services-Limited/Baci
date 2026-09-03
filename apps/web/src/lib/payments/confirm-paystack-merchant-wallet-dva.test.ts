@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { alias } = vi.hoisted(() => ({ alias: vi.fn() }));
+const { alias, settled } = vi.hoisted(() => ({
+  alias: vi.fn(),
+  settled: vi.fn(),
+}));
 vi.mock('@/lib/payments/paystack-dva-order-alias', () => ({
   hasActivePaystackOrderDvaAlias: alias,
+}));
+vi.mock('@/lib/payments/has-settled-paystack-order-payment-reference', () => ({
+  hasSettledPaystackOrderPaymentReference: settled,
 }));
 
 import { confirmPaystackMerchantWalletDva } from './confirm-paystack-merchant-wallet-dva';
@@ -46,6 +52,7 @@ describe('verified merchant-wallet DVA credit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     alias.mockResolvedValue(false);
+    settled.mockResolvedValue(false);
   });
   it('returns none for missing receiver', async () => {
     const s = client([{ merchant_id: 'm' }]);
@@ -121,6 +128,23 @@ describe('verified merchant-wallet DVA credit', () => {
       expect.objectContaining({
         issue_type: 'wallet_dva_order_alias_conflict',
         merchant_id: 'm',
+        paystack_ref: 'R1',
+      })
+    );
+    expect(s.rpc).not.toHaveBeenCalled();
+  });
+  it('reviews a previously settled order payment reference before crediting', async () => {
+    settled.mockResolvedValue(true);
+    const s = client([{ merchant_id: 'm' }]);
+    const result = await confirmPaystackMerchantWalletDva(input(s));
+    expect(result).toMatchObject({
+      kind: 'review',
+      status: 409,
+      body: { code: 'WALLET_DVA_ORDER_PAYMENT_REPLAY' },
+    });
+    expect(s.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'wallet_dva_order_payment_replay',
         paystack_ref: 'R1',
       })
     );

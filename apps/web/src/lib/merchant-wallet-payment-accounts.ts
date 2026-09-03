@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createDedicatedAccount, createOrGetCustomer } from '@/lib/paystack';
 import { isAmbiguousPaystackProvisioningFailure } from './is-ambiguous-paystack-provisioning-failure';
 import { logMerchantWalletProvisioningError } from './merchant-wallet-provisioning-logging';
+import { resumeMerchantWalletFundingRequest } from './resume-merchant-wallet-funding-request';
 
 export type MerchantWalletAccount = {
   accountName: string | null;
@@ -72,11 +73,17 @@ export async function requestMerchantWalletAccount(
   if (error) {
     const pending = await supabase
       .from('merchant_wallet_funding_account_requests')
-      .select('id')
+      .select('id, created_at')
       .eq('merchant_id', merchant.id)
       .eq('status', 'pending')
       .maybeSingle();
-    if (pending.data) return { status: 'pending' as const, account: null };
+    if (pending.data) {
+      return resumeMerchantWalletFundingRequest(
+        supabase,
+        merchant,
+        pending.data
+      );
+    }
     throw error;
   }
   const failProvisioningRequest = async (fallback: string): Promise<never> => {

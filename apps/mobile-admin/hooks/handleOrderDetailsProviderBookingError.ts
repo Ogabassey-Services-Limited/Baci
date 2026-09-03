@@ -11,9 +11,17 @@ export async function handleOrderDetailsProviderBookingError(
 ) {
   const code = error instanceof OrderStatusUpdateError ? error.code : undefined;
   if (code === 'MERCHANT_WALLET_INSUFFICIENT') {
-    await giglShipping?.refreshBalance();
+    try {
+      await giglShipping?.refreshBalance();
+    } catch {
+      // Keep the original insufficient-balance error visible to the merchant.
+    }
   }
   if (code === 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED') {
-    await giglShipping?.requestQuote();
+    try {
+      await giglShipping?.requestQuote();
+    } catch {
+      // Keep the original reconfirm error visible to the merchant.
+    }
   }
 }

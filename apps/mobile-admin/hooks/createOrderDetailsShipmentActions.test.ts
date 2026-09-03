@@ -173,6 +173,30 @@ describe('createOrderDetailsShipmentActions', () => {
     );
   });
 
+  it('still alerts the original booking error when recovery refresh fails', async () => {
+    const onProviderBookingError = vi
+      .fn()
+      .mockRejectedValue(new Error('wallet summary failed'));
+    vi.mocked(completeOrderShipment).mockRejectedValue(
+      new OrderStatusUpdateError(
+        'Insufficient merchant wallet balance.',
+        'MERCHANT_WALLET_INSUFFICIENT'
+      )
+    );
+    const actions = makeActions({
+      onProviderBookingError,
+      order: { id: 'order-1' } as never,
+      pendingShipmentMode: 'provider',
+    });
+
+    await actions.proceedFromShipmentMethod();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Insufficient merchant wallet balance.'
+    );
+  });
+
   it('alerts that the quote was updated when reconfirmation is required', async () => {
     vi.mocked(completeOrderShipment).mockRejectedValue(
       new OrderStatusUpdateError(

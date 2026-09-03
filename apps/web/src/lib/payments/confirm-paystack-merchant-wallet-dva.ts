@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hasSettledPaystackOrderPaymentReference } from '@/lib/payments/has-settled-paystack-order-payment-reference';
 import { hasActivePaystackOrderDvaAlias } from '@/lib/payments/paystack-dva-order-alias';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
@@ -117,6 +118,44 @@ export async function confirmPaystackMerchantWalletDva({
         code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
         error:
           'Receiver account is reserved for an active order. Filed for manual reconciliation.',
+      },
+    };
+  }
+  if (
+    await hasSettledPaystackOrderPaymentReference({
+      gatewayReference,
+      supabase,
+    })
+  ) {
+    const { error: reviewError } = await supabase
+      .from('reconciliation_review')
+      .insert({
+        candidates: [],
+        issue_type: 'wallet_dva_order_payment_replay',
+        merchant_id: accounts[0].merchant_id,
+        metadata: {
+          account_number: accountNumber,
+          paid_at: paidAt.toISOString(),
+          verified_amount: verifiedAmount.amount,
+          verified_currency: verifiedAmount.currency ?? null,
+        },
+        paystack_ref: gatewayReference,
+        reason:
+          'Paystack reference already settled an order payment and cannot credit the merchant wallet.',
+      });
+    if (
+      reviewError &&
+      (reviewError as { code?: string }).code !== POSTGRES_UNIQUE_VIOLATION
+    ) {
+      throw reviewError;
+    }
+    return {
+      kind: 'review',
+      status: 409,
+      body: {
+        code: 'WALLET_DVA_ORDER_PAYMENT_REPLAY',
+        error:
+          'Payment reference already settled an order. Filed for manual reconciliation.',
       },
     };
   }
