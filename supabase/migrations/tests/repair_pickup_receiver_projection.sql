@@ -43,7 +43,7 @@ VALUES
     jsonb_build_object(
       'pickup_address', '3 Olayeni Street, Computer Village',
       'contact_name', 'Ogabassey Repair Center',
-      'contact_phone', '09070007000',
+      'contact_phone', '+2349070007000',
       'contact_email', 'repairs@ogabassey.com',
       'city', 'Ikeja',
       'state', 'Lagos',
@@ -120,7 +120,7 @@ BEGIN
 
   IF public.get_repair_pickup_receiver(
     '74a63d82-0000-4000-8000-000000000001'
-  ) ->> 'phone' IS DISTINCT FROM '09070007000' THEN
+  ) ->> 'phone' IS DISTINCT FROM '+2349070007000' THEN
     RAISE EXCEPTION 'server capability did not receive repair-center phone';
   END IF;
 

@@ -10,7 +10,27 @@ const mocks = vi.hoisted(() => ({
   initializeTransaction: vi.fn(),
   quoteRepairPickup: vi.fn(),
   resolveWalletTopUpMerchant: vi.fn(),
+  maybeSingle: vi.fn(),
 }));
+
+function _createSupabaseMock() {
+  const chain = {
+    eq: vi.fn(),
+    gte: vi.fn(),
+    is: vi.fn(),
+    limit: vi.fn(),
+    maybeSingle: mocks.maybeSingle,
+    order: vi.fn(),
+    select: vi.fn(),
+  };
+  chain.eq.mockReturnValue(chain);
+  chain.gte.mockReturnValue(chain);
+  chain.is.mockReturnValue(chain);
+  chain.limit.mockReturnValue(chain);
+  chain.order.mockReturnValue(chain);
+  chain.select.mockReturnValue(chain);
+  return { from: vi.fn().mockReturnValue(chain) };
+}
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
@@ -74,7 +94,8 @@ describe('startRepairPickupPayment', () => {
     process.env.PAYSTACK_SECRET_KEY = 'paystack-secret-for-tests';
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     mocks.ensureActionRateLimit.mockResolvedValue(true);
-    mocks.createClient.mockResolvedValue({ client: 'supabase' });
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.createClient.mockResolvedValue(_createSupabaseMock());
     mocks.resolveWalletTopUpMerchant.mockResolvedValue({
       id: merchantId,
       is_published: true,
