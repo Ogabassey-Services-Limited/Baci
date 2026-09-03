@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { customer, accounts, createServiceClient } = vi.hoisted(() => ({
+const { customer, accounts } = vi.hoisted(() => ({
   customer: vi.fn(),
   accounts: vi.fn(),
-  createServiceClient: vi.fn(),
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -11,10 +10,13 @@ vi.mock('@/lib/paystack', () => ({
   getDedicatedAccounts: accounts,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient,
+vi.mock('./merchant-wallet-funding-recovery-attestation', () => ({
+  createMerchantWalletFundingRecoveryAttestation: vi.fn(
+    () => 'attestation-hex'
+  ),
 }));
 
+import { createMerchantWalletFundingRecoveryAttestation } from './merchant-wallet-funding-recovery-attestation';
 import {
   pickRecoverableFundingAccount,
   resumeMerchantWalletFundingRequest,
@@ -98,26 +100,15 @@ describe('resumeMerchantWalletFundingRequest', () => {
       data: { customer_code: 'CUS_1' },
     });
     accounts.mockResolvedValue({ success: true, data: [] });
-    createServiceClient.mockReturnValue({
-      rpc: vi.fn().mockResolvedValue({
-        data: { account_name: 'Wallet', bank_name: 'Wema' },
-        error: null,
-      }),
-    });
   });
 
-  it('completes a pending request when Paystack already assigned a correlated DVA', async () => {
+  it('completes a pending request via authenticated HMAC recovery when Paystack already assigned a correlated DVA', async () => {
     const createdAt = new Date().toISOString();
     accounts.mockResolvedValue({
       success: true,
       data: [dva({ created_at: createdAt })],
     });
-    const assignmentRpc = vi.fn().mockResolvedValue({
-      data: { account_name: 'Wallet', bank_name: 'Wema' },
-      error: null,
-    });
-    createServiceClient.mockReturnValue({ rpc: assignmentRpc });
-    const client = supabase();
+    const client = supabase({ account_name: 'Wallet', bank_name: 'Wema' });
 
     await expect(
       resumeMerchantWalletFundingRequest(
@@ -129,11 +120,21 @@ describe('resumeMerchantWalletFundingRequest', () => {
       status: 'active',
       account: { accountNumber: '1234567890', status: 'active' },
     });
-    expect(assignmentRpc).toHaveBeenCalledWith(
-      'persist_merchant_wallet_payment_account',
+    expect(createMerchantWalletFundingRecoveryAttestation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'r1',
+        merchantId: 'm',
+        accountNumber: '1234567890',
+        currency: 'NGN',
+      })
+    );
+    expect(client.rpc).toHaveBeenCalledWith(
+      'complete_merchant_wallet_funding_recovery',
       expect.objectContaining({
         p_request_id: 'r1',
+        p_merchant_id: 'm',
         p_account_number: '1234567890',
+        p_attestation: 'attestation-hex',
       })
     );
     expect(client.rpc).not.toHaveBeenCalledWith(

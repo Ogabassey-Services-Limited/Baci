@@ -124,6 +124,32 @@ describe('useOrderGiglShipping', () => {
     expect(hook.current.quote?.price).toBe(11000);
   });
 
+  it('does not treat an unbound preview quote as confirmation-ready', async () => {
+    api.getQuote.mockResolvedValue({
+      ...result,
+      availableBalance: 11000,
+      shortfall: 0,
+      canBook: true,
+    });
+    const { result: hook } = renderHook(
+      () =>
+        useOrderGiglShipping({
+          enabled: true,
+          orderId: 'order-1',
+          preview: true,
+        }),
+      { wrapper }
+    );
+    await flushPromises();
+    expect(hook.current.wallet?.canBook).toBe(true);
+
+    let allowed = true;
+    await act(async () => {
+      allowed = await hook.current.ensureFreshQuoteForConfirmation();
+    });
+    expect(allowed).toBe(false);
+  });
+
   it('retries with a mutating bind request after provider fulfillment is selected', async () => {
     type Props = { preview: boolean };
     const { rerender } = renderHook(

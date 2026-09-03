@@ -24,6 +24,17 @@ describe('isGiglAdminShippingEligible', () => {
     ).toBe(true);
   });
 
+  it('treats a blank payout currency as NGN for eligible Nigerian merchants', () => {
+    expect(
+      isGiglAdminShippingEligible({
+        country: 'NG',
+        payoutCurrency: '   ',
+        shippingProviders: ['gigl'],
+        settingsReady: true,
+      })
+    ).toBe(true);
+  });
+
   it.each([
     { country: 'GH', payoutCurrency: 'NGN', shippingProviders: ['gigl'] },
     { country: 'NG', payoutCurrency: 'GHS', shippingProviders: ['gigl'] },

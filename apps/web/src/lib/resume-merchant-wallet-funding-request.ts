@@ -4,7 +4,7 @@ import {
   type DedicatedAccountResponse,
   getDedicatedAccounts,
 } from '@/lib/paystack';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createMerchantWalletFundingRecoveryAttestation } from './merchant-wallet-funding-recovery-attestation';
 import { logMerchantWalletProvisioningError } from './merchant-wallet-provisioning-logging';
 
 const STALE_PENDING_MS = 15 * 60 * 1000;
@@ -107,18 +107,37 @@ export async function resumeMerchantWalletFundingRequest(
 
   const account = pickRecoverableFundingAccount(existing.data, request);
   if (account) {
-    const assignmentClient = createServiceClient();
-    const { data: persisted, error: persistError } = await assignmentClient.rpc(
-      'persist_merchant_wallet_payment_account',
+    const attestedAt = new Date();
+    const attestedAtIso = attestedAt.toISOString();
+    const providerAccountId = String(account.id);
+    const providerCustomerCode = account.customer?.customer_code ?? null;
+    const accountName = account.account_name ?? null;
+    const bankName = account.bank?.name ?? null;
+    const attestation = createMerchantWalletFundingRecoveryAttestation({
+      requestId: request.id,
+      merchantId: merchant.id,
+      accountNumber: account.account_number,
+      accountName,
+      bankName,
+      currency: 'NGN',
+      providerAccountId,
+      providerCustomerCode,
+      attestedAtIso,
+    });
+    const { data: persisted, error: persistError } = await supabase.rpc(
+      'complete_merchant_wallet_funding_recovery',
       {
         p_request_id: request.id,
         p_merchant_id: merchant.id,
         p_account_number: account.account_number,
-        p_account_name: account.account_name ?? null,
-        p_bank_name: account.bank?.name ?? null,
+        p_account_name: accountName,
+        p_bank_name: bankName,
         p_currency: 'NGN',
-        p_provider_account_id: String(account.id),
-        p_provider_customer_code: account.customer?.customer_code ?? null,
+        p_provider_account_id: providerAccountId,
+        p_provider_customer_code: providerCustomerCode,
+        p_attested_at: attestedAtIso,
+        p_attested_at_iso: attestedAtIso,
+        p_attestation: attestation,
       }
     );
     if (persistError) throw persistError;
@@ -128,12 +147,12 @@ export async function resumeMerchantWalletFundingRequest(
         accountName:
           typeof persisted?.account_name === 'string'
             ? persisted.account_name
-            : (account.account_name ?? null),
+            : accountName,
         accountNumber: account.account_number,
         bankName:
           typeof persisted?.bank_name === 'string'
             ? persisted.bank_name
-            : (account.bank?.name ?? null),
+            : bankName,
         currency: 'NGN',
         status: 'active',
       },

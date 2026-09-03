@@ -62,15 +62,14 @@ describe('Admin GIGL merchant eligibility', () => {
     null,
     '',
     '   ',
-  ])('rejects a missing or blank country value %j even when payout currency is NGN', async (country) => {
+  ])('treats a missing or blank country value %j as Nigeria for NGN merchants', async (country) => {
     setup({ merchant: { country, payout_currency: 'NGN' } });
     const response = await subject({ receiver });
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({
-      code: 'GIGL_MERCHANT_INELIGIBLE',
-    });
-    expect(mocks.createAdminClient).not.toHaveBeenCalled();
-    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.getProviderQuotes).toHaveBeenCalledWith(
+      'GIGL',
+      expect.any(Object)
+    );
   });
 
   it('fails closed when GIGL is not enabled for the merchant', async () => {

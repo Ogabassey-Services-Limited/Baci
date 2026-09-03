@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
 import {
   OrderGiglFundingPoller,
   type OrderGiglPollContext,
 } from '@/lib/order-gigl-funding-poller';
+import { resolveOrderGiglQuoteConfirmationGate } from '@/lib/order-gigl-quote-confirmation';
 import { resolveOrderGiglQuoteFailure } from '@/lib/order-gigl-quote-failure';
 import {
   getMerchantWalletSummary,
@@ -13,6 +13,7 @@ import {
   type OrderGiglQuote,
   type OrderGiglReceiver,
 } from '@/lib/order-gigl-shipping';
+import { bindOrderGiglShippingAppState } from '@/lib/order-gigl-shipping-app-state';
 import {
   getOrderGiglAddressSignature,
   invalidateOrderGiglFundingQueries,
@@ -52,6 +53,7 @@ export function useOrderGiglShipping({
   const controllerRef = useRef<AbortController | null>(null);
   const pollerRef = useRef<OrderGiglFundingPoller | null>(null);
   const confirmationRef = useRef(false);
+  const quoteBoundRef = useRef(false);
   const enabledRef = useRef(enabled);
   const previewRef = useRef(preview);
   const appActiveRef = useRef(true);
@@ -68,29 +70,28 @@ export function useOrderGiglShipping({
     setError,
     setState,
   });
-
   enabledRef.current = enabled;
   previewRef.current = preview;
   quoteRef.current = quote;
-
   const stopPolling = () => {
     pollerRef.current?.stop();
     pollerRef.current = null;
     controllerRef.current?.abort();
   };
-
   const invalidateQuote = () => {
     setQuote(null);
     quoteRef.current = null;
+    quoteBoundRef.current = false;
     setWallet(null);
     walletRef.current = null;
   };
-
   const applyQuoteResult = (
-    result: Awaited<ReturnType<typeof getOrderGiglQuote>>
+    result: Awaited<ReturnType<typeof getOrderGiglQuote>>,
+    bound: boolean
   ) => {
     setQuote(result.quote);
     quoteRef.current = result.quote;
+    quoteBoundRef.current = bound;
     const nextWallet = toOrderGiglWalletState(result);
     setWallet(nextWallet);
     walletRef.current = nextWallet;
@@ -98,7 +99,6 @@ export function useOrderGiglShipping({
     setError(null);
     setState('ready');
   };
-
   const requestQuote = async (isValid: () => boolean = () => true) => {
     if (!enabledRef.current || !orderId) return null;
     controllerRef.current?.abort();
@@ -108,11 +108,12 @@ export function useOrderGiglShipping({
     setError(null);
     try {
       const receiver = toCompleteOrderGiglReceiver(addressRef.current);
-      const result = previewRef.current
-        ? await getOrderGiglQuote(orderId, receiver, controller.signal, true)
-        : await getOrderGiglQuote(orderId, receiver, controller.signal);
+      const bound = !previewRef.current;
+      const result = bound
+        ? await getOrderGiglQuote(orderId, receiver, controller.signal)
+        : await getOrderGiglQuote(orderId, receiver, controller.signal, true);
       if (!controller.signal.aborted && isValid()) {
-        applyQuoteResult(result);
+        applyQuoteResult(result, bound);
         return result;
       }
     } catch (requestError: unknown) {
@@ -130,7 +131,6 @@ export function useOrderGiglShipping({
     return null;
   };
   requestQuoteRef.current = requestQuote;
-
   const updateAddressField = (field: OrderGiglMissingField, value: string) => {
     setAddressDraft((previous) => {
       const next = { ...previous, [field]: value };
@@ -139,7 +139,6 @@ export function useOrderGiglShipping({
     });
     invalidateQuote();
   };
-
   const refreshBalance = async (context?: OrderGiglPollContext) => {
     const isCurrent = () =>
       !context ||
@@ -168,16 +167,19 @@ export function useOrderGiglShipping({
     }
     return next;
   };
-
   const ensureFreshQuoteForConfirmation = async () => {
-    if (
-      confirmationRef.current ||
-      !quoteRef.current ||
-      !walletRef.current?.canBook
-    ) {
-      return false;
-    }
-    if (isOrderGiglQuoteFresh(quoteRef.current)) return true;
+    const gate = resolveOrderGiglQuoteConfirmationGate({
+      confirmationInFlight: confirmationRef.current,
+      preview: previewRef.current,
+      quoteBound: quoteBoundRef.current,
+      hasQuote: Boolean(quoteRef.current),
+      canBook: Boolean(walletRef.current?.canBook),
+      quoteFresh: quoteRef.current
+        ? isOrderGiglQuoteFresh(quoteRef.current)
+        : false,
+    });
+    if (gate === 'deny') return false;
+    if (gate === 'allow') return true;
     confirmationRef.current = true;
     try {
       await requestQuote();
@@ -186,7 +188,6 @@ export function useOrderGiglShipping({
       confirmationRef.current = false;
     }
   };
-
   const startTransferPoll = () => {
     stopPolling();
     if (!enabledRef.current || !appActiveRef.current || !quoteRef.current)
@@ -215,7 +216,6 @@ export function useOrderGiglShipping({
     pollerRef.current = poller;
     poller.start();
   };
-
   const reset = () => {
     resetFunding();
     controllerRef.current?.abort();
@@ -224,20 +224,18 @@ export function useOrderGiglShipping({
     setMissingFields([]);
     setState('idle');
   };
-
   const clearOrderScopedState = () => {
     reset();
     invalidateQuote();
     confirmationRef.current = false;
   };
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is render-local and orderId is the state boundary
+  // biome-ignore lint/correctness/useExhaustiveDependencies: orderId boundary
   useLayoutEffect(() => {
     if (orderIdRef.current === orderId) return;
     orderIdRef.current = orderId;
     clearOrderScopedState();
   }, [orderId]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scalar dependencies prevent a render loop while keeping the draft current
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scalar address deps
   useLayoutEffect(() => {
     const next = toOrderGiglAddressDraft(initialAddress);
     setAddressDraft(next);
@@ -250,8 +248,7 @@ export function useOrderGiglShipping({
     initialAddress?.phone,
     initialAddress?.state,
   ]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: request functions are render-local and including them would repeat the network request
+  // biome-ignore lint/correctness/useExhaustiveDependencies: render-local request
   useEffect(() => {
     if (enabled) {
       invalidateQuote();
@@ -263,19 +260,15 @@ export function useOrderGiglShipping({
       stopPolling();
     };
   }, [enabled, initialAddressSignature, orderId, preview]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: stopPolling only mutates stable refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stable stopPolling
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      appActiveRef.current = nextState === 'active';
-      if (!appActiveRef.current) {
-        stopPolling();
-        setState((previous) =>
-          previous === 'loading' || previous === 'polling' ? 'ready' : previous
-        );
-      } else if (enabledRef.current && !quoteRef.current) {
-        void requestQuoteRef.current?.();
-      }
+    const subscription = bindOrderGiglShippingAppState({
+      appActiveRef,
+      enabledRef,
+      quoteRef,
+      requestQuoteRef,
+      stopPolling,
+      setState,
     });
     return () => subscription.remove();
   }, []);
