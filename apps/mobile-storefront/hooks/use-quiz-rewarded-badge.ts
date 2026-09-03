@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getQuizMobileAdsConfig } from '@/config/quiz-mobile-ads';
 import { useQuizMobileAds } from '@/hooks/use-quiz-mobile-ads';
+import { isAdultDateOfBirth } from '@/schemas/date-of-birth';
+import { useAuthStore } from '@/stores/auth-store';
 import { useQuizBadgeStore } from '@/stores/quiz-badge-store';
 
 const MINIMUM_REMAINING_SECONDS = 90;
@@ -67,8 +69,10 @@ export function useQuizRewardedBadge({
   const generationRef = useRef(0);
   const sessionRef = useRef<RewardedAdSession | null>(null);
   identityRef.current = identityKey;
+  const dateOfBirth = useAuthStore((state) => state.customer?.date_of_birth);
   const config = getQuizMobileAdsConfig();
   const adState = useQuizMobileAds({
+    ageVerified: isAdultDateOfBirth(dateOfBirth),
     config,
     requested:
       Boolean(userId) &&

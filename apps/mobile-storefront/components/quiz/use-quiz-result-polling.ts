@@ -27,7 +27,11 @@ function getPendingPollDelayMs(
 ): number {
   const availableAtMs = availableAt ? Date.parse(availableAt) : Number.NaN;
   if (Number.isFinite(availableAtMs) && availableAtMs > nowMs) {
-    return availableAtMs - nowMs;
+    // availableAt is server time while nowMs is device time. A device clock
+    // that is behind can otherwise sleep this hook for hours and miss the
+    // publication. Realtime normally wakes us sooner; this cap is the safe
+    // HTTP fallback when that channel is unavailable.
+    return Math.min(availableAtMs - nowMs, QUIZ_RESULT_POLL_MAX_INTERVAL_MS);
   }
   if (Number.isFinite(availableAtMs)) {
     return getStableFallbackDelayMs(attemptId);

@@ -2,7 +2,10 @@ import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
-import { useQuizResultPolling } from './use-quiz-result-polling';
+import {
+  QUIZ_RESULT_POLL_MAX_INTERVAL_MS,
+  useQuizResultPolling,
+} from './use-quiz-result-polling';
 
 const mockQuizResultsWakeup = { current: null as (() => void) | null };
 
@@ -129,6 +132,41 @@ describe('useQuizResultPolling', () => {
       jest.advanceTimersByTime(1);
       await Promise.resolve();
     });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('caps the fallback when the device clock is behind server time', async () => {
+    jest
+      .mocked(fetchQuizResult)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'pending',
+        availableAt: new Date(Date.now() + 60 * 60 * 1_000).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt: new Date().toISOString(),
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        eventId: null,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(QUIZ_RESULT_POLL_MAX_INTERVAL_MS);
+    });
+
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
   });
 

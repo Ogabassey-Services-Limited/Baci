@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 const mockUnlockBadge = jest.fn();
 const mockUseQuizMobileAds = jest.fn();
+const mockAuthCustomer = { date_of_birth: null as string | null };
 
 jest.mock('@/config/quiz-mobile-ads', () => ({
   getQuizMobileAdsConfig: () => ({
@@ -13,6 +14,10 @@ jest.mock('@/config/quiz-mobile-ads', () => ({
 }));
 jest.mock('@/hooks/use-quiz-mobile-ads', () => ({
   useQuizMobileAds: (input: unknown) => mockUseQuizMobileAds(input),
+}));
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({ customer: mockAuthCustomer }),
 }));
 jest.mock('@/stores/quiz-badge-store', () => ({
   useQuizBadgeStore: (selector: (state: unknown) => unknown) =>
@@ -53,6 +58,7 @@ type GateProps = {
 describe('useQuizRewardedBadge', () => {
   beforeEach(() => {
     listeners.clear();
+    mockAuthCustomer.date_of_birth = null;
     mockUnlockBadge.mockClear();
     mockUseQuizMobileAds.mockReturnValue({
       canRequestAds: true,
@@ -120,6 +126,24 @@ describe('useQuizRewardedBadge', () => {
     expect(result.current.available).toBe(false);
     expect(mockUseQuizMobileAds).toHaveBeenCalledWith(
       expect.objectContaining({ requested: false })
+    );
+  });
+
+  it('passes the verified adult status into rewarded-ad initialization', () => {
+    mockAuthCustomer.date_of_birth = '2000-01-01';
+
+    renderHook(() =>
+      useQuizRewardedBadge({
+        eventId: 'event-1',
+        eventTitle: 'Today Quiz',
+        remainingSeconds: 120,
+        status: 'scheduled',
+        userId: 'user-1',
+      })
+    );
+
+    expect(mockUseQuizMobileAds).toHaveBeenCalledWith(
+      expect.objectContaining({ ageVerified: true })
     );
   });
 
