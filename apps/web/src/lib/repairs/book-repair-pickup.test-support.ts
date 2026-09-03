@@ -149,6 +149,10 @@ export function happyResponses(overrides: Partial<Responses> = {}): Responses {
       data: true,
       error: null,
     },
+    'rpc.release_repair_pickup_booking_claim': {
+      data: true,
+      error: null,
+    },
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },

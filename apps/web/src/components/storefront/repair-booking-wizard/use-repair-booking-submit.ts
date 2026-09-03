@@ -66,14 +66,11 @@ export function useRepairBookingSubmit({
           return;
         }
 
-        if (
-          result.code === 'payment_initialization_failed' &&
-          result.ticketNumber
-        ) {
-          onSuccess(result.ticketNumber);
+        if (result.code === 'payment_initialization_failed') {
           toast({
             description: result.error,
-            title: 'Request Saved',
+            title: 'Submission Failed',
+            variant: 'destructive',
           });
           return;
         }

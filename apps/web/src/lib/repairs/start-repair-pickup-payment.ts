@@ -11,7 +11,10 @@ import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createClient } from '@/lib/supabase/server';
-import { repairBookingSchema } from '@/lib/validations/repair';
+import {
+  type RepairBookingInput,
+  repairBookingSchema,
+} from '@/lib/validations/repair';
 import {
   repairMerchantIdentifierSchema,
   repairMerchantIdSchema,
@@ -22,6 +25,45 @@ const createReference = customAlphabet(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
   16
 );
+
+const RESUMABLE_PICKUP_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+async function findResumablePickupRepair(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  merchantId: string,
+  input: RepairBookingInput
+): Promise<{ success: true; id: string; ticketNumber: number } | null> {
+  const cutoff = new Date(
+    Date.now() - RESUMABLE_PICKUP_WINDOW_MS
+  ).toISOString();
+  const { data, error } = await supabase
+    .from('repairs')
+    .select('id, ticket_number')
+    .eq('merchant_id', merchantId)
+    .eq('customer_email', input.customerEmail)
+    .eq('service_type', 'pickup')
+    .is('pickup_payment_reference', null)
+    .is('shipment_id', null)
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const row = data as { id: string; ticket_number: number | string };
+  const ticketNumber =
+    typeof row.ticket_number === 'number'
+      ? row.ticket_number
+      : Number(row.ticket_number);
+  if (!row.id || !Number.isFinite(ticketNumber)) {
+    return null;
+  }
+
+  return { success: true, id: row.id, ticketNumber };
+}
 
 type StartRepairPickupPaymentResult =
   | {
@@ -188,7 +230,9 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const repair = await createRepairBooking(parsed.data, merchant.id);
+  const repair =
+    (await findResumablePickupRepair(supabase, merchant.id, parsed.data)) ??
+    (await createRepairBooking(parsed.data, merchant.id));
   if (!repair.success) return repair;
 
   const reference = `RPU-${createReference()}`;

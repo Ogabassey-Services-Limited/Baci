@@ -165,12 +165,16 @@ describe('RepairBookingWizard pickup payment recovery', () => {
 
     await completePickupWizard(user);
 
-    expect(await screen.findByText('Ticket #42')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Continue to payment' })
+    ).toBeEnabled();
     expect(mocks.toast).toHaveBeenCalledWith({
       description:
         'Your repair request was saved, but payment could not start. Use your ticket to retry shortly.',
-      title: 'Request Saved',
+      title: 'Submission Failed',
+      variant: 'destructive',
     });
+    expect(screen.queryByText('Ticket #42')).not.toBeInTheDocument();
   });
 
   it('updates the displayed pickup fee when the live quote changed', async () => {

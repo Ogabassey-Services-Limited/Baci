@@ -10,6 +10,7 @@ import {
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { reconcileLinkedRepairPickup } from '@/lib/repairs/reconcile-linked-repair-pickup';
 import { releaseRejectedRepairPickupReservation } from '@/lib/repairs/release-rejected-repair-pickup-reservation';
+import { releaseRepairPickupBookingClaim } from '@/lib/repairs/release-repair-pickup-booking-claim';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
 import type { RepairPickupRow } from '@/lib/repairs/repair-pickup-row';
@@ -185,6 +186,12 @@ export async function bookRepairPickup(
   const shipment = shipmentData as { id: string } | null;
   if (shipmentError || !shipment) {
     console.error('Repair pickup shipment could not be saved:', shipmentError);
+    await releaseRepairPickupBookingClaim(
+      supabase,
+      merchantId,
+      repairId,
+      claim.lockToken
+    );
     return pickupFailure('booking_failed');
   }
 

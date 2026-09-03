@@ -16,6 +16,31 @@ const mocks = getRepairPickupMocks();
 describe('bookRepairPickup persistence and concurrency failures', () => {
   beforeEach(arrangeHappyRepairPickup);
 
+  it('releases the booking claim when local shipment persistence fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const operations: string[] = [];
+    const supabase = makeSupabase(
+      happyResponses({
+        'shipments.insert': {
+          data: null,
+          error: { message: 'insert failed' },
+        },
+      }),
+      operations
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'booking_failed',
+      });
+      expect(operations).toContain('rpc.release_repair_pickup_booking_claim');
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('keeps the reservation locked when GIGL booking cannot be confirmed', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const operations: string[] = [];

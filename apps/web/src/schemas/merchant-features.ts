@@ -1,3 +1,4 @@
+import { isValidPhone } from '@baci/shared/lib';
 import { z } from 'zod';
 
 const optionalEmailSchema = z.preprocess(
@@ -15,7 +16,13 @@ export const repairSettingsSchema = z
     pickup_enabled: z.boolean(),
     pickup_address: z.string().trim().max(500),
     contact_name: z.string().trim().max(120),
-    contact_phone: z.string().trim().max(40),
+    contact_phone: z
+      .string()
+      .trim()
+      .max(40)
+      .refine((value) => isValidPhone(value), {
+        message: 'Enter a valid repair-center phone number.',
+      }),
     contact_email: optionalEmailSchema,
     city: z.string().trim().max(120),
     state: z.string().trim().max(120),
