@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { claimRepairPickupBooking } from '@/lib/repairs/claim-repair-pickup-booking';
+import { finalizeRepairPickupBooking } from '@/lib/repairs/finalize-repair-pickup-booking';
 import {
   type BookRepairPickupResult,
   buildPickupItems,
@@ -242,69 +243,13 @@ export async function bookRepairPickup(
     return pickupFailure('shipment_save_failed');
   }
 
-  const { data: bookedShipmentData, error: bookedShipmentError } =
-    await supabase
-      .from('shipments')
-      .update({
-        provider: booking.provider,
-        provider_shipment_id: booking.providerShipmentId,
-        tracking_number: booking.trackingNumber,
-        carrier_name: booking.carrierName,
-        status: booking.status,
-        is_station_pickup: booking.isStationPickup ?? false,
-        station_name: booking.pickupStationName ?? null,
-        station_address: booking.pickupStationAddress ?? null,
-        pickup_scheduled_at: booking.pickupScheduledAt?.toISOString() ?? null,
-        label_url: booking.labelUrl ?? null,
-        provider_response: booking.rawResponse ?? null,
-      })
-      .eq('id', shipment.id)
-      .eq('merchant_id', merchantId)
-      .select('id')
-      .single();
-
-  if (bookedShipmentError || !bookedShipmentData) {
-    console.error(
-      'Repair pickup was booked but the pending shipment could not be finalized:',
-      bookedShipmentError
-    );
-    return pickupFailure('shipment_save_failed');
-  }
-
-  const { error: clearLockError } = await supabase
-    .from('repairs')
-    .update({
-      pickup_payment_status: 'booked',
-      pickup_booking_lock_token: null,
-      pickup_booking_started_at: null,
-    })
-    .eq('id', repairId)
-    .eq('merchant_id', merchantId)
-    .eq('shipment_id', shipment.id)
-    .eq('pickup_booking_lock_token', claim.lockToken);
-
-  if (clearLockError) {
-    console.error(
-      'Failed to clear repair pickup booking lock:',
-      clearLockError
-    );
-  }
-
-  const { error: quoteUsedError } = await supabase
-    .from('repair_pickup_quotes')
-    .update({ used: true })
-    .eq('id', quoteRow.id)
-    .eq('merchant_id', merchantId);
-
-  if (quoteUsedError) {
-    console.error('Failed to mark repair pickup quote used:', quoteUsedError);
-  }
-
-  return {
-    ok: true,
-    trackingNumber: booking.trackingNumber,
-    carrierName: booking.carrierName,
+  return finalizeRepairPickupBooking({
+    booking,
+    lockToken: claim.lockToken,
+    merchantId,
+    quoteId: quoteRow.id,
+    repairId,
     shipmentId: shipment.id,
-    pickupScheduledAt: booking.pickupScheduledAt?.toISOString() ?? null,
-  };
+    supabase,
+  });
 }

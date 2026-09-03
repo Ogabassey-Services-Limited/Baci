@@ -43,6 +43,14 @@ export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
 ): Promise<CreateRepairResult> {
+  if (!data || typeof data !== 'object') {
+    return {
+      success: false,
+      code: 'validation_failed',
+      error: 'Enter valid repair details.',
+    };
+  }
+
   if (data.serviceType === 'pickup') {
     return {
       success: false,
