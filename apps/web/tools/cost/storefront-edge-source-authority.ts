@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-allowlist';
 import { isStorefrontStaticMetadataFile } from './storefront-edge-static-metadata-file';
 
 type SourceFile = Readonly<{
@@ -29,8 +30,8 @@ function isIncludedRouteSource(sourcePath: string) {
   );
 }
 
-function isIncludedApiSource(sourcePath: string) {
-  return /\/route\.(?:ts|tsx|js|jsx)$/.test(sourcePath);
+function isIncludedApiSource(sourcePath: string, apiRoot: string) {
+  return isStorefrontRequiredApiSourcePath(sourcePath, apiRoot);
 }
 
 async function listCurrentSources(
@@ -153,13 +154,13 @@ export async function readStorefrontEdgeSourceAuthority(
       .sort();
     const approvedApiTree = [...approvedTree.keys()]
       .filter((sourcePath) => sourcePath.startsWith(`${apiRoot}/`))
-      .filter(isIncludedApiSource)
+      .filter((sourcePath) => isIncludedApiSource(sourcePath, apiRoot))
       .sort();
     const [currentApiTree, currentRouteTree] = await Promise.all([
       listCurrentSources(
         options.repoRoot,
         resolve(options.repoRoot, apiRoot),
-        isIncludedApiSource
+        (sourcePath) => isIncludedApiSource(sourcePath, apiRoot)
       ),
       Promise.all(
         routeRoots.map((routeRoot) =>
