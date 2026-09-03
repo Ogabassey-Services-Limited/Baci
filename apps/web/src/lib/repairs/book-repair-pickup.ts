@@ -73,7 +73,7 @@ export async function bookRepairPickup(
   if (!sender) {
     return pickupFailure('missing_pickup_address');
   }
-  const receiver = await getRepairCenterAddress(merchantId);
+  const receiver = await getRepairCenterAddress(supabase, merchantId);
   if (!receiver) {
     return pickupFailure('repair_center_unconfigured');
   }
@@ -184,7 +184,7 @@ export async function bookRepairPickup(
   const shipment = shipmentData as { id: string } | null;
   if (shipmentError || !shipment) {
     console.error('Repair pickup shipment could not be saved:', shipmentError);
-    return pickupFailure('shipment_save_failed');
+    return pickupFailure('booking_failed');
   }
 
   const { data: linkedRepairData, error: linkError } = await supabase

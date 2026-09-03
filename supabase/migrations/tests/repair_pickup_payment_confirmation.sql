@@ -4,6 +4,9 @@
 
 BEGIN;
 
+SET LOCAL ROLE service_role;
+SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
+
 INSERT INTO public.merchants (id, email, business_name, slug, is_published)
 VALUES (
   '73a63d82-0000-4000-8000-000000000001',
@@ -39,9 +42,6 @@ VALUES (
   '12 Station Road, Osogbo, Osun, Nigeria',
   'pending'
 );
-
-SET LOCAL ROLE service_role;
-SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
 
 DO $test$
 DECLARE

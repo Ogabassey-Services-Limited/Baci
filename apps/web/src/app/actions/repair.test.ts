@@ -3,12 +3,17 @@ import { calculateRepairShipping, createRepair } from './repair';
 import { validRepairInput } from './repair.test-fixtures';
 
 const mocks = vi.hoisted(() => ({
+  createClient: vi.fn(),
   createRepairBooking: vi.fn(),
   ensureActionRateLimit: vi.fn(),
   getMerchantByIdentifier: vi.fn(),
   getQuotes: vi.fn(),
   notifyRepairBooking: vi.fn(),
   getRepairCenterAddress: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -132,6 +137,7 @@ describe('calculateRepairShipping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ensureActionRateLimit.mockResolvedValue(true);
+    mocks.createClient.mockResolvedValue({ client: 'supabase' });
     mocks.getMerchantByIdentifier.mockResolvedValue({
       id: merchantId,
       is_published: true,

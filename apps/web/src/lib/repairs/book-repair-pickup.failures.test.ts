@@ -219,7 +219,7 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
     }
   });
 
-  it('fails when the shipment row cannot be saved', async () => {
+  it('returns a retryable booking_failed when the shipment row cannot be saved before GIGL booking', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
@@ -231,7 +231,8 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'shipment_save_failed',
+        reason: 'booking_failed',
+        canRetryManually: true,
       });
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {

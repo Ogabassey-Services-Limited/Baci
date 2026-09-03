@@ -10,6 +10,7 @@ import {
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
 import { shippingService } from '@/lib/shipping';
+import { createClient } from '@/lib/supabase/server';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
@@ -130,10 +131,8 @@ export async function calculateRepairShipping(
     return dropOffOnly;
   }
 
-  // The pickup destination is the merchant's PRIVATE repair-center address
-  // (server-side read; the raw address never reaches the client). When it is
-  // unset, pickup quoting is disabled and we degrade to drop-off only.
-  const repairCenter = await getRepairCenterAddress(merchant.id);
+  const supabase = await createClient();
+  const repairCenter = await getRepairCenterAddress(supabase, merchant.id);
   if (!repairCenter) {
     return dropOffOnly;
   }

@@ -252,6 +252,30 @@ describe('handleRepairPickupPayment', () => {
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
   });
 
+  it('asks Paystack to retry when local shipment insert fails before booking', async () => {
+    const { client, update } = createSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'booking_failed',
+      message: 'Shipment insert failed before GIGL booking',
+      canRetryManually: true,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: paymentMetadata(),
+      },
+      reference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({ handled: true, status: 503 });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
+  });
+
   it('acknowledges definitive booking failures even if review persistence fails', async () => {
     const { client, thirdEq } = createSupabase();
     thirdEq.mockResolvedValueOnce({ error: { message: 'write failed' } });

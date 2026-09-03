@@ -1,5 +1,4 @@
 import { customAlphabet } from 'nanoid';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { initializeTransaction } from '@/lib/paystack';
 import { createRepairBooking } from '@/lib/repairs/create-repair-core';
@@ -10,6 +9,8 @@ import {
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
+import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
+import { createClient } from '@/lib/supabase/server';
 import { repairBookingSchema } from '@/lib/validations/repair';
 import { repairMerchantIdSchema } from '@/schemas/repair-actions';
 
@@ -86,8 +87,18 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const merchant = await getMerchantByIdentifier(
-    merchantIdentifier.toLowerCase()
+  const supabase = await createClient();
+  const merchant = await resolveWalletTopUpMerchant<{
+    id: string;
+    slug: string | null;
+    is_published: boolean | null;
+  }>(
+    supabase,
+    {
+      merchantId: parsedMerchantId.data,
+      merchantSlug: merchantIdentifier.toLowerCase(),
+    },
+    'id, slug, is_published'
   );
   if (
     !merchant?.is_published ||
@@ -101,7 +112,7 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const receiver = await getRepairCenterAddress(merchant.id);
+  const receiver = await getRepairCenterAddress(supabase, merchant.id);
   const sender = buildPickupSender({
     customer_email: parsed.data.customerEmail,
     customer_name: parsed.data.customerName,

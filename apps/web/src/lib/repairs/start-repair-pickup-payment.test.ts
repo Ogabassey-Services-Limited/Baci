@@ -3,16 +3,20 @@ import { repairPickupPaymentClaims } from './repair-pickup-payment-claim';
 import { startRepairPickupPayment } from './start-repair-pickup-payment';
 
 const mocks = vi.hoisted(() => ({
+  createClient: vi.fn(),
   createRepairBooking: vi.fn(),
   ensureActionRateLimit: vi.fn(),
-  getMerchantByIdentifier: vi.fn(),
   getRepairCenterAddress: vi.fn(),
   initializeTransaction: vi.fn(),
   quoteRepairPickup: vi.fn(),
+  resolveWalletTopUpMerchant: vi.fn(),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: mocks.getMerchantByIdentifier,
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
+}));
+vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
+  resolveWalletTopUpMerchant: mocks.resolveWalletTopUpMerchant,
 }));
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mocks.ensureActionRateLimit,
@@ -70,7 +74,8 @@ describe('startRepairPickupPayment', () => {
     process.env.PAYSTACK_SECRET_KEY = 'paystack-secret-for-tests';
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     mocks.ensureActionRateLimit.mockResolvedValue(true);
-    mocks.getMerchantByIdentifier.mockResolvedValue({
+    mocks.createClient.mockResolvedValue({ client: 'supabase' });
+    mocks.resolveWalletTopUpMerchant.mockResolvedValue({
       id: merchantId,
       is_published: true,
       slug: 'ogabassey',
