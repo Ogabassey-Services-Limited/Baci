@@ -156,7 +156,7 @@ export function createQuizV2StoreActions({
                     eventId,
                     terminalEventEndsAt,
                     terminalServerNow,
-                    envelope?.submittedAt ?? null
+                    recovered.submittedAt ?? envelope?.submittedAt ?? null
                   )
                 : null
               : null,

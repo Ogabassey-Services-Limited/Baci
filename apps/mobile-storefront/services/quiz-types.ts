@@ -91,6 +91,7 @@ export interface QuizActiveAttemptResponse {
   availability: QuizActiveAttemptAvailability;
   eventEndsAt: string | null;
   serverNow: string;
+  submittedAt?: string | null;
 }
 
 export type QuizPrizeCondition = 'new' | 'used' | 'open_box' | 'refurbished';

@@ -52,6 +52,7 @@ export function parseQuizV2ActiveAttempt(value: unknown) {
     availability: row.availability,
     eventEndsAt: row.eventEndsAt,
     serverNow: row.serverNow,
+    submittedAt: row.submittedAt,
   });
 }
 

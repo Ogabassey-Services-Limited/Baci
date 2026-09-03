@@ -200,6 +200,7 @@ export const quizV2ActiveAttemptResponseSchema = z
     ]),
     eventEndsAt: quizDateTimeSchema.nullable(),
     serverNow: quizDateTimeSchema,
+    submittedAt: quizDateTimeSchema.nullable().optional(),
   })
   .superRefine((value, context) => {
     if (value.availability === 'active') {

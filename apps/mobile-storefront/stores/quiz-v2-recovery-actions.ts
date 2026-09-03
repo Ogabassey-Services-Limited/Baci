@@ -80,7 +80,7 @@ export function createQuizV2RecoveryResponseApplier({
         fallback.eventId,
         response.eventEndsAt ?? fallback.eventEndsAt,
         response.serverNow ?? fallback.serverNow,
-        null
+        response.submittedAt ?? null
       ),
       lockedOptionId: null,
       expiryRetryable: false,
