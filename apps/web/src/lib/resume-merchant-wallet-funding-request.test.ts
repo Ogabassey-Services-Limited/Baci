@@ -12,10 +12,14 @@ vi.mock('@/lib/paystack', () => ({
 
 import { resumeMerchantWalletFundingRequest } from './resume-merchant-wallet-funding-request';
 
-function supabase(rpcData: unknown = null) {
+type ResumeClient = Parameters<typeof resumeMerchantWalletFundingRequest>[0] & {
+  rpc: ReturnType<typeof vi.fn>;
+};
+
+function supabase(rpcData: unknown = null): ResumeClient {
   return {
     rpc: vi.fn().mockResolvedValue({ data: rpcData, error: null }),
-  } as never;
+  } as unknown as ResumeClient;
 }
 
 describe('resumeMerchantWalletFundingRequest', () => {

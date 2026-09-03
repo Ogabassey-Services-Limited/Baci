@@ -11,7 +11,10 @@ describe('hasSettledPaystackOrderPaymentReference', () => {
     const eq2 = vi.fn(() => ({ not }));
     const eq1 = vi.fn(() => ({ eq: eq2 }));
     const select = vi.fn(() => ({ eq: eq1 }));
-    const supabase = { from: vi.fn(() => ({ select })) } as never;
+    const from = vi.fn(() => ({ select }));
+    const supabase = { from } as unknown as Parameters<
+      typeof hasSettledPaystackOrderPaymentReference
+    >[0]['supabase'];
 
     await expect(
       hasSettledPaystackOrderPaymentReference({
@@ -19,7 +22,7 @@ describe('hasSettledPaystackOrderPaymentReference', () => {
         supabase,
       })
     ).resolves.toBe(true);
-    expect(supabase.from).toHaveBeenCalledWith('transactions');
+    expect(from).toHaveBeenCalledWith('transactions');
   });
 
   it('returns false when no completed order transaction matches', async () => {
@@ -28,7 +31,10 @@ describe('hasSettledPaystackOrderPaymentReference', () => {
     const eq2 = vi.fn(() => ({ not }));
     const eq1 = vi.fn(() => ({ eq: eq2 }));
     const select = vi.fn(() => ({ eq: eq1 }));
-    const supabase = { from: vi.fn(() => ({ select })) } as never;
+    const from = vi.fn(() => ({ select }));
+    const supabase = { from } as unknown as Parameters<
+      typeof hasSettledPaystackOrderPaymentReference
+    >[0]['supabase'];
 
     await expect(
       hasSettledPaystackOrderPaymentReference({
