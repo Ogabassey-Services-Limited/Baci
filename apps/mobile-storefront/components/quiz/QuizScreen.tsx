@@ -101,7 +101,6 @@ export function QuizScreen({
       setV2Result: state.setV2Result,
     }))
   );
-
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
   useQuizAccountChangeReset();
   const { allowRecovery, dismissRecovery, retryRecovery } =
@@ -176,7 +175,6 @@ export function QuizScreen({
       submitV2Answer: submitQuizAnswerV2,
       v2Attempt,
     });
-
   const lifecycleHandlers = createQuizV2LifecycleHandlers({
     attempt: v2Attempt,
     expire: expireActiveEvent,
@@ -184,7 +182,6 @@ export function QuizScreen({
     retry: retryLockedAnswer,
     userId: useAuthStore.getState().user?.id,
   });
-
   const { remainingSeconds } = useQuizQuestionTimer({
     questionId: attempt?.question.id ?? null,
     timeLimitSeconds: attempt?.question.timeLimitSeconds ?? 0,
@@ -200,6 +197,8 @@ export function QuizScreen({
     serverNow: v2Attempt?.serverNow ?? terminalContext?.serverNow,
     status,
   });
+  const refreshEvents = () =>
+    loadEvents(authUserId ? fetchQuizEvents : async () => []);
   return (
     <View style={styles.screen}>
       {status === 'loading' ? (
@@ -234,6 +233,7 @@ export function QuizScreen({
           onEventsUpdated={(nextEvents) =>
             useQuizStore.setState({ events: nextEvents })
           }
+          onRefresh={refreshEvents}
           onSignIn={onSignIn}
           resumeEventId={v2Attempt?.eventId}
           serverNow={v2Attempt?.serverNow}

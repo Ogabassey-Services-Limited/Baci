@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
 import type { QuizAttempt, QuizEvent } from '@/services/quiz';
 import { fetchQuizEvents, startQuizAttempt } from '@/services/quiz';
@@ -109,5 +109,16 @@ describe('QuizScreen waiting room and sign-in gate', () => {
     );
     expect(screen.getByText('SuperQuiz waiting room')).toBeTruthy();
     expect(startQuizAttempt).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the lobby from the pull-to-refresh callback', async () => {
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    const eventList = await screen.findByLabelText('Available quiz events');
+    await act(async () => {
+      await eventList.props.onRefresh();
+    });
+
+    expect(fetchQuizEvents).toHaveBeenCalledTimes(2);
   });
 });

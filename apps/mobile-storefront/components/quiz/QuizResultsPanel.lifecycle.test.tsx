@@ -84,7 +84,7 @@ describe('QuizResultsPanel lifecycle', () => {
     );
 
     expect(screen.getByTestId('quiz-results-scroll')).toBeTruthy();
-    expect(screen.queryByText(/points · 10 questions/)).toBeNull();
+    expect(screen.getByText(/points · 10 questions/)).toBeTruthy();
     expect(screen.queryByText('Your quiz attempt is closed.')).toBeNull();
     expect(screen.getByText('Claim your prize')).toBeTruthy();
     expect(
@@ -233,5 +233,26 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(await screen.findByText('Final standings')).toBeTruthy();
     expect(screen.getByLabelText('Rank 1, Bassey, score 8')).toBeTruthy();
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the authoritative score visible when standings are unavailable', () => {
+    render(
+      <QuizResultsPanel
+        lifecycle="final"
+        styles={createQuizStyles(colors)}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'final',
+          availableAt: new Date(0).toISOString(),
+          rank: 1,
+          score: 4,
+          totalQuestions: 5,
+        }}
+      />
+    );
+
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByText('points · 5 questions')).toBeTruthy();
+    expect(screen.queryByText('Final standings')).toBeNull();
   });
 });

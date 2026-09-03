@@ -60,6 +60,7 @@ describe('useQuizRewardedBadge', () => {
     listeners.clear();
     mockAuthCustomer.date_of_birth = null;
     mockUnlockBadge.mockClear();
+    mockAd.show.mockClear();
     mockUseQuizMobileAds.mockReturnValue({
       canRequestAds: true,
       enabled: true,
@@ -204,6 +205,35 @@ describe('useQuizRewardedBadge', () => {
     act(() => result.current.watchAd());
     act(() => result.current.dismiss());
     act(() => listeners.get(RewardedAdEventType.LOADED)?.());
+
+    expect(mockAd.show).not.toHaveBeenCalled();
+    expect(result.current.isWatching).toBe(false);
+  });
+
+  it('cancels a pending ad when the waiting room becomes ineligible', () => {
+    const { result, rerender } = renderHook(
+      (props: GateProps) => useQuizRewardedBadge(props),
+      {
+        initialProps: {
+          eventId: 'event-1',
+          eventTitle: 'Today Quiz',
+          remainingSeconds: 120,
+          status: 'scheduled',
+          userId: 'user-1',
+        },
+      }
+    );
+
+    act(() => result.current.watchAd());
+    const loaded = listeners.get(RewardedAdEventType.LOADED);
+    rerender({
+      eventId: 'event-1',
+      eventTitle: 'Today Quiz',
+      remainingSeconds: 90,
+      status: 'scheduled',
+      userId: 'user-1',
+    });
+    act(() => loaded?.());
 
     expect(mockAd.show).not.toHaveBeenCalled();
     expect(result.current.isWatching).toBe(false);

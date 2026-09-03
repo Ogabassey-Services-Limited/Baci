@@ -125,6 +125,14 @@ export function QuizResultsPanel({
               />
             </View>
             <Text style={styles.resultTitle}>{title}</Text>
+            {v2Result?.availability === 'final' ? (
+              <View style={styles.scoreSummary}>
+                <Text style={styles.scoreValue}>{v2Result.score}</Text>
+                <Text style={styles.scoreLabel}>
+                  points · {v2Result.totalQuestions} questions
+                </Text>
+              </View>
+            ) : null}
             {v2Result?.availability === 'unavailable' ? (
               <Text style={styles.eventMeta}>
                 {v2Result.reason === 'tester_revoked'

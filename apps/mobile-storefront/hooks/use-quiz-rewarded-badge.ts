@@ -115,6 +115,19 @@ export function useQuizRewardedBadge({
     };
   }, [identityKey]);
 
+  useEffect(() => {
+    if (isEligible) return;
+    const session = sessionRef.current;
+    if (!session) return;
+    session.settled = true;
+    session.cleanups.forEach((unsubscribe) => {
+      unsubscribe();
+    });
+    session.cleanups = [];
+    sessionRef.current = null;
+    setIsWatching(false);
+  }, [isEligible]);
+
   const dismiss = () => {
     const session = sessionRef.current;
     if (session) {
