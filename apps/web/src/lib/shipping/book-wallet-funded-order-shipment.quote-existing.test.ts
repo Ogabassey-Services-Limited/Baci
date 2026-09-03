@@ -122,6 +122,15 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
       .fn()
       .mockRejectedValue(new Error('stale quote should not be prepared'));
     const readExistingShipment = vi.fn().mockResolvedValue(existing);
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'charge-reserved',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 'r'.repeat(64),
+    });
 
     await expect(
       bookWalletOrCustomerCheckout(
@@ -139,7 +148,13 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
 
     expect(readExistingShipment).toHaveBeenCalledOnce();
     expect(prepareQuote).not.toHaveBeenCalled();
-    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+    expect(charge.reserveMerchantShippingCharge).toHaveBeenCalledOnce();
+    expect(charge.completeMerchantShippingCharge).toHaveBeenCalledWith(
+      supabaseFixture,
+      'charge-reserved',
+      'r'.repeat(64),
+      's-existing'
+    );
   });
 
   it('releases the lock and skips reservation when existing-shipment lookup fails', async () => {

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
+  completePendingWalletExistingShipment,
+  readPendingWalletExistingShipment,
+} from './finalize-wallet-funded-existing-shipment';
+import {
   beginMerchantShippingChargeSubmission,
   completeMerchantShippingCharge,
   markMerchantShippingChargeForReconciliation,
@@ -80,23 +84,12 @@ export async function bookWalletFundedOrderShipment(
       'MERCHANT_NOT_FOUND'
     );
   }
+  let pendingExistingShipment: BookOrderShipmentResult | null = null;
   if (readExistingShipment) {
-    try {
-      const existingShipment = await readExistingShipment();
-      if (existingShipment) return existingShipment;
-    } catch (error) {
-      if (releaseLock && shouldReleaseBookingLock(error)) {
-        try {
-          await releaseLock();
-        } catch (releaseError) {
-          console.error(
-            'Failed to release shipment booking lock after existing-shipment lookup error:',
-            releaseError
-          );
-        }
-      }
-      throw error;
-    }
+    pendingExistingShipment = await readPendingWalletExistingShipment(
+      readExistingShipment,
+      releaseLock
+    );
   }
   let preparedQuoteId = quoteId;
   let reservation: ChargeReservation | undefined;
@@ -113,7 +106,11 @@ export async function bookWalletFundedOrderShipment(
     );
   }
   const resumedExistingReservation = Boolean(reservation);
-  if (prepareQuote && (!reservation || reservedChargeState !== false)) {
+  if (
+    prepareQuote &&
+    !pendingExistingShipment &&
+    (!reservation || reservedChargeState !== false)
+  ) {
     try {
       preparedQuoteId = await prepareQuote();
     } catch (error) {
@@ -216,6 +213,16 @@ export async function bookWalletFundedOrderShipment(
       'Shipment booking is already in progress.',
       409,
       'SHIPMENT_BOOKING_IN_PROGRESS'
+    );
+  }
+  if (pendingExistingShipment) {
+    return completePendingWalletExistingShipment(
+      supabase,
+      charge.chargeId,
+      token,
+      charge.status,
+      pendingExistingShipment,
+      releaseLock
     );
   }
   let providerSubmissionStarted = false;

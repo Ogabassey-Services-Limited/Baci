@@ -53,7 +53,7 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { handlePaystackMerchantWalletAssignmentFailure } from '@/lib/paystack-merchant-wallet-assignment-failure-webhook';
-import { persistMerchantWalletAssignmentEvent } from '@/lib/persist-merchant-wallet-assignment-event';
+import { handlePaystackMerchantWalletAssignmentSuccess } from '@/lib/paystack-merchant-wallet-assignment-success-webhook';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -652,31 +652,9 @@ export async function POST(request: NextRequest) {
           body as unknown as Record<string, unknown>
         );
       }
-      const assignment = await persistMerchantWalletAssignmentEvent(
+      return handlePaystackMerchantWalletAssignmentSuccess(
         createServiceClient(),
         body as unknown as Record<string, unknown>
-      );
-      if (assignment.kind === 'match') {
-        return NextResponse.json({
-          success: true,
-          handled: 'merchant_wallet_assignment',
-        });
-      }
-      if (assignment.kind === 'conflict') {
-        return NextResponse.json({
-          success: true,
-          handled: 'merchant_wallet_alias_conflict',
-        });
-      }
-      if (assignment.kind === 'ignored') {
-        return NextResponse.json({ message: 'Event ignored' });
-      }
-      return NextResponse.json(
-        {
-          error: 'Paystack assignment accepted for review',
-          code: 'MERCHANT_WALLET_ASSIGNMENT_REVIEW',
-        },
-        { status: 409 }
       );
     }
 
