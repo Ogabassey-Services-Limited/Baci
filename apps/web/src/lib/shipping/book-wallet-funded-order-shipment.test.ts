@@ -494,10 +494,35 @@ describe('wallet-funded shipment orchestration', () => {
       },
       token: 'f'.repeat(64),
     });
-    const existing = vi.fn().mockResolvedValue({ shipmentId: 's-existing' });
+    const existing = vi.fn();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        const result =
+          table === 'merchant_shipping_charges'
+            ? { shipment_id: 's-existing' }
+            : {
+                id: 's-existing',
+                provider: 'GIGL',
+                provider_shipment_id: 'p-existing',
+                shipping_quote_id: 'q1',
+                tracking_number: 't-existing',
+                carrier_name: 'GIGL',
+                estimated_delivery_days: null,
+                label_url: null,
+                pickup_scheduled_at: null,
+                status: 'booked',
+              };
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: result, error: null }),
+        };
+      }),
+    } as unknown as SupabaseClient;
+
     await expect(
       bookWalletOrCustomerCheckout(
-        supabaseFixture,
+        supabase,
         'm1',
         'o1',
         'q1',
@@ -505,7 +530,36 @@ describe('wallet-funded shipment orchestration', () => {
         existing
       )
     ).resolves.toMatchObject({ shipmentId: 's-existing' });
+    expect(existing).not.toHaveBeenCalled();
     expect(charge.beginMerchantShippingChargeSubmission).not.toHaveBeenCalled();
+  });
+
+  it('releases the lock when a prior wallet charge was already refunded', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c-refunded',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'refunded',
+      },
+      token: 'h'.repeat(64),
+    });
+    const book = vi.fn();
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        release
+      )
+    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_CHARGE_REFUNDED' });
+    expect(book).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
   });
 
   it('fails closed for a possibly-started provider submission', async () => {

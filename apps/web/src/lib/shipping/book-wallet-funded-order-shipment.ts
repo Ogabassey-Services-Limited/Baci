@@ -9,6 +9,7 @@ import {
 } from './merchant-shipping-charge';
 import { shouldReleaseBookingLock } from './order-shipment-booking-lock-errors';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+import { recoverBookedWalletShipment } from './recover-booked-wallet-shipment';
 
 type ReleaseLock = () => Promise<void>;
 type PrepareQuote = () => Promise<string>;
@@ -78,14 +79,48 @@ export async function bookWalletFundedOrderShipment(
     orderId,
     preparedQuoteId
   );
-  // A prior confirmation may have completed successfully. Re-enter the normal
-  // booking reader so the existing persisted shipment is returned without a
-  // second provider submission or wallet transition.
-  if (charge.status === 'booked') return book(preparedQuoteId);
-  if (
-    charge.status === 'refunded' ||
-    charge.status === 'needs_reconciliation'
-  ) {
+  // A prior confirmation may have completed successfully. Recover the
+  // shipment persisted on the charge instead of re-entering provider booking.
+  if (charge.status === 'booked') {
+    try {
+      return await recoverBookedWalletShipment(
+        supabase,
+        merchantId,
+        orderId,
+        charge
+      );
+    } catch (error) {
+      if (releaseLock && shouldReleaseBookingLock(error)) {
+        try {
+          await releaseLock();
+        } catch (releaseError) {
+          console.error(
+            'Failed to release shipment booking lock after booked-charge recovery error:',
+            releaseError
+          );
+        }
+      }
+      throw error;
+    }
+  }
+  if (charge.status === 'refunded') {
+    if (releaseLock) {
+      try {
+        await releaseLock();
+      } catch (releaseError) {
+        console.error(
+          'Failed to release shipment booking lock after a refunded wallet charge:',
+          releaseError
+        );
+      }
+    }
+    throw new OrderShipmentBookingError(
+      'This wallet shipping charge was refunded. Please get a new quote before booking.',
+      409,
+      'MERCHANT_WALLET_CHARGE_REFUNDED'
+    );
+  }
+  if (charge.status === 'needs_reconciliation') {
     throw new OrderShipmentBookingError(
       'This shipment booking already requires reconciliation.',
       409,

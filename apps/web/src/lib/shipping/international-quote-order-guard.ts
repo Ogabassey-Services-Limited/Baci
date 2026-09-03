@@ -15,6 +15,7 @@ type OrderItemRecord = {
   name: string | null;
   price?: number | string | null;
   quantity: number | null;
+  weight?: number | string | null;
 };
 
 export type InternationalQuoteOrder = {
@@ -66,7 +67,9 @@ function matchesQuoteItem(
   return (
     normalizeText(orderItem.name) === normalizeText(quoteItem.name) &&
     (orderItem.quantity ?? 1) === quoteItem.quantity &&
-    amountsMatch(orderItem.price, quoteItem.value)
+    amountsMatch(orderItem.price, quoteItem.value) &&
+    (orderItem.weight === undefined ||
+      amountsMatch(orderItem.weight, quoteItem.weight))
   );
 }
 
@@ -133,18 +136,34 @@ export function assertInternationalQuoteMatchesOrder(
     throw error;
   }
 
-  const orderItems = order.order_items ?? [];
-  if (orderItems.length !== quoteRequest.items.length) {
-    throwMismatch();
+  assertQuoteItemsMatchOrder(quoteRequest, order.order_items ?? [], {
+    message:
+      'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
+    code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+  });
+}
+
+export function assertQuoteItemsMatchOrder(
+  quoteRequest: QuoteRequest,
+  orderItems: OrderItemRecord[] | null | undefined,
+  mismatch: { message: string; code: string } = {
+    message:
+      'The saved shipping quote no longer matches this order. Please get a new quote before shipping.',
+    code: 'SHIPPING_QUOTE_ITEMS_MISMATCH',
+  }
+): void {
+  const items = orderItems ?? [];
+  if (items.length !== quoteRequest.items.length) {
+    throwMismatch(mismatch.message, mismatch.code);
   }
 
-  const unmatchedOrderItems = [...orderItems];
+  const unmatchedOrderItems = [...items];
   for (const quoteItem of quoteRequest.items) {
     const orderItemIndex = unmatchedOrderItems.findIndex((orderItem) =>
       matchesQuoteItem(orderItem, quoteItem)
     );
     if (orderItemIndex === -1) {
-      throwMismatch();
+      throwMismatch(mismatch.message, mismatch.code);
     }
     unmatchedOrderItems.splice(orderItemIndex, 1);
   }

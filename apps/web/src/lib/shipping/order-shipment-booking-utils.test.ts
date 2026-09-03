@@ -3,6 +3,7 @@ import {
   buildReceiver,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
+  quotedShipmentItemWeight,
   toShipmentItems,
 } from './order-shipment-booking-utils';
 
@@ -94,6 +95,20 @@ describe('buildReceiver', () => {
         },
       })
     ).toThrow(OrderShipmentBookingError);
+  });
+});
+
+describe('quotedShipmentItemWeight', () => {
+  it('converts gram product weights to kilograms', () => {
+    expect(
+      quotedShipmentItemWeight({
+        product: { weight_value: 500, weight_unit: 'g' },
+      })
+    ).toBe(0.5);
+  });
+
+  it('ignores missing product weights so callers can skip the comparison', () => {
+    expect(quotedShipmentItemWeight({})).toBeUndefined();
   });
 });
 

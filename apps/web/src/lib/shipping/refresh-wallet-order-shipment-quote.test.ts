@@ -61,6 +61,7 @@ const matchingOrder = {
   selected_quote_id: quoteId,
   shipping_provider: 'GIGL',
   shipping_address: destination,
+  order_items: [{ name: 'Widget', quantity: 1, price: 5000 }],
 };
 
 function createSupabase(options?: {
@@ -192,6 +193,20 @@ describe('refreshWalletOrderShipmentQuote', () => {
       },
       status: 400,
       code: 'SHIPPING_QUOTE_RECEIVER_MISMATCH',
+    },
+    {
+      name: 'the order items no longer match the attested quote',
+      options: {
+        order: {
+          data: {
+            ...matchingOrder,
+            order_items: [{ name: 'Widget', quantity: 3, price: 5000 }],
+          },
+          error: null,
+        },
+      },
+      status: 400,
+      code: 'SHIPPING_QUOTE_ITEMS_MISMATCH',
     },
   ])('throws $code when $name', async ({ options, status, code }) => {
     await expect(refresh(createSupabase(options))).rejects.toMatchObject({

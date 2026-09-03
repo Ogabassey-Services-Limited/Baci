@@ -10,6 +10,7 @@ import {
 } from '@/lib/shipping/find-reusable-order-shipment';
 import {
   assertInternationalQuoteMatchesOrder,
+  assertQuoteItemsMatchOrder,
   assertQuoteReceiverMatchesOrder,
 } from '@/lib/shipping/international-quote-order-guard';
 import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
@@ -18,6 +19,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
+  toQuoteComparableOrderItems,
   toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
@@ -178,6 +180,10 @@ export async function bookOrderShipment(
     // receiver against the quote's attested request before wallet charging or
     // provider dispatch.
     assertQuoteReceiverMatchesOrder(effectiveQuoteRequest, typedOrder);
+    assertQuoteItemsMatchOrder(
+      effectiveQuoteRequest,
+      toQuoteComparableOrderItems(typedOrder.order_items)
+    );
   }
 
   const receiver =

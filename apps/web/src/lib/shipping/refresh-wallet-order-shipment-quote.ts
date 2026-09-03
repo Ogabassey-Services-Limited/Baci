@@ -1,9 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertQuoteReceiverMatchesOrder } from './international-quote-order-guard';
+import {
+  assertQuoteItemsMatchOrder,
+  assertQuoteReceiverMatchesOrder,
+} from './international-quote-order-guard';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
+  toQuoteComparableOrderItems,
 } from './order-shipment-booking-utils';
 import {
   type OrderShipmentQuoteRecord,
@@ -22,7 +26,9 @@ export async function refreshWalletOrderShipmentQuote(
 ): Promise<string> {
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, selected_quote_id, shipping_provider, shipping_address')
+    .select(
+      'id, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product:products!order_items_product_id_fkey(weight_value, weight_unit))'
+    )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .single();
@@ -76,6 +82,10 @@ export async function refreshWalletOrderShipmentQuote(
   // change here so the attested tariff cannot debit the wallet for a later
   // receiver that the generic order update path still allows.
   assertQuoteReceiverMatchesOrder(request, order);
+  assertQuoteItemsMatchOrder(
+    request,
+    toQuoteComparableOrderItems(order.order_items)
+  );
 
   const metadata = await getShippingQuoteBookingMetadata(
     supabase,

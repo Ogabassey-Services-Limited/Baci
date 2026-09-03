@@ -142,6 +142,51 @@ export function toShipmentItems(orderItems: OrderItemRecord[]): ShipmentItem[] {
   }));
 }
 
+export function quotedShipmentItemWeight(item: {
+  product?: {
+    weight_value?: number | string | null;
+    weight_unit?: string | null;
+  } | null;
+  products?:
+    | {
+        weight_value?: number | string | null;
+        weight_unit?: string | null;
+      }
+    | Array<{
+        weight_value?: number | string | null;
+        weight_unit?: string | null;
+      }>
+    | null;
+}): number | undefined {
+  const related = item.product ?? item.products;
+  const product = Array.isArray(related) ? related[0] : related;
+  const value = Number(product?.weight_value);
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  return product?.weight_unit?.toLowerCase() === 'g' ? value * 0.001 : value;
+}
+
+export function toQuoteComparableOrderItems(items: unknown) {
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as {
+      name?: string | null;
+      quantity?: number | null;
+      price?: number | string | null;
+      product?: Parameters<typeof quotedShipmentItemWeight>[0]['product'];
+      products?: Parameters<typeof quotedShipmentItemWeight>[0]['products'];
+    };
+    return [
+      {
+        name: record.name ?? null,
+        quantity: record.quantity ?? null,
+        price: record.price,
+        weight: quotedShipmentItemWeight(record),
+      },
+    ];
+  });
+}
+
 export function selectPreferredQuote(
   quotes: ShippingQuote[],
   currentQuote: {
