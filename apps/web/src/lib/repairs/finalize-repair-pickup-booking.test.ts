@@ -16,13 +16,8 @@ describe('finalizeRepairPickupBooking', () => {
       booking: {
         carrierName: 'GIG Logistics',
         isStationPickup: false,
-        labelUrl: null,
-        pickupScheduledAt: null,
-        pickupStationAddress: null,
-        pickupStationName: null,
         provider: 'GIGL',
         providerShipmentId: 'prov-1',
-        rawResponse: null,
         status: 'pending',
         trackingNumber: '1349000000',
       },
