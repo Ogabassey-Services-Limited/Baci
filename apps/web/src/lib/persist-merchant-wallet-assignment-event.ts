@@ -30,14 +30,22 @@ export async function persistMerchantWalletAssignmentEvent(
     customer.metadata && typeof customer.metadata === 'object'
       ? (customer.metadata as Record<string, unknown>)
       : null;
-  const fundingMetadata = [directMetadata, customerMetadata].find(
-    (candidate) => candidate?.source === 'merchant_wallet_funding'
-  );
-  const metadata =
-    fundingMetadata ??
-    (directMetadata && 'source' in directMetadata
+  const directSource =
+    directMetadata && typeof directMetadata.source === 'string'
+      ? directMetadata.source
+      : null;
+  // An explicit sibling-flow source on the assignment itself must win over
+  // stale customer-level wallet funding metadata.
+  if (directSource && directSource !== 'merchant_wallet_funding') {
+    return { kind: 'ignored' as const };
+  }
+  const fundingMetadata =
+    directSource === 'merchant_wallet_funding'
       ? directMetadata
-      : (customerMetadata ?? directMetadata ?? {}));
+      : customerMetadata?.source === 'merchant_wallet_funding'
+        ? customerMetadata
+        : null;
+  const metadata = fundingMetadata ?? {};
   const requestId =
     typeof metadata.request_id === 'string' ? metadata.request_id : '';
   const merchantId =

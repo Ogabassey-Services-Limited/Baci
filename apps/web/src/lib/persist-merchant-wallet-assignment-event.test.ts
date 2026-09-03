@@ -31,6 +31,32 @@ const payload = {
 };
 
 describe('persistMerchantWalletAssignmentEvent alias conflict', () => {
+  it('ignores an explicit sibling-flow source even when customer metadata is wallet funding', async () => {
+    const rpc = vi.fn();
+    const result = await persistMerchantWalletAssignmentEvent(
+      assignmentClient(rpc),
+      {
+        data: {
+          metadata: {
+            source: 'order_dva',
+            order_id: 'o1',
+          },
+          customer: {
+            metadata: {
+              source: 'merchant_wallet_funding',
+              request_id: 'r',
+              merchant_id: 'm',
+            },
+          },
+          account_number: '1234567890',
+          currency: 'NGN',
+        },
+      }
+    );
+    expect(result.kind).toBe('ignored');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('fails the pending request when assignment hits PAYSTACK_DVA_ALIAS_CONFLICT', async () => {
     const rpc = vi
       .fn()

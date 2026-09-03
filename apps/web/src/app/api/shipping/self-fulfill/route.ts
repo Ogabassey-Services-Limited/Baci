@@ -113,6 +113,18 @@ export async function POST(request: NextRequest) {
       fulfilledBy: user.id,
     };
 
+    const { error: releaseError } = await supabase.rpc(
+      'release_reserved_merchant_shipping_charges_for_order',
+      { p_order_id: data.orderId }
+    );
+    if (releaseError) {
+      console.error('Error releasing reserved shipping charges:', releaseError);
+      return NextResponse.json(
+        { error: 'Failed to release reserved shipping charge' },
+        { status: 409 }
+      );
+    }
+
     const { error: updateError } = await supabase
       .from('orders')
       .update({

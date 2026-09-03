@@ -149,7 +149,7 @@ describe('GIGL shipping settlement retention', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('caps retained shipping when a discounted basket leaves less than the quote price', async () => {
+  it('keeps the full GIGL retained snapshot for metadata while the RPC recomputes debit', async () => {
     const { rpc, supabase } = setup();
     const result = await buildSettlementExecutor({
       externalGatewayReference: 'REF',
@@ -161,13 +161,13 @@ describe('GIGL shipping settlement retention', () => {
       orderShippingRetainedAmount: 11_000,
     })(context);
 
-    expect(result?.retained_shipping_amount).toBe(10_000);
+    expect(result?.retained_shipping_amount).toBe(11_000);
     expect(rpc).toHaveBeenCalledWith(
       'record_merchant_settlement_gigl_v1',
       expect.objectContaining({
         p_platform_fee: 1_000,
         p_metadata: expect.objectContaining({
-          retained_shipping_amount: 10_000,
+          retained_shipping_amount: 11_000,
         }),
       })
     );

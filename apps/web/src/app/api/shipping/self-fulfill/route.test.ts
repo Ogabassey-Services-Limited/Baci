@@ -103,12 +103,14 @@ function createSupabaseMock() {
 
       throw new Error(`Unexpected table ${table}`);
     }),
+    rpc: vi.fn().mockResolvedValue({ data: 0, error: null }),
   };
 
   return {
     supabase: supabase as unknown as SupabaseClient,
     updateOrder,
     updateEq,
+    rpc: supabase.rpc,
   };
 }
 
@@ -124,7 +126,7 @@ describe('Self-fulfill API routes', () => {
   });
 
   it('supports bearer-authenticated mobile staff requests', async () => {
-    const { supabase, updateEq } = createSupabaseMock();
+    const { supabase, updateEq, rpc } = createSupabaseMock();
 
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -142,6 +144,10 @@ describe('Self-fulfill API routes', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'release_reserved_merchant_shipping_charges_for_order',
+      { p_order_id: '11111111-1111-4111-8111-111111111111' }
+    );
     expect(updateEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     await vi.waitFor(() => {
       expect(notifyOrderStatusChange).toHaveBeenCalledWith(

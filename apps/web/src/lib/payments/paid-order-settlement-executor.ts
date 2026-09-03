@@ -154,18 +154,13 @@ export function buildSettlementExecutor(args: {
             'retained shipping amount'
           )
         : 0;
-    // A discounted order can contain a shipping line that consumes the whole
-    // verified gross. Never let the caller snapshot push gateway + platform
-    // fees above that gross; the settlement RPC applies the same cap against
-    // its authoritative selected quote.
-    const maxRetainedShippingAmount = Math.max(
-      0,
-      normalizedGrossAmount - normalizedGatewayFee - platformFee
-    );
-    const retainedShippingAmount =
-      validatedArgs.orderShippingProvider === 'GIGL'
-        ? Math.min(requestedRetainedShippingAmount, maxRetainedShippingAmount)
-        : requestedRetainedShippingAmount;
+    const useGiglSettlementRpc =
+      hasEconomicsSnapshot && validatedArgs.orderShippingProvider === 'GIGL';
+    // GIGL retention is recomputed inside record_merchant_settlement_gigl_v1 from
+    // the order snapshot and may span wallet/store-credit payments beyond this
+    // gateway transfer. Legacy providers still validate caller-supplied retention
+    // against this transfer's verified gross.
+    const retainedShippingAmount = requestedRetainedShippingAmount;
     if (
       !Number.isFinite(retainedShippingAmount) ||
       retainedShippingAmount < 0
@@ -173,10 +168,15 @@ export function buildSettlementExecutor(args: {
       throw new Error('Invalid retained shipping amount');
     }
     const totalPlatformFee = platformFee + retainedShippingAmount;
-    const totalPlatformFeeKobo = Math.round(totalPlatformFee * KOBO_PER_NAIRA);
-    if (gatewayFeeKobo + totalPlatformFeeKobo > grossAmountKobo) {
+    const validatedPlatformFee = useGiglSettlementRpc
+      ? platformFee
+      : totalPlatformFee;
+    const validatedPlatformFeeKobo = Math.round(
+      validatedPlatformFee * KOBO_PER_NAIRA
+    );
+    if (gatewayFeeKobo + validatedPlatformFeeKobo > grossAmountKobo) {
       throw new Error(
-        `Settlement fees exceed gross amount: gatewayFee=${normalizedGatewayFee}, platformFee=${totalPlatformFee}, grossAmount=${normalizedGrossAmount}`
+        `Settlement fees exceed gross amount: gatewayFee=${normalizedGatewayFee}, platformFee=${validatedPlatformFee}, grossAmount=${normalizedGrossAmount}`
       );
     }
     const metadata = {
@@ -191,8 +191,6 @@ export function buildSettlementExecutor(args: {
         : {}),
     };
 
-    const useGiglSettlementRpc =
-      hasEconomicsSnapshot && validatedArgs.orderShippingProvider === 'GIGL';
     const settlementRpc = useGiglSettlementRpc
       ? 'record_merchant_settlement_gigl_v1'
       : 'record_merchant_settlement';
