@@ -113,13 +113,13 @@ describe('builder AI provider catalog', () => {
       GROQ_BUILDER_DEPLOYMENT_TIER: groqAttestation.deploymentTier,
       GROQ_BUILDER_RELEASE_ATTESTED_AT: groqAttestation.releaseAttestedAt,
       BUILDER_AI_PROVIDER_BINDING_PEPPER: bindingPepper,
-    } as unknown as BuilderAiProviderEnvironment;
+    } satisfies BuilderAiProviderEnvironment;
     const transitionFactories = {
       ...factories,
       createCerebrasModel: vi.fn(
         (key: string) => ({ provider: 'cerebras', key }) as never
       ),
-    } as unknown as BuilderAiProviderFactories;
+    } satisfies BuilderAiProviderFactories;
 
     expect(
       materializeBuilderAiProviders(legacyEnvironment, transitionFactories, {

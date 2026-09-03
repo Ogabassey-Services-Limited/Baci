@@ -40,7 +40,10 @@ function failure(
   );
 }
 
-function providerAlias(name: string): 'google' | 'groq' | 'openrouter' | null {
+function providerAlias(
+  name: string
+): 'cerebras' | 'google' | 'groq' | 'openrouter' | null {
+  if (name.startsWith('cerebras:')) return 'cerebras';
   if (name.startsWith('google:')) return 'google';
   if (name.startsWith('groq:')) return 'groq';
   if (name.startsWith('openrouter:')) return 'openrouter';
