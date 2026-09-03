@@ -31,12 +31,12 @@ function formatDate(value: string): string {
 }
 
 function getPickupPaymentMessage(result: RepairStatusResult): string {
-  if (!result.pickupPaymentStatus) return 'Pickup payment is still required.';
-  if (result.pickupPaymentStatus === 'booked') {
+  if (result.pickupPaymentStatus === 'booked' || result.trackingNumber) {
     return result.trackingNumber
       ? 'Your GIGL pickup is booked. Follow its progress below.'
       : 'Your GIGL pickup is booked. Tracking will appear shortly.';
   }
+  if (!result.pickupPaymentStatus) return 'Pickup payment is still required.';
   if (result.pickupPaymentStatus === 'review') {
     return 'Payment confirmed. Your pickup needs support review.';
   }

@@ -5,7 +5,6 @@ import { startRepairPickupPayment } from './start-repair-pickup-payment';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createRepairBooking: vi.fn(),
-  createRepairPickupReceiverClient: vi.fn(() => ({ role: 'receiver' })),
   ensureActionRateLimit: vi.fn(),
   getRepairCenterAddress: vi.fn(),
   initializeTransaction: vi.fn(),
@@ -24,9 +23,6 @@ vi.mock('@/lib/ensure-action-rate-limit', () => ({
 }));
 vi.mock('@/lib/repairs/create-repair-core', () => ({
   createRepairBooking: mocks.createRepairBooking,
-}));
-vi.mock('@/lib/repairs/create-repair-pickup-receiver-client', () => ({
-  createRepairPickupReceiverClient: mocks.createRepairPickupReceiverClient,
 }));
 vi.mock('@/lib/repairs/quote-repair-pickup', () => ({
   quoteRepairPickup: mocks.quoteRepairPickup,

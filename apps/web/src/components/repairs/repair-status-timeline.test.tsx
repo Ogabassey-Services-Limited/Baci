@@ -79,6 +79,25 @@ describe('RepairStatusTimeline', () => {
     ).toBeInTheDocument();
   });
 
+  it('treats legacy tracked pickups as booked when payment status is null', () => {
+    render(
+      <RepairStatusTimeline
+        result={{
+          ...baseResult,
+          pickupCurrency: null,
+          pickupFee: null,
+          pickupPaymentStatus: null,
+          trackingNumber: 'TRK-LEGACY',
+        }}
+        trackHref="/track/TRK-LEGACY"
+      />
+    );
+
+    expect(
+      screen.getByText('Your GIGL pickup is booked. Follow its progress below.')
+    ).toBeInTheDocument();
+  });
+
   it('omits the tracking link when there is no tracking number', () => {
     render(<RepairStatusTimeline result={baseResult} trackHref="/track/x" />);
     expect(

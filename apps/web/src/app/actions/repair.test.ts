@@ -5,7 +5,6 @@ import { validRepairInput } from './repair.test-fixtures';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createRepairBooking: vi.fn(),
-  createRepairPickupReceiverClient: vi.fn(() => ({ role: 'receiver' })),
   ensureActionRateLimit: vi.fn(),
   getMerchantByIdentifier: vi.fn(),
   getQuotes: vi.fn(),
@@ -15,10 +14,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
-}));
-
-vi.mock('@/lib/repairs/create-repair-pickup-receiver-client', () => ({
-  createRepairPickupReceiverClient: mocks.createRepairPickupReceiverClient,
 }));
 
 vi.mock('@/lib/cached-data', () => ({

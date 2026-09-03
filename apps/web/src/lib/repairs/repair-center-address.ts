@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * The merchant's repair-center address, shaped for use as a shipping receiver
  * (courier pickup) or a display origin. Derived from the PRIVATE
  * `merchant_feature_settings.repair_settings` jsonb column via the
- * service_role-only `get_repair_pickup_receiver` projection.
+ * storefront-safe `get_repair_pickup_receiver` projection.
  */
 export interface RepairCenterAddress {
   name: string;
@@ -29,10 +29,9 @@ function readNullableString(value: unknown): string | null {
 }
 
 /**
- * Reads the merchant's private repair-center address through the
- * service_role-only pickup-receiver RPC. Callers must pass a privileged
- * Supabase client (webhook service role or the repair-pickup receiver client);
- * anonymous storefront clients cannot execute the projection.
+ * Reads the merchant's private repair-center address through the published
+ * pickup-receiver RPC. Callers pass their existing Supabase client so payment
+ * webhooks and storefront actions never construct a service-role client.
  *
  * Returns `null` when pickup is not configured — unpublished store, pickup
  * explicitly disabled, missing phone, or incomplete address/city/state — so

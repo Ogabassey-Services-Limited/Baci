@@ -2,7 +2,6 @@ import { customAlphabet } from 'nanoid';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { initializeTransaction } from '@/lib/paystack';
 import { createRepairBooking } from '@/lib/repairs/create-repair-core';
-import { createRepairPickupReceiverClient } from '@/lib/repairs/create-repair-pickup-receiver-client';
 import {
   buildPickupItems,
   buildPickupSender,
@@ -113,10 +112,7 @@ export async function startRepairPickupPayment({
     };
   }
 
-  const receiver = await getRepairCenterAddress(
-    createRepairPickupReceiverClient(),
-    merchant.id
-  );
+  const receiver = await getRepairCenterAddress(supabase, merchant.id);
   const sender = buildPickupSender({
     customer_email: parsed.data.customerEmail,
     customer_name: parsed.data.customerName,
