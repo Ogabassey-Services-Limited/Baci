@@ -90,6 +90,7 @@ import type {
   MerchantRateKind,
 } from '@/lib/shipping/merchant-rates/types';
 import { verifyOrderShippingRate } from '@/lib/shipping/merchant-rates/verify-order-shipping-rate';
+import { normalizeMerchantRateOrderAddress } from '@/lib/shipping/normalize-merchant-rate-order-address';
 import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
@@ -1967,6 +1968,10 @@ export async function POST(request: NextRequest) {
       }
       throw error;
     }
+    shippingAddressForOrder = normalizeMerchantRateOrderAddress(
+      shippingAddressForOrder,
+      isMerchantRateOrder
+    );
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 

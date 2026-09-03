@@ -12,11 +12,23 @@ const receiver = {
 };
 
 describe('normalizeNigerianQuoteReceiver', () => {
-  it('repairs a postal code supplied as state using the known city', () => {
+  it('repairs a postal code supplied as state using the formatted address', () => {
     const result = normalizeNigerianQuoteReceiver(
       {
         ...receiver,
-        address: '2 Olaide Tomori Street, Ikeja, Nigeria',
+        address: '2 Olaide Tomori Street, Ikeja, Lagos 100001, Nigeria',
+      },
+      'domestic'
+    );
+
+    expect(result.state).toBe('Lagos');
+  });
+
+  it('prefers a trailing state over a state name in a street segment', () => {
+    const result = normalizeNigerianQuoteReceiver(
+      {
+        ...receiver,
+        address: '12 Oyo Road, Ikeja, Lagos, Nigeria',
       },
       'domestic'
     );
@@ -72,5 +84,17 @@ describe('normalizeNigerianQuoteReceiver', () => {
     expect(normalizeNigerianQuoteReceiver(unknown, 'domestic')).toEqual(
       unknown
     );
+  });
+
+  it('does not infer a state from a city-only fallback label', () => {
+    const ambiguous = {
+      ...receiver,
+      address: '12 Market Road, Karu, Nigeria',
+      city: 'Karu',
+      state: '900001',
+    };
+    const result = normalizeNigerianQuoteReceiver(ambiguous, 'domestic');
+
+    expect(result).toEqual(ambiguous);
   });
 });
