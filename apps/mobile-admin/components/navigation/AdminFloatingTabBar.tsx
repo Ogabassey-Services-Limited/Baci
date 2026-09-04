@@ -219,6 +219,13 @@ export function AdminFloatingTabBar({
           const handlePress = () => {
             if (pressInHandledRouteKeyRef.current === route.key) {
               pressInHandledRouteKeyRef.current = null;
+              // Count the pressIn selection as the first tap so a second
+              // focused tap can scroll-to-top without needing a third tap.
+              lastFocusedPressRef.current = recordAdminTabPress(
+                lastFocusedPressRef.current,
+                route.key,
+                Date.now()
+              ).nextPress;
               return;
             }
 

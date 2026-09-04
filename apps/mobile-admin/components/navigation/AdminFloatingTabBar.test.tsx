@@ -183,7 +183,7 @@ function styleContains(
   );
 }
 
-function createProps(): BottomTabBarProps {
+function createProps(focusedIndex = 0): BottomTabBarProps {
   const routes = [
     { key: 'index-key', name: 'index', params: {} },
     { key: 'orders-key', name: 'orders', params: { status: 'open' } },
@@ -241,7 +241,7 @@ function createProps(): BottomTabBarProps {
     },
     state: {
       history: [],
-      index: 0,
+      index: focusedIndex,
       key: 'admin-tabs-key',
       routeNames: routes.map((route) => route.name),
       routes,
@@ -368,6 +368,24 @@ describe('AdminFloatingTabBar', () => {
 
     expect(navigationMocks.scrollAdminTabToTop).toHaveBeenCalledOnce();
     expect(navigationMocks.scrollAdminTabToTop).toHaveBeenCalledWith('index');
+    now.mockRestore();
+  });
+
+  it('bugfix: counts pressIn tab-switch as first double-tap press', () => {
+    const now = vi.spyOn(Date, 'now');
+    now.mockReturnValue(100);
+    const { rerender } = render(<AdminFloatingTabBar {...createProps()} />);
+    const ordersTab = screen.getByRole('tab', { name: 'Orders' });
+
+    fireEvent.mouseDown(ordersTab);
+    fireEvent.click(ordersTab);
+
+    rerender(<AdminFloatingTabBar {...createProps(1)} />);
+    now.mockReturnValue(300);
+    fireEvent.click(screen.getByRole('tab', { name: 'Orders' }));
+
+    expect(navigationMocks.scrollAdminTabToTop).toHaveBeenCalledOnce();
+    expect(navigationMocks.scrollAdminTabToTop).toHaveBeenCalledWith('orders');
     now.mockRestore();
   });
 
