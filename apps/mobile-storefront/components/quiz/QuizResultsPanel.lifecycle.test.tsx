@@ -238,6 +238,7 @@ describe('QuizResultsPanel lifecycle', () => {
   it('keeps the authoritative score visible when standings are unavailable', () => {
     render(
       <QuizResultsPanel
+        legacyResult={null}
         lifecycle="final"
         styles={createQuizStyles(colors)}
         v2Result={{
