@@ -179,7 +179,8 @@ describe('RepairBookingWizard pickup payment', () => {
       expect.objectContaining({ serviceType: 'pickup' }),
       8250,
       '123e4567-e89b-12d3-a456-426614174000',
-      'ogabassey'
+      'ogabassey',
+      null
     );
     expect(mocks.createRepair).not.toHaveBeenCalled();
     expect(

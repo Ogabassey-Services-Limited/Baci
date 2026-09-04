@@ -55,7 +55,11 @@ export async function bookGiglShipment(
     try {
       tokenData = await apiClient.getApiToken(GIGL_BOOKING_TIMEOUT_MS, signal);
     } catch (error) {
-      if (error instanceof OrderShipmentBookingError) {
+      if (
+        signal.aborted ||
+        isGiglAbortError(error) ||
+        error instanceof OrderShipmentBookingError
+      ) {
         throw error;
       }
       throw new OrderShipmentBookingError(
