@@ -34,6 +34,9 @@ export function useRepairBookingSubmit({
   toast,
 }: UseRepairBookingSubmitOptions) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pickupResumeToken, setPickupResumeToken] = useState<string | null>(
+    null
+  );
 
   const onSubmit = (data: RepairBookingInput) => {
     setIsSubmitting(true);
@@ -43,7 +46,8 @@ export function useRepairBookingSubmit({
             data,
             shippingQuote.price,
             merchantId,
-            merchantSlug
+            merchantSlug,
+            pickupResumeToken
           )
         : createRepair(data, merchantId);
 
@@ -51,6 +55,12 @@ export function useRepairBookingSubmit({
       .then((result) => {
         if (result.success) {
           if ('payment' in result) {
+            if (
+              'resumeToken' in result &&
+              typeof result.resumeToken === 'string'
+            ) {
+              setPickupResumeToken(result.resumeToken);
+            }
             onPickupPaymentReady({
               ...result.payment,
               ticketNumber: result.ticketNumber,
@@ -64,6 +74,13 @@ export function useRepairBookingSubmit({
             title: 'Request Submitted',
           });
           return;
+        }
+
+        if (
+          typeof result.resumeToken === 'string' &&
+          result.resumeToken.length > 0
+        ) {
+          setPickupResumeToken(result.resumeToken);
         }
 
         if (result.code === 'payment_initialization_failed') {

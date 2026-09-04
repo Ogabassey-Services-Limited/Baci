@@ -122,7 +122,7 @@ describe('startRepairPickupPayment', () => {
       merchantIdentifier: 'ogabassey',
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: false,
       code: 'payment_initialization_failed',
       error:
@@ -130,6 +130,7 @@ describe('startRepairPickupPayment', () => {
       id: repairId,
       ticketNumber: 42,
     });
+    expect(result).toHaveProperty('resumeToken');
   });
 
   it('returns pickup_unavailable when the live quote request throws', async () => {

@@ -9,12 +9,14 @@ export async function startCustomerRepairPickupPayment(
   data: RepairBookingInput,
   expectedPickupFee: number,
   merchantId: string,
-  merchantIdentifier: string
+  merchantIdentifier: string,
+  resumeToken?: string | null
 ) {
   return await startRepairPickupPayment({
     data,
     expectedPickupFee,
     merchantId,
     merchantIdentifier,
+    resumeToken,
   });
 }

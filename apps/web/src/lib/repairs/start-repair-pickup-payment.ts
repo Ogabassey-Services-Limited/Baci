@@ -2,6 +2,7 @@ import { customAlphabet } from 'nanoid';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { initializeTransaction } from '@/lib/paystack';
 import { createRepairBooking } from '@/lib/repairs/create-repair-core';
+import { findResumablePickupRepair } from '@/lib/repairs/find-resumable-repair-pickup';
 import {
   buildPickupItems,
   buildPickupSender,
@@ -9,13 +10,10 @@ import {
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
-import { createRepairPickupReceiverClient } from '@/lib/repairs/repair-pickup-receiver-client';
+import { repairPickupResumeClaims } from '@/lib/repairs/repair-pickup-resume-claim';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createClient } from '@/lib/supabase/server';
-import {
-  type RepairBookingInput,
-  repairBookingSchema,
-} from '@/lib/validations/repair';
+import { repairBookingSchema } from '@/lib/validations/repair';
 import {
   repairMerchantIdentifierSchema,
   repairMerchantIdSchema,
@@ -27,46 +25,12 @@ const createReference = customAlphabet(
   16
 );
 
-async function findResumablePickupRepair(
-  merchantId: string,
-  input: RepairBookingInput
-): Promise<{ success: true; id: string; ticketNumber: number } | null> {
-  // Storefront/anon cannot SELECT repairs (RLS). Reclaim unpaid pickups through
-  // the merchant-bound receiver capability so retries do not create duplicates
-  // and ordinary JWTs cannot enumerate repair identifiers.
-  const supabase = createRepairPickupReceiverClient(merchantId);
-  const { data, error } = await supabase.rpc('find_resumable_repair_pickup', {
-    p_merchant_id: merchantId,
-    p_customer_email: input.customerEmail,
-  });
-
-  if (error) {
-    console.error('Resumable repair pickup lookup failed:', error);
-    return null;
-  }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row !== 'object') {
-    return null;
-  }
-
-  const record = row as { id?: unknown; ticket_number?: unknown };
-  const ticketNumber =
-    typeof record.ticket_number === 'number'
-      ? record.ticket_number
-      : Number(record.ticket_number);
-  if (typeof record.id !== 'string' || !Number.isFinite(ticketNumber)) {
-    return null;
-  }
-
-  return { success: true, id: record.id, ticketNumber };
-}
-
 type StartRepairPickupPaymentResult =
   | {
       success: true;
       id: string;
       ticketNumber: number;
+      resumeToken: string;
       payment: {
         amount: number;
         authorizationUrl: string;
@@ -79,6 +43,7 @@ type StartRepairPickupPaymentResult =
       error: string;
       id?: string;
       ticketNumber?: number;
+      resumeToken?: string;
       quote?: { formattedPrice: string; price: number };
     };
 
@@ -87,6 +52,7 @@ interface StartRepairPickupPaymentInput {
   expectedPickupFee: unknown;
   merchantId: string;
   merchantIdentifier: string;
+  resumeToken?: string | null;
 }
 
 export async function startRepairPickupPayment({
@@ -94,6 +60,7 @@ export async function startRepairPickupPayment({
   expectedPickupFee,
   merchantId,
   merchantIdentifier,
+  resumeToken,
 }: StartRepairPickupPaymentInput): Promise<StartRepairPickupPaymentResult> {
   const allowed = await ensureActionRateLimit('repair-pickup-payment', {
     requests: 5,
@@ -227,10 +194,35 @@ export async function startRepairPickupPayment({
     };
   }
 
+  const resumed = await findResumablePickupRepair({
+    input: parsed.data,
+    merchantId: merchant.id,
+    resumeToken,
+    secret,
+  });
+  if (resumed.kind === 'error') {
+    return {
+      success: false,
+      code: 'lookup_failed',
+      error: resumed.error,
+    };
+  }
+
   const repair =
-    (await findResumablePickupRepair(merchant.id, parsed.data)) ??
-    (await createRepairBooking(parsed.data, merchant.id));
+    resumed.kind === 'found'
+      ? resumed.repair
+      : await createRepairBooking(parsed.data, merchant.id);
   if (!repair.success) return repair;
+
+  const nextResumeToken = repairPickupResumeClaims.create(
+    {
+      customerEmail: parsed.data.customerEmail,
+      issuedAt: Date.now(),
+      merchantId: merchant.id,
+      repairId: repair.id,
+    },
+    secret
+  );
 
   const reference = `RPU-${createReference()}`;
   const metadata = repairPickupPaymentClaims.create(
@@ -260,6 +252,7 @@ export async function startRepairPickupPayment({
       success: true,
       id: repair.id,
       ticketNumber: repair.ticketNumber,
+      resumeToken: nextResumeToken,
       payment: {
         amount: quote.price,
         authorizationUrl: payment.authorization_url,
@@ -275,6 +268,7 @@ export async function startRepairPickupPayment({
         'Your repair request was saved, but payment could not start. Use your ticket to retry shortly.',
       id: repair.id,
       ticketNumber: repair.ticketNumber,
+      resumeToken: nextResumeToken,
     };
   }
 }

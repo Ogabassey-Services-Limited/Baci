@@ -29,6 +29,7 @@ describe('shouldReleaseBookingLock', () => {
       'MERCHANT_ORIGIN_MISSING',
       'INTERNATIONAL_QUOTE_SENDER_MISSING',
       'GIGL_STATION_RESOLUTION_FAILED',
+      'GIGL_AUTHENTICATION_FAILED',
     ]) {
       expect(
         shouldReleaseBookingLock(

@@ -37,6 +37,33 @@ describe('bookRepairPickup post-provider finalization failures', () => {
     }
   });
 
+  it('releases the reservation after a pre-capture GIGL authentication failure', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const operations: string[] = [];
+    mocks.bookShipment.mockRejectedValueOnce(
+      new OrderShipmentBookingError(
+        'GIGL API authentication failed',
+        502,
+        'GIGL_AUTHENTICATION_FAILED'
+      )
+    );
+    const supabase = makeSupabase(happyResponses(), operations);
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'booking_failed',
+        canRetryManually: true,
+      });
+      expect(operations).toContain(
+        'rpc.release_rejected_repair_pickup_reservation'
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('releases the reservation after a confirmed GIGL booking rejection', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const operations: string[] = [];

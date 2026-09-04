@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import './start-repair-pickup-payment.test-support';
+import { repairPickupResumeClaims } from './repair-pickup-resume-claim';
 import { startRepairPickupPayment } from './start-repair-pickup-payment';
 import {
   arrangeStartRepairPickupPayment,
@@ -15,8 +16,17 @@ const merchantId = startRepairPickupPaymentMerchantId;
 describe('startRepairPickupPayment resume and validation', () => {
   beforeEach(arrangeStartRepairPickupPayment);
 
-  it('reclaims an unpaid pickup via the authorized RPC instead of creating a duplicate', async () => {
+  it('reclaims an unpaid pickup only with a signed resume capability', async () => {
     const existingId = '323e4567-e89b-12d3-a456-426614174000';
+    const resumeToken = repairPickupResumeClaims.create(
+      {
+        customerEmail: input.customerEmail,
+        issuedAt: Date.now(),
+        merchantId,
+        repairId: existingId,
+      },
+      'paystack-secret-for-tests'
+    );
     mocks.rpc.mockResolvedValueOnce({
       data: [{ id: existingId, ticket_number: 17 }],
       error: null,
@@ -27,6 +37,7 @@ describe('startRepairPickupPayment resume and validation', () => {
       expectedPickupFee: 8250,
       merchantId,
       merchantIdentifier: 'ogabassey',
+      resumeToken,
     });
 
     expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
@@ -42,6 +53,57 @@ describe('startRepairPickupPayment resume and validation', () => {
       id: existingId,
       ticketNumber: 17,
     });
+    expect(result).toHaveProperty('resumeToken');
+  });
+
+  it('does not reclaim by email alone when no resume token is provided', async () => {
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.createRepairBooking).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      ticketNumber: 42,
+    });
+  });
+
+  it('fails closed when the scoped resume lookup errors', async () => {
+    const existingId = '323e4567-e89b-12d3-a456-426614174000';
+    const resumeToken = repairPickupResumeClaims.create(
+      {
+        customerEmail: input.customerEmail,
+        issuedAt: Date.now(),
+        merchantId,
+        repairId: existingId,
+      },
+      'paystack-secret-for-tests'
+    );
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'jwt expired' },
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+      resumeToken,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'lookup_failed',
+      error:
+        'We could not resume your saved pickup request. Please try again shortly.',
+    });
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects invalid expected pickup fees before merchant lookup', async () => {
