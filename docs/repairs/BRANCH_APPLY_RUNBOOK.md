@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (23 September migrations, including security hardenings).
+pickup follow-on** set (24 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -62,6 +62,7 @@ July catalog:
 21. `20260904190000_bind_repair_pickup_pending_payment_reference.sql` — pending Paystack `RPU-…` binding column + capability-gated bind RPC (before initializeTransaction)
 22. `20260904190050_clear_repair_pickup_pending_payment_reference.sql` — clear pending binding on confirm and mismatch ledger
 23. `20260904190100_activate_gigl_monitor_for_repair_pickups.sql` — enroll repair-linked orderless GIGL shipments in automated tracking monitors
+24. `20260904190200_apply_gigl_tracking_orderless_repair_pickups.sql` — null-safe apply RPC + nullable notification outbox for orderless repair pickups
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

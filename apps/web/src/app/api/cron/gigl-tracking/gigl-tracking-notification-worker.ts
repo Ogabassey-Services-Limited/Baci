@@ -15,7 +15,9 @@ const claimedNotificationSchema = z.object({
   id: z.uuid(),
   merchant_id: z.uuid(),
   notification_kind: z.string().min(1),
-  order_id: z.uuid(),
+  // Repair-pickup outbox rows may be orderless; shipment_id is the durable key.
+  order_id: z.uuid().nullable(),
+  shipment_id: z.uuid(),
   tracking_event_id: z.uuid(),
 });
 
@@ -66,8 +68,13 @@ async function processNotification(
     throw eventError ?? new Error('Tracking event missing');
 
   const copy = copyFor(notification.notification_kind, event.description);
-  const payload = { orderId: notification.order_id, type: 'shipment_tracking' };
-  if (notification.notification_kind === 'delivered') {
+  const payload = {
+    ...(notification.order_id
+      ? { orderId: notification.order_id }
+      : { shipmentId: notification.shipment_id }),
+    type: 'shipment_tracking',
+  };
+  if (notification.notification_kind === 'delivered' && notification.order_id) {
     await notifyDeliveredProtectionActivation(
       notification.order_id,
       notification.merchant_id
@@ -119,6 +126,16 @@ async function processNotification(
     );
   }
 
+  if (!notification.order_id) {
+    await complete(
+      supabase,
+      notification.id,
+      workerId,
+      'skipped',
+      'orderless_repair_pickup'
+    );
+    return 'skipped' as const;
+  }
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('customer_id')

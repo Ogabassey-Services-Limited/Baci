@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
+import { REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS } from '@/lib/repairs/repair-pickup-constants';
 import { createClient } from '@/lib/supabase/admin';
 import { repairPickupRequestSchema } from '@/schemas/repair-bookings';
 
@@ -10,17 +11,27 @@ const idSchema = z.uuid();
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-type ManualPickupOutcome = 'recorded' | 'not_found' | 'error';
+type ManualPickupOutcome = 'recorded' | 'not_found' | 'conflict' | 'error';
+
+function isActivePickupBookingLock(
+  lockToken: unknown,
+  startedAt: unknown,
+  nowMs = Date.now()
+): boolean {
+  if (typeof lockToken !== 'string' || lockToken.length === 0) return false;
+  if (typeof startedAt !== 'string' || startedAt.length === 0) return false;
+  const startedMs = Date.parse(startedAt);
+  if (Number.isNaN(startedMs)) return false;
+  return nowMs - startedMs < REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS * 1000;
+}
 
 /**
  * Records a manual pickup arrangement (the merchant handles logistics offline)
  * by appending an admin note. Used as the fallback when courier booking is
  * unavailable.
  *
- * Distinguishes a genuinely absent booking (`not_found`) from a database/RLS
- * failure (`error`) so a real fault is surfaced as a server error rather than
- * masquerading as a missing booking, and only reports `recorded` once the note
- * write has actually persisted.
+ * Refuses while a shipment is linked or an automatic booking lock is active so
+ * merchants cannot race a webhook/provider booking into dual fulfillment.
  */
 async function recordManualPickup(
   admin: ReturnType<typeof createClient>,
@@ -29,7 +40,9 @@ async function recordManualPickup(
 ): Promise<ManualPickupOutcome> {
   const { data, error } = await admin
     .from('repairs')
-    .select('admin_notes')
+    .select(
+      'admin_notes, shipment_id, pickup_booking_lock_token, pickup_booking_started_at'
+    )
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
     .maybeSingle();
@@ -47,15 +60,35 @@ async function recordManualPickup(
     return 'not_found';
   }
 
+  const row = data as {
+    admin_notes?: unknown;
+    shipment_id?: unknown;
+    pickup_booking_lock_token?: unknown;
+    pickup_booking_started_at?: unknown;
+  };
+  if (typeof row.shipment_id === 'string' && row.shipment_id.length > 0) {
+    return 'conflict';
+  }
+  if (
+    isActivePickupBookingLock(
+      row.pickup_booking_lock_token,
+      row.pickup_booking_started_at
+    )
+  ) {
+    return 'conflict';
+  }
+
   const existing =
-    typeof (data as { admin_notes?: unknown }).admin_notes === 'string'
-      ? ((data as { admin_notes: string }).admin_notes as string)
-      : '';
+    typeof row.admin_notes === 'string' ? (row.admin_notes as string) : '';
   const note = `${existing ? `${existing}\n` : ''}[${new Date().toISOString()}] Pickup arranged manually.`;
+  const staleCutoff = new Date(
+    Date.now() - REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS * 1000
+  ).toISOString();
 
   // Terminal `review` stops Paystack webhook rebooking loops (503 + retrying)
-  // while still allowing a later dashboard auto booking if needed.
-  const { error: updateError } = await admin
+  // while still allowing a later dashboard auto booking if needed. Guard the
+  // write so a concurrent provider link / active lock loses the race cleanly.
+  const { data: updated, error: updateError } = await admin
     .from('repairs')
     .update({
       admin_notes: note,
@@ -66,7 +99,13 @@ async function recordManualPickup(
     })
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
-    .neq('pickup_payment_status', 'booked');
+    .neq('pickup_payment_status', 'booked')
+    .is('shipment_id', null)
+    .or(
+      `pickup_booking_lock_token.is.null,pickup_booking_started_at.is.null,pickup_booking_started_at.lt.${staleCutoff}`
+    )
+    .select('id')
+    .maybeSingle();
 
   if (updateError) {
     logger.error({
@@ -76,6 +115,9 @@ async function recordManualPickup(
       error: updateError,
     });
     return 'error';
+  }
+  if (!updated) {
+    return 'conflict';
   }
 
   return 'recorded';
@@ -118,6 +160,15 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     );
     if (outcome === 'not_found') {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+    if (outcome === 'conflict') {
+      return NextResponse.json(
+        {
+          error:
+            'Automatic pickup booking is already linked or in progress. Refresh and try again.',
+        },
+        { status: 409 }
+      );
     }
     if (outcome === 'error') {
       return NextResponse.json(

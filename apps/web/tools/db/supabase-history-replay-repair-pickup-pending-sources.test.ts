@@ -27,6 +27,7 @@ describe('repair pickup pending replay sources', () => {
       '871f12584e7e82d7764d018eb2bff7c4f4d79ccecdffdd9be8f6b36a620f51c0 20260904190000_bind_repair_pickup_pending_payment_reference.sql',
       'c6a11a223fd1d633b051c717e22c1c7a575fc2911d99731958bcf377e51669ae 20260904190050_clear_repair_pickup_pending_payment_reference.sql',
       '2556bb2bb50b7a0c76eb9cf9518b6bded0f35ac449c92c98949d65d47d82ed55 20260904190100_activate_gigl_monitor_for_repair_pickups.sql',
+      '608a136973fcbdb6b871bc62ea43d4e5170d63cad41fedde133851b2c0e37a8e 20260904190200_apply_gigl_tracking_orderless_repair_pickups.sql',
     ]);
   });
 });

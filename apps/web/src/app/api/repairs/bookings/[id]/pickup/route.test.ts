@@ -34,19 +34,49 @@ function req(body?: unknown): Request {
   });
 }
 
-function manualAdmin(exists: boolean) {
-  const update = vi.fn().mockReturnValue({
+type ManualRow = {
+  admin_notes: string | null;
+  shipment_id: string | null;
+  pickup_booking_lock_token: string | null;
+  pickup_booking_started_at: string | null;
+};
+
+function manualAdmin(
+  exists: boolean,
+  overrides: Partial<ManualRow> = {},
+  updateMatched = true
+) {
+  const row: ManualRow = {
+    admin_notes: 'prior',
+    shipment_id: null,
+    pickup_booking_lock_token: null,
+    pickup_booking_started_at: null,
+    ...overrides,
+  };
+  const updateTerminal = {
     eq() {
       return this;
     },
     neq() {
       return this;
     },
-    // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
-    then(f: (v: unknown) => unknown) {
-      return Promise.resolve({ data: null, error: null }).then(f);
+    is() {
+      return this;
     },
-  });
+    or() {
+      return this;
+    },
+    select() {
+      return this;
+    },
+    maybeSingle() {
+      return Promise.resolve({
+        data: updateMatched ? { id: VALID_ID } : null,
+        error: null,
+      });
+    },
+  };
+  const update = vi.fn().mockReturnValue(updateTerminal);
   return {
     from() {
       const builder = {
@@ -59,7 +89,7 @@ function manualAdmin(exists: boolean) {
         },
         maybeSingle() {
           return Promise.resolve({
-            data: exists ? { admin_notes: 'prior' } : null,
+            data: exists ? row : null,
             error: null,
           });
         },
@@ -90,11 +120,19 @@ function manualAdminFailure(stage: 'lookup' | 'update') {
             neq() {
               return this;
             },
-            // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
-            then(f: (v: unknown) => unknown) {
+            is() {
+              return this;
+            },
+            or() {
+              return this;
+            },
+            select() {
+              return this;
+            },
+            maybeSingle() {
               return Promise.resolve(
                 stage === 'update' ? failure : { data: null, error: null }
-              ).then(f);
+              );
             },
           };
         },
@@ -105,7 +143,15 @@ function manualAdminFailure(stage: 'lookup' | 'update') {
           return Promise.resolve(
             stage === 'lookup'
               ? failure
-              : { data: { admin_notes: 'prior' }, error: null }
+              : {
+                  data: {
+                    admin_notes: 'prior',
+                    shipment_id: null,
+                    pickup_booking_lock_token: null,
+                    pickup_booking_started_at: null,
+                  },
+                  error: null,
+                }
           );
         },
       };
@@ -195,6 +241,28 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
         pickup_booking_started_at: null,
       })
     );
+  });
+
+  it('bugfix: returns 409 when manual fallback races a linked shipment', async () => {
+    mocks.createClient.mockReturnValueOnce(
+      manualAdmin(true, {
+        shipment_id: '00000000-0000-4000-8000-000000000099',
+      })
+    );
+    const res = await POST(req({ mode: 'manual' }) as never, { params });
+    expect(res.status).toBe(409);
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: returns 409 when an automatic booking lock is still active', async () => {
+    mocks.createClient.mockReturnValueOnce(
+      manualAdmin(true, {
+        pickup_booking_lock_token: 'lock-token',
+        pickup_booking_started_at: new Date().toISOString(),
+      })
+    );
+    const res = await POST(req({ mode: 'manual' }) as never, { params });
+    expect(res.status).toBe(409);
   });
 
   it('returns 404 when marking pickup manual on a missing booking', async () => {

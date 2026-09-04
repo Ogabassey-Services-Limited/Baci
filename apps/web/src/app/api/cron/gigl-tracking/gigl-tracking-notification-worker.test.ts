@@ -11,6 +11,7 @@ const notification = {
   merchant_id: '00000000-0000-4000-8000-000000000002',
   notification_kind: 'pickup_en_route',
   order_id: '00000000-0000-4000-8000-000000000003',
+  shipment_id: '00000000-0000-4000-8000-000000000005',
   tracking_event_id: '00000000-0000-4000-8000-000000000004',
 };
 
@@ -124,6 +125,53 @@ describe('processClaimedGiglTrackingNotifications', () => {
 
     expect(summary.skipped).toBe(1);
     expect(notifyCustomer).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: skips orderless repair-pickup customer claims without requiring an order', async () => {
+    const supabase = supabaseFor({
+      description: 'Delivered',
+      raw_status: 'DELIVERED',
+    });
+    const summary = await processClaimedGiglTrackingNotifications(
+      supabase as never,
+      [{ ...notification, audience: 'customer', order_id: null }],
+      'worker'
+    );
+
+    expect(summary.skipped).toBe(1);
+    expect(notifyCustomer).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_shipment_tracking_notification',
+      expect.objectContaining({
+        p_error: 'orderless_repair_pickup',
+        p_outcome: 'skipped',
+      })
+    );
+  });
+
+  it('bugfix: merchant orderless claims notify with shipment identity', async () => {
+    const supabase = supabaseFor({
+      description: 'Rider assigned',
+      raw_status: 'RIDER EN ROUTE FOR PICKUP',
+    });
+    const summary = await processClaimedGiglTrackingNotifications(
+      supabase as never,
+      [{ ...notification, order_id: null }],
+      'worker'
+    );
+
+    expect(summary.sent).toBe(1);
+    expect(notifyMerchant).toHaveBeenCalledWith(
+      notification.merchant_id,
+      'Rider en route',
+      expect.any(String),
+      {
+        shipmentId: notification.shipment_id,
+        type: 'shipment_tracking',
+      },
+      'orders',
+      expect.any(Object)
+    );
   });
 
   it('retries a transient customer lookup failure before dispatch begins', async () => {

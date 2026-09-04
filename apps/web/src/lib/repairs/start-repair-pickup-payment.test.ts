@@ -248,4 +248,21 @@ describe('startRepairPickupPayment', () => {
     expect(mocks.createRepairBooking).not.toHaveBeenCalled();
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
+
+  it('bugfix: refuses separator-padded phones before taking payment', async () => {
+    const result = await startRepairPickupPayment({
+      data: { ...input, customerPhone: '0803------' },
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'validation_failed',
+      error: 'Enter a valid phone number with at least 10 digits.',
+    });
+    expect(mocks.quoteRepairPickup).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+  });
 });

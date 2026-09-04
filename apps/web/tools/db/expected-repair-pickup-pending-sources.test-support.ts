@@ -114,4 +114,9 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904190100_activate_gigl_monitor_for_repair_pickups.sql',
     sha256: '2556bb2bb50b7a0c76eb9cf9518b6bded0f35ac449c92c98949d65d47d82ed55',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190200_apply_gigl_tracking_orderless_repair_pickups.sql',
+    sha256: '608a136973fcbdb6b871bc62ea43d4e5170d63cad41fedde133851b2c0e37a8e',
+  },
 ];

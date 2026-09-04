@@ -11,9 +11,14 @@ import {
 } from '@/lib/repairs/pickup-shipment-utils';
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
+import { repairPickupCustomerPhoneError } from '@/lib/repairs/repair-pickup-customer-phone';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 import { repairPickupResumeClaims } from '@/lib/repairs/repair-pickup-resume-claim';
 import { resolveRepairPickupPaymentMerchant } from '@/lib/repairs/resolve-repair-pickup-payment-merchant';
+import type {
+  StartRepairPickupPaymentInput,
+  StartRepairPickupPaymentResult,
+} from '@/lib/repairs/start-repair-pickup-payment-types';
 import { createClient } from '@/lib/supabase/server';
 import { repairBookingSchema } from '@/lib/validations/repair';
 import {
@@ -26,36 +31,6 @@ const createReference = customAlphabet(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
   16
 );
-
-type StartRepairPickupPaymentResult =
-  | {
-      success: true;
-      id: string;
-      ticketNumber: number;
-      resumeToken: string;
-      payment: {
-        amount: number;
-        authorizationUrl: string;
-        reference: string;
-      };
-    }
-  | {
-      success: false;
-      code: string;
-      error: string;
-      id?: string;
-      ticketNumber?: number;
-      resumeToken?: string;
-      quote?: { formattedPrice: string; price: number };
-    };
-
-interface StartRepairPickupPaymentInput {
-  data: unknown;
-  expectedPickupFee: unknown;
-  merchantId: string;
-  merchantIdentifier: string;
-  resumeToken?: string | null;
-}
 
 export async function startRepairPickupPayment({
   data,
@@ -93,6 +68,16 @@ export async function startRepairPickupPayment({
       success: false,
       code: 'validation_failed',
       error: 'Enter valid repair and pickup details.',
+    };
+  }
+
+  // Schema allows separator padding (e.g. "0803------"); GIGL needs real digits.
+  const phoneError = repairPickupCustomerPhoneError(parsed.data.customerPhone);
+  if (phoneError) {
+    return {
+      success: false,
+      code: 'validation_failed',
+      error: phoneError,
     };
   }
 
