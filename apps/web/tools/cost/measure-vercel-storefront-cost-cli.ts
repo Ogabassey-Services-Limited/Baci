@@ -1,7 +1,7 @@
-import { mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { assertMeasurementOutputPath } from './assert-measurement-output-path';
 import { measureVercelStorefrontCost } from './measure-vercel-storefront-cost';
 import type { WindowOptions } from './measure-vercel-storefront-cost-types';
+import { writeMeasurementReport } from './write-measurement-report';
 
 const SUPPORTED_MEASUREMENT_OPTIONS = new Set([
   '--project-id',
@@ -73,48 +73,6 @@ export function parseMeasurementArgs(
     outputPath: values.get('--out'),
     projectId,
   };
-}
-
-/** Replaces a report atomically with a newly-created private file. */
-export async function writeMeasurementReport(
-  outputPath: string,
-  serialized: string
-): Promise<void> {
-  const temporaryDirectory = await mkdtemp(
-    join(dirname(outputPath), '.vercel-cost-report-')
-  );
-  const temporaryPath = join(temporaryDirectory, 'report.json');
-  try {
-    await writeFile(temporaryPath, serialized, {
-      encoding: 'utf8',
-      flag: 'wx',
-      mode: 0o600,
-    });
-    await rename(temporaryPath, outputPath);
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
-}
-
-/** Rejects --out paths that would destroy measurement evidence inputs. */
-export async function assertMeasurementOutputPath(
-  outputPath: string,
-  inputPaths: readonly string[]
-): Promise<void> {
-  const resolvedOutput = await resolvedPath(outputPath);
-  for (const inputPath of inputPaths) {
-    if ((await resolvedPath(inputPath)) === resolvedOutput) {
-      throw new Error('measurement --out must not overwrite an input path');
-    }
-  }
-}
-
-async function resolvedPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 async function runMeasurementCli(): Promise<void> {

@@ -131,4 +131,40 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
       'billing export EffectiveCost total is out of safe range'
     );
   });
+
+  it('bugfix: rejects per-service quantity totals outside the safe integer range', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vercel-cost-qty-overflow-'));
+    roots.push(root);
+    const path = join(root, 'qty-overflow.jsonl');
+    await writeFile(
+      path,
+      `${JSON.stringify({
+        ChargePeriodStart: '2026-08-01T00:00:00.000Z',
+        ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
+        ConsumedQuantity: Number.MAX_SAFE_INTEGER,
+        EffectiveCost: 0,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
+      })}\n${JSON.stringify({
+        ChargePeriodStart: '2026-08-01T00:00:00.000Z',
+        ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
+        ConsumedQuantity: 2,
+        EffectiveCost: 0,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
+      })}\n`
+    );
+
+    await expect(
+      measureVercelStorefrontCost({
+        before: {
+          inputPath: path,
+          window: { deploymentSha: MEASUREMENT_BEFORE_SHA, label: 'before' },
+        },
+        projectId: MEASUREMENT_PROJECT_ID,
+      })
+    ).rejects.toThrow(
+      'billing export functionInvocations total is out of safe range'
+    );
+  });
 });

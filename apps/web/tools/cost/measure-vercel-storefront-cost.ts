@@ -84,6 +84,12 @@ function readProjectId(row: FocusRow) {
   return typeof value === 'string' ? value : undefined;
 }
 
+function assertSafeAggregate(total: number, field: string) {
+  if (!Number.isFinite(total) || Math.abs(total) > Number.MAX_SAFE_INTEGER) {
+    throw new Error(`billing export ${field} total is out of safe range`);
+  }
+}
+
 async function summarizeBillingWindow(
   path: string,
   projectId: string,
@@ -115,14 +121,7 @@ async function summarizeBillingWindow(
       continue;
     }
     projectEffectiveCostUsd += effectiveCost;
-    if (
-      !Number.isFinite(projectEffectiveCostUsd) ||
-      Math.abs(projectEffectiveCostUsd) > Number.MAX_SAFE_INTEGER
-    ) {
-      throw new Error(
-        'billing export EffectiveCost total is out of safe range'
-      );
-    }
+    assertSafeAggregate(projectEffectiveCostUsd, 'EffectiveCost');
     observedStart =
       !observedStart || start < observedStart ? start : observedStart;
     observedEnd = !observedEnd || end > observedEnd ? end : observedEnd;
@@ -132,7 +131,10 @@ async function summarizeBillingWindow(
       serviceName && Object.hasOwn(SERVICE_METRICS, serviceName)
         ? SERVICE_METRICS[serviceName as keyof typeof SERVICE_METRICS]
         : undefined;
-    if (metric) services[metric] += quantity;
+    if (metric) {
+      services[metric] += quantity;
+      assertSafeAggregate(services[metric], metric);
+    }
   }
   if (!observedStart || !observedEnd)
     throw new Error(`billing export has no rows for project ${projectId}`);
