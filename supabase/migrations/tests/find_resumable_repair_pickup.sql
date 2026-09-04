@@ -45,6 +45,17 @@ VALUES (
   now() - interval '30 minutes'
 );
 
+-- Capture ticket_number while still service_role: repair_pickup_receiver
+-- lacks SELECT on public.repairs (by design).
+CREATE TEMP TABLE pg_temp.find_resumable_repair_pickup_expected (
+  ticket_number integer NOT NULL
+) ON COMMIT DROP;
+
+INSERT INTO pg_temp.find_resumable_repair_pickup_expected (ticket_number)
+SELECT repairs.ticket_number
+FROM public.repairs AS repairs
+WHERE repairs.id = '84a63d82-0000-4000-8000-000000000010';
+
 SET LOCAL ROLE repair_pickup_receiver;
 
 DO $$
@@ -53,10 +64,9 @@ DECLARE
   found_ticket integer;
   expected_ticket integer;
 BEGIN
-  SELECT repairs.ticket_number
+  SELECT expected.ticket_number
   INTO expected_ticket
-  FROM public.repairs AS repairs
-  WHERE repairs.id = '84a63d82-0000-4000-8000-000000000010';
+  FROM pg_temp.find_resumable_repair_pickup_expected AS expected;
 
   IF EXISTS (
     SELECT 1
