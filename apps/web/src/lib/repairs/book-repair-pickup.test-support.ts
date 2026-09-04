@@ -156,7 +156,7 @@ export function happyResponses(overrides: Partial<Responses> = {}): Responses {
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
-    'shipments.delete': { data: null, error: null },
+    'shipments.delete': { data: [{ id: 'ship-1' }], error: null },
     'shipments.select': { data: null, error: null },
     'shipments.update': { data: { id: 'ship-1' }, error: null },
     ...overrides,
