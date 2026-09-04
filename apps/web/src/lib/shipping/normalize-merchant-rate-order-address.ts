@@ -9,7 +9,8 @@ export function normalizeMerchantRateOrderAddress(
 ): OrderShippingAddress {
   if (
     !isMerchantRateOrder ||
-    !shippingAddress?.city ||
+    !shippingAddress?.address ||
+    !shippingAddress.city ||
     !shippingAddress.state
   ) {
     return shippingAddress;

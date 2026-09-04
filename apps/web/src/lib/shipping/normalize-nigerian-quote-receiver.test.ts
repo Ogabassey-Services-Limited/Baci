@@ -97,4 +97,17 @@ describe('normalizeNigerianQuoteReceiver', () => {
 
     expect(result).toEqual(ambiguous);
   });
+
+  it('does not throw when the street address is missing', () => {
+    const withoutStreet = {
+      ...receiver,
+      address: undefined as unknown as string,
+      city: 'Ikeja',
+      state: '100001',
+    };
+
+    expect(normalizeNigerianQuoteReceiver(withoutStreet, 'domestic')).toEqual(
+      withoutStreet
+    );
+  });
 });

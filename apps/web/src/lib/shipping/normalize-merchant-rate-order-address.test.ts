@@ -22,4 +22,19 @@ describe('normalizeMerchantRateOrderAddress', () => {
       malformedAddress
     );
   });
+
+  it('skips repair when the street address is missing', () => {
+    const withoutStreet = {
+      address: undefined as unknown as string,
+      city: 'Ikeja',
+      state: '100001',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      postalCode: undefined,
+    };
+
+    expect(normalizeMerchantRateOrderAddress(withoutStreet, true)).toBe(
+      withoutStreet
+    );
+  });
 });

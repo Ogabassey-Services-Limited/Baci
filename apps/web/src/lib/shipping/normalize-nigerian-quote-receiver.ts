@@ -39,7 +39,7 @@ export function normalizeNigerianQuoteReceiver<T extends QuoteReceiverLocation>(
 
   const canonicalState =
     findKnownState(receiver.state ?? '') ??
-    [...receiver.address.split(',')]
+    [...(receiver.address ?? '').split(',')]
       .reverse()
       .map(findKnownState)
       .find((state): state is string => state !== null);
