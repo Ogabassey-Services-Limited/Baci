@@ -52,6 +52,10 @@ vi.mock('@/lib/shipping/book-order-shipment', () => ({
   bookOrderShipment: vi.fn(),
 }));
 
+vi.mock('@/lib/shipping/shipping-quote-booking-economics', () => ({
+  getShippingQuoteBookingEconomics: vi.fn(),
+}));
+
 vi.mock('@/lib/shipping/order-shipment-booking-lock', () => ({
   claimOrderShipmentBooking: vi.fn(),
   clearOrderShipmentBookingLock: vi.fn(),
@@ -112,6 +116,7 @@ import {
   clearOrderShipmentBookingLock,
 } from '@/lib/shipping/order-shipment-booking-lock';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
+import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
 import { PATCH } from './route';
 
 type ExistingOrder = {
@@ -238,6 +243,16 @@ describe('PATCH /api/orders/[id]', () => {
     vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
       status: 'claimed',
       lockToken: 'lock-1',
+    });
+    vi.mocked(getShippingQuoteBookingEconomics).mockResolvedValue({
+      provider_cost: 5000,
+      platform_margin: 1500,
+      platform_margin_bps: 3000,
+      pricing_version: 'v1',
+      shipping_provider_cost: 5000,
+      shipping_platform_margin: 1500,
+      shipping_pricing_version: 'v1',
+      shipping_platform_retained_amount: 1500,
     });
   });
 
