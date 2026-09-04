@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hasGiglCheckoutShippingRetention } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
-import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
+import { loadOrderGiglSettledRetainedAmount } from '@/lib/shipping/load-order-gigl-settled-retained-amount';
 
 export type FundedCheckoutGiglAddressLockOrder = {
   payment_status?: string | null;
@@ -10,8 +9,12 @@ export type FundedCheckoutGiglAddressLockOrder = {
 };
 
 /**
- * Paid customer-checkout GIGL retention is projected through the booking
- * economics RPC — never via revoked orders.shipping_platform_retained_amount.
+ * Paid customer-checkout GIGL address edits lock only when merchant_settlements
+ * has actually retained shipping. Quote-time economics snapshots (and the
+ * stamp trigger) can show a positive retained amount for quiz_voucher / zero-
+ * retention checkouts that never settled — those must stay editable so Admin
+ * can clear the quote and switch to merchant-wallet funding. Mirrors
+ * private.order_settled_gigl_retained_amount.
  */
 export async function isFundedCheckoutGiglAddressLocked(
   supabase: SupabaseClient,
@@ -29,16 +32,11 @@ export async function isFundedCheckoutGiglAddressLocked(
     return false;
   }
 
-  const economics = await getShippingQuoteBookingEconomics(
+  const settledRetained = await loadOrderGiglSettledRetainedAmount(
     supabase,
     merchantId,
-    orderId,
-    selectedQuoteId
+    orderId
   );
 
-  return hasGiglCheckoutShippingRetention({
-    shipping_funding_source: order.shipping_funding_source,
-    shipping_platform_retained_amount:
-      economics?.shipping_platform_retained_amount ?? null,
-  });
+  return settledRetained > 0;
 }

@@ -256,11 +256,11 @@ export async function PATCH(
             { status: 409 }
           );
         }
-        // Paid checkout-funded GIGL retention survives quote clears via DB
-        // triggers, but Admin re-quote cannot rebind away from checkout. Reject
-        // before clearing so prepaid shipping is not stranded without a quote.
-        // Retention is projected via get_shipping_quote_booking_economics —
-        // never selected from revoked orders economics columns.
+        // Settled checkout GIGL retention survives quote clears via DB
+        // triggers, and Admin cannot rebind away from checkout once settlement
+        // has retained shipping. Reject before clearing so prepaid shipping is
+        // not stranded without a quote. Lock on settled retention only —
+        // quote-time stamps (quiz_voucher / zero-retention) must stay editable.
         if (
           await isFundedCheckoutGiglAddressLocked(
             supabase,
