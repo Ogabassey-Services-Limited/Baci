@@ -45,11 +45,6 @@ VALUES (
   now() - interval '30 minutes'
 );
 
-SELECT ticket_number AS expected_ticket
-INTO TEMP TABLE expected_resumable_ticket
-FROM public.repairs
-WHERE id = '84a63d82-0000-4000-8000-000000000010';
-
 SET LOCAL ROLE repair_pickup_receiver;
 
 DO $$
@@ -58,9 +53,10 @@ DECLARE
   found_ticket integer;
   expected_ticket integer;
 BEGIN
-  SELECT expected_ticket
+  SELECT repairs.ticket_number
   INTO expected_ticket
-  FROM expected_resumable_ticket;
+  FROM public.repairs AS repairs
+  WHERE repairs.id = '84a63d82-0000-4000-8000-000000000010';
 
   IF EXISTS (
     SELECT 1
@@ -83,12 +79,12 @@ BEGIN
     true
   );
 
-  SELECT id, ticket_number
+  SELECT reclaim.id, reclaim.ticket_number
   INTO found_id, found_ticket
   FROM public.find_resumable_repair_pickup(
     '84a63d82-0000-4000-8000-000000000001',
     'Ada@Example.com'
-  );
+  ) AS reclaim;
 
   IF found_id IS DISTINCT FROM '84a63d82-0000-4000-8000-000000000010'::uuid
     OR found_ticket IS DISTINCT FROM expected_ticket
