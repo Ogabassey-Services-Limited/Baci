@@ -16692,7 +16692,8 @@ export type Database = {
           max_attempts: number;
           merchant_id: string;
           notification_kind: string;
-          order_id: string;
+          order_id: string | null;
+          repair_id: string | null;
           shipment_id: string;
           tracking_epoch_id: string;
           tracking_event_id: string;

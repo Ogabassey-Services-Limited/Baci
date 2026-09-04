@@ -39,8 +39,12 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
     const victimRepairId = '888e4567-e89b-12d3-a456-426614174000';
     const { client, from, rpc } = createRepairPickupPaymentSupabase();
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    const eq = vi.fn().mockReturnValue({ maybeSingle });
-    const select = vi.fn().mockReturnValue({ eq });
+    const serviceEq = vi.fn().mockReturnValue({ maybeSingle });
+    const referenceEq = vi.fn().mockReturnValue({
+      eq: serviceEq,
+      maybeSingle,
+    });
+    const select = vi.fn().mockReturnValue({ eq: referenceEq });
     from.mockReturnValue({ select, update: vi.fn() });
 
     try {
@@ -66,12 +70,9 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
         body: { message: 'Repair pickup payment mismatch ignored (unbound)' },
       });
       expect(rpc).not.toHaveBeenCalled();
+      expect(from).toHaveBeenCalledWith('repairs');
       expect(from).toHaveBeenCalledWith(
         'repair_pickup_pending_payment_references'
-      );
-      expect(eq).toHaveBeenCalledWith(
-        'reference',
-        repairPickupPaymentTestReference
       );
       expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
     } finally {
@@ -79,19 +80,89 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
     }
   });
 
-  it('ledgers an invalid claim when a trusted pending reference binding exists', async () => {
+  it('bugfix: retrying paid repair after claim verify fails still books', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { client, from, rpc } = createRepairPickupPaymentSupabase();
     const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: repairPickupPaymentTestRepairId,
+        merchant_id: repairPickupPaymentTestMerchantId,
+        pickup_currency: 'NGN',
+        pickup_fee: 8250,
+        pickup_payment_status: 'retrying',
+      },
+      error: null,
+    });
+    const serviceEq = vi.fn().mockReturnValue({ maybeSingle });
+    const referenceEq = vi.fn().mockReturnValue({ eq: serviceEq });
+    const select = vi.fn().mockReturnValue({ eq: referenceEq });
+    from.mockReturnValue({ select, update: vi.fn() });
+
+    try {
+      process.env.PAYSTACK_SECRET_KEY = 'rotated-paystack-secret';
+      const result = await handleRepairPickupPayment({
+        gateway: 'paystack',
+        gatewayResponse: {
+          currency: 'NGN',
+          metadata: createRepairPickupPaymentMetadata(),
+        },
+        reference: repairPickupPaymentTestReference,
+        supabase: client,
+        verifiedAmount: 8250,
+      });
+
+      expect(result).toEqual({
+        handled: true,
+        status: 200,
+        body: {
+          message: 'Repair pickup payment confirmed and shipment booked',
+          trackingNumber: '1349000000',
+        },
+      });
+      expect(rpc).not.toHaveBeenCalled();
+      expect(from).toHaveBeenCalledWith('repairs');
+      expect(mocks.bookRepairPickup).toHaveBeenCalledWith(
+        client,
+        repairPickupPaymentTestMerchantId,
+        repairPickupPaymentTestRepairId
+      );
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = repairPickupPaymentTestSecret;
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('ledgers an invalid claim when a trusted pending reference binding exists', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { client, from, rpc } = createRepairPickupPaymentSupabase();
+    const paidMaybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const paidServiceEq = vi.fn().mockReturnValue({
+      maybeSingle: paidMaybeSingle,
+    });
+    const paidReferenceEq = vi.fn().mockReturnValue({ eq: paidServiceEq });
+    const paidSelect = vi.fn().mockReturnValue({ eq: paidReferenceEq });
+
+    const pendingMaybeSingle = vi.fn().mockResolvedValue({
       data: {
         repair_id: repairPickupPaymentTestRepairId,
         merchant_id: repairPickupPaymentTestMerchantId,
       },
       error: null,
     });
-    const eq = vi.fn().mockReturnValue({ maybeSingle });
-    const select = vi.fn().mockReturnValue({ eq });
-    from.mockReturnValue({ select, update: vi.fn() });
+    const pendingEq = vi.fn().mockReturnValue({
+      maybeSingle: pendingMaybeSingle,
+    });
+    const pendingSelect = vi.fn().mockReturnValue({ eq: pendingEq });
+
+    from.mockImplementation((table: string) => {
+      if (table === 'repairs') {
+        return { select: paidSelect, update: vi.fn() };
+      }
+      return { select: pendingSelect, update: vi.fn() };
+    });
     rpc.mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
 
     try {
@@ -119,7 +190,7 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
       expect(from).toHaveBeenCalledWith(
         'repair_pickup_pending_payment_references'
       );
-      expect(eq).toHaveBeenCalledWith(
+      expect(pendingEq).toHaveBeenCalledWith(
         'reference',
         repairPickupPaymentTestReference
       );
@@ -140,13 +211,31 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
   it('returns 503 when pending-reference lookup fails for an invalid claim', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { client, from, rpc } = createRepairPickupPaymentSupabase();
-    const maybeSingle = vi.fn().mockResolvedValue({
+    const paidMaybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const paidServiceEq = vi.fn().mockReturnValue({
+      maybeSingle: paidMaybeSingle,
+    });
+    const paidReferenceEq = vi.fn().mockReturnValue({ eq: paidServiceEq });
+    const paidSelect = vi.fn().mockReturnValue({ eq: paidReferenceEq });
+
+    const pendingMaybeSingle = vi.fn().mockResolvedValue({
       data: null,
       error: { message: 'offline' },
     });
-    const eq = vi.fn().mockReturnValue({ maybeSingle });
-    const select = vi.fn().mockReturnValue({ eq });
-    from.mockReturnValue({ select, update: vi.fn() });
+    const pendingEq = vi.fn().mockReturnValue({
+      maybeSingle: pendingMaybeSingle,
+    });
+    const pendingSelect = vi.fn().mockReturnValue({ eq: pendingEq });
+
+    from.mockImplementation((table: string) => {
+      if (table === 'repairs') {
+        return { select: paidSelect, update: vi.fn() };
+      }
+      return { select: pendingSelect, update: vi.fn() };
+    });
 
     try {
       const result = await handleRepairPickupPayment({

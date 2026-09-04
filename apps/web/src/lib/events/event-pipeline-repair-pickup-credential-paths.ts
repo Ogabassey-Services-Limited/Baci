@@ -18,6 +18,8 @@ const bindPending =
   'apps/web/src/lib/repairs/bind-repair-pickup-pending-payment-reference.ts';
 const handlePayment =
   'apps/web/src/lib/repairs/handle-repair-pickup-payment.ts';
+const fulfillAfterPayment =
+  'apps/web/src/lib/repairs/fulfill-repair-pickup-after-payment.ts';
 const dispatchPayment =
   'apps/web/src/lib/repairs/dispatch-repair-pickup-payment.ts';
 const cachedData = 'apps/web/src/lib/cached-data.ts';
@@ -45,6 +47,7 @@ export const eventPipelineRepairPickupCredentialPaths = [
     webhookRoute,
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
     bookPickup,
     ...centerReceiverJwtEnv,
   ],
@@ -52,6 +55,7 @@ export const eventPipelineRepairPickupCredentialPaths = [
     webhookRoute,
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     cachedData,
@@ -59,10 +63,17 @@ export const eventPipelineRepairPickupCredentialPaths = [
   ],
   [pickupRoute, bookPickup, ...centerReceiverJwtEnv],
   [bookPickup, ...centerReceiverJwtEnv],
-  [dispatchPayment, handlePayment, bookPickup, ...centerReceiverJwtEnv],
   [
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
+    bookPickup,
+    ...centerReceiverJwtEnv,
+  ],
+  [
+    dispatchPayment,
+    handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     cachedData,
@@ -71,6 +82,7 @@ export const eventPipelineRepairPickupCredentialPaths = [
   [
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     expoPush,
@@ -79,6 +91,7 @@ export const eventPipelineRepairPickupCredentialPaths = [
   [
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     adminPath,
@@ -87,22 +100,74 @@ export const eventPipelineRepairPickupCredentialPaths = [
   [
     dispatchPayment,
     handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     zeptomail,
     envPath,
   ],
-  [handlePayment, bookPickup, ...centerReceiverJwtEnv],
+  [handlePayment, fulfillAfterPayment, bookPickup, ...centerReceiverJwtEnv],
   [
     handlePayment,
+    fulfillAfterPayment,
     notifyPickupBooking,
     repairNotifications,
     cachedData,
     envPath,
   ],
-  [handlePayment, notifyPickupBooking, repairNotifications, expoPush, envPath],
-  [handlePayment, notifyPickupBooking, repairNotifications, adminPath, envPath],
-  [handlePayment, notifyPickupBooking, repairNotifications, zeptomail, envPath],
+  [
+    handlePayment,
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    expoPush,
+    envPath,
+  ],
+  [
+    handlePayment,
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    adminPath,
+    envPath,
+  ],
+  [
+    handlePayment,
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    zeptomail,
+    envPath,
+  ],
+  [fulfillAfterPayment, bookPickup, ...centerReceiverJwtEnv],
+  [
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    cachedData,
+    envPath,
+  ],
+  [
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    expoPush,
+    envPath,
+  ],
+  [
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    adminPath,
+    envPath,
+  ],
+  [
+    fulfillAfterPayment,
+    notifyPickupBooking,
+    repairNotifications,
+    zeptomail,
+    envPath,
+  ],
   [notifyPickupBooking, repairNotifications, cachedData, envPath],
   [notifyPickupBooking, repairNotifications, expoPush, envPath],
   [notifyPickupBooking, repairNotifications, adminPath, envPath],

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
+import { findPaidRepairPickupByReference } from '@/lib/repairs/find-paid-repair-pickup-by-reference';
+import { fulfillRepairPickupAfterPayment } from '@/lib/repairs/fulfill-repair-pickup-after-payment';
 import { isRepairPickupPaymentConflictError } from '@/lib/repairs/is-repair-pickup-payment-conflict-error';
 import { ledgerRepairPickupPaymentClaimMismatch } from '@/lib/repairs/ledger-repair-pickup-payment-claim-mismatch';
-import { notifyRepairPickupBookingAfterPayment } from '@/lib/repairs/notify-repair-pickup-booking';
 import { recordRepairPickupPaymentMismatch } from '@/lib/repairs/record-repair-pickup-payment-mismatch';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 
@@ -27,30 +27,6 @@ function getConfirmed(value: unknown): boolean | null {
   if (!row || typeof row !== 'object') return null;
   const confirmed = (row as Record<string, unknown>).confirmed;
   return typeof confirmed === 'boolean' ? confirmed : null;
-}
-
-async function setPickupPaymentStatus(
-  supabase: SupabaseClient,
-  claim: { merchantId: string; reference: string; repairId: string },
-  status: 'retrying' | 'review'
-): Promise<boolean> {
-  const { error } = await supabase
-    .from('repairs')
-    .update({ pickup_payment_status: status })
-    .eq('id', claim.repairId)
-    .eq('merchant_id', claim.merchantId)
-    .eq('pickup_payment_reference', claim.reference)
-    // Never let a slower duplicate webhook overwrite a completed booking, a
-    // payment-side review state, or merchant manual fulfillment.
-    .neq('pickup_payment_status', 'booked')
-    .neq('pickup_payment_status', 'review')
-    .neq('pickup_payment_status', 'manual_fulfilled');
-
-  if (error) {
-    console.error('Repair pickup payment status update failed:', error);
-    return false;
-  }
-  return true;
 }
 
 async function readPickupPaymentStatus(
@@ -105,6 +81,30 @@ export async function handleRepairPickupPayment({
     claim.amountKobo !== Math.round(verifiedAmount * 100) ||
     claim.currency !== currency
   ) {
+    const paid = await findPaidRepairPickupByReference({
+      reference,
+      supabase,
+      verifiedAmount,
+    });
+    if (paid.kind === 'lookup_failed') {
+      return {
+        handled: true,
+        status: 503,
+        body: {
+          message: 'Repair pickup payment mismatch will retry until durable',
+        },
+      };
+    }
+    if (paid.kind === 'found') {
+      // Already-captured repair: continue booking without the rotated claim key.
+      return fulfillRepairPickupAfterPayment({
+        merchantId: paid.repair.merchantId,
+        pickupPaymentStatus: paid.repair.pickupPaymentStatus,
+        reference,
+        repairId: paid.repair.repairId,
+        supabase,
+      });
+    }
     return ledgerRepairPickupPaymentClaimMismatch({
       claim,
       currency,
@@ -163,100 +163,11 @@ export async function handleRepairPickupPayment({
   }
 
   const pickupPaymentStatus = await readPickupPaymentStatus(supabase, claim);
-  if (pickupPaymentStatus === 'manual_fulfilled') {
-    return {
-      handled: true,
-      status: 200,
-      body: {
-        message:
-          'Repair pickup payment confirmed; merchant arranged pickup manually',
-      },
-    };
-  }
-  if (pickupPaymentStatus === 'review') {
-    return {
-      handled: true,
-      status: 200,
-      body: {
-        message: 'Repair pickup payment confirmed; shipment requires review',
-      },
-    };
-  }
-
-  const booking = await bookRepairPickup(
+  return fulfillRepairPickupAfterPayment({
+    merchantId: claim.merchantId,
+    pickupPaymentStatus,
+    reference,
+    repairId: claim.repairId,
     supabase,
-    claim.merchantId,
-    claim.repairId
-  );
-  if (booking.ok) {
-    await notifyRepairPickupBookingAfterPayment(
-      supabase,
-      claim.merchantId,
-      claim.repairId
-    );
-    return {
-      handled: true,
-      status: 200,
-      body: {
-        message: 'Repair pickup payment confirmed and shipment booked',
-        trackingNumber: booking.trackingNumber,
-      },
-    };
-  }
-  if (booking.reason === 'already_booked') {
-    return {
-      handled: true,
-      status: 200,
-      body: { message: 'Repair pickup payment already processed' },
-    };
-  }
-
-  const shouldRetry = [
-    'booking_failed',
-    'booking_in_progress',
-    'gigl_unavailable',
-    'lookup_failed',
-  ].includes(booking.reason);
-  const statusUpdated = await setPickupPaymentStatus(
-    supabase,
-    claim,
-    shouldRetry ? 'retrying' : 'review'
-  );
-  if (!statusUpdated) {
-    // Fail closed so Paystack keeps redelivering until review/retrying is
-    // durable. Do not ACK a definitive fulfillment failure while the repair
-    // is still only marked paid.
-    console.error('Repair pickup review state could not be persisted:', {
-      reference,
-      repairId: claim.repairId,
-      shouldRetry,
-    });
-    return {
-      handled: true,
-      status: 503,
-      body: {
-        message: shouldRetry
-          ? 'Repair pickup payment confirmed; shipment booking will retry'
-          : 'Repair pickup payment confirmed; review state persistence will retry',
-      },
-    };
-  }
-
-  if (!shouldRetry) {
-    await notifyRepairPickupBookingAfterPayment(
-      supabase,
-      claim.merchantId,
-      claim.repairId
-    );
-  }
-
-  return {
-    handled: true,
-    status: shouldRetry ? 503 : 200,
-    body: {
-      message: shouldRetry
-        ? 'Repair pickup payment confirmed; shipment booking will retry'
-        : 'Repair pickup payment confirmed; shipment requires review',
-    },
-  };
+  });
 }

@@ -144,4 +144,14 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904190550_fix_gigl_tracking_notification_conflict_target.sql',
     sha256: '011a8fd87a20f3b40f0b6f9a7216d2f96b50d887f0c31ad982549591000bfb12',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql',
+    sha256: '437fd04810da462ea71ed3dec3f4104db73a37c3231cea9b997ef919b941f8f8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190650_claim_gigl_tracking_notifications_repair_id.sql',
+    sha256: 'eed6d935135baa88523d468f1a796bd13655645b29311d30fc55f3a6f327bbc2',
+  },
 ];

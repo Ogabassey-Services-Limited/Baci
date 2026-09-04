@@ -45,3 +45,22 @@ describe('fix GIGL tracking notification conflict target migration', () => {
     );
   });
 });
+
+describe('claim GIGL tracking notifications repair_id migration', () => {
+  it('projects repair_id for orderless claims without widening worker table access', () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        '../../supabase/migrations/20260904190650_claim_gigl_tracking_notifications_repair_id.sql'
+      ),
+      'utf8'
+    );
+
+    expect(migration).toContain(
+      'DROP FUNCTION IF EXISTS public.claim_shipment_tracking_notifications'
+    );
+    expect(migration).toContain('repair_id uuid');
+    expect(migration).toContain('FROM public.repairs AS candidate');
+    expect(migration).toContain('claimed.order_id IS NULL');
+  });
+});

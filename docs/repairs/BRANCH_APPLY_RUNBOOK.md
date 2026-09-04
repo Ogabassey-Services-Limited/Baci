@@ -68,6 +68,8 @@ July catalog:
 27. `20260904190450_consume_repair_pickup_pending_payment_references.sql` — consume history rows on confirm/mismatch; clear tip only when it matches the settled reference
 28. `20260904190500_preserve_manual_fulfilled_on_late_pickup_capture.sql` — late Paystack capture after merchant manual fulfillment (or booked) ledgers money without overwriting those terminal statuses to paid
 29. `20260904190550_fix_gigl_tracking_notification_conflict_target.sql` — rebind orderless apply RPC ON CONFLICT to bare exclusion so partial milestone/attempt indexes race safely
+30. `20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql` — keep pending RPU history until booked/manual_fulfilled so Paystack redelivery can bind after secret-key rotation while GIGL booking is still retrying
+31. `20260904190650_claim_gigl_tracking_notifications_repair_id.sql` — project `repair_id` on GIGL notification claims for orderless pickups (no privileged `repairs` table read in the worker)
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

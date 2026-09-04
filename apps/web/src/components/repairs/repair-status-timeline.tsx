@@ -46,7 +46,7 @@ function getPickupPaymentMessage(result: RepairStatusResult): string {
     return 'Payment confirmed. Your pickup needs support review.';
   }
   if (result.pickupPaymentStatus === 'manual_fulfilled') {
-    return 'Payment confirmed. Your merchant arranged pickup manually.';
+    return 'Manual courier arranged.';
   }
   return 'Payment confirmed. Arranging your GIGL pickup.';
 }

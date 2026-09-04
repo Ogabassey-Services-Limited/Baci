@@ -18,6 +18,8 @@ const claimedNotificationSchema = z.object({
   notification_kind: z.string().min(1),
   // Repair-pickup outbox rows may be orderless; shipment_id is the durable key.
   order_id: z.uuid().nullable(),
+  // Projected by claim_shipment_tracking_notifications for orderless pickups.
+  repair_id: z.uuid().nullable().optional(),
   shipment_id: z.uuid(),
   tracking_event_id: z.uuid(),
 });
@@ -99,10 +101,7 @@ async function processNotification(
     );
   };
   if (notification.audience === 'merchant') {
-    const payload = await buildGiglTrackingMerchantPushPayload(
-      supabase,
-      notification
-    );
+    const payload = buildGiglTrackingMerchantPushPayload(notification);
     const result = await notifyMerchant(
       notification.merchant_id,
       copy.title,

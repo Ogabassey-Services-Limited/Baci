@@ -57,6 +57,10 @@ const preserveLateCaptureMigrationPath = resolve(
   process.cwd(),
   '../../supabase/migrations/20260904190500_preserve_manual_fulfilled_on_late_pickup_capture.sql'
 );
+const deferConsumeMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql'
+);
 
 describe('preserve manual_fulfilled on late pickup capture migration', () => {
   it('keeps manual_fulfilled and booked terminal while still ledging late capture', () => {
@@ -69,5 +73,20 @@ describe('preserve manual_fulfilled on late pickup capture migration', () => {
     );
     expect(sql).toContain('preserved_pickup_payment_status');
     expect(sql).toContain('consumed_at = now()');
+  });
+});
+
+describe('defer repair pickup pending consume until fulfilled migration', () => {
+  it('keeps pending history after confirm until booked or manual_fulfilled', () => {
+    const sql = readFileSync(deferConsumeMigrationPath, 'utf8');
+    expect(sql).toContain(
+      'private.consume_repair_pickup_pending_payment_references'
+    );
+    expect(sql).toContain('consume_repair_pickup_pending_on_fulfilled');
+    expect(sql).toContain("'booked', 'manual_fulfilled'");
+    expect(sql).toContain('IF v_preserve_status IS NOT NULL THEN');
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.confirm_repair_pickup_payment'
+    );
   });
 });

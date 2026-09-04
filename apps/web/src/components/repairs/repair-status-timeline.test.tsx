@@ -170,17 +170,14 @@ describe('RepairStatusTimeline', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows merchant manual fulfillment without claiming GIGL is booked', () => {
+  it('shows merchant manual fulfillment without claiming payment was confirmed', () => {
     render(
       <RepairStatusTimeline
         result={{ ...baseResult, pickupPaymentStatus: 'manual_fulfilled' }}
       />
     );
 
-    expect(
-      screen.getByText(
-        'Payment confirmed. Your merchant arranged pickup manually.'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText('Manual courier arranged.')).toBeInTheDocument();
+    expect(screen.queryByText(/Payment confirmed/i)).not.toBeInTheDocument();
   });
 });
