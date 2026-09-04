@@ -36,7 +36,8 @@ function setup(actualRetainedShippingAmount = 11_000) {
     },
     error: null,
   }));
-  const eqSourceId = vi.fn(() => ({ maybeSingle }));
+  const neqStatus = vi.fn(() => ({ maybeSingle }));
+  const eqSourceId = vi.fn(() => ({ neq: neqStatus }));
   const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
   const eqGatewayReference = vi.fn(() => ({ eq: eqSourceType }));
   const eqGateway = vi.fn(() => ({ eq: eqGatewayReference }));
