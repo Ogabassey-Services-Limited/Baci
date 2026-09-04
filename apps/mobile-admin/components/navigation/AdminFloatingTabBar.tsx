@@ -20,6 +20,7 @@ import { PRIMARY_ADMIN_TAB_ROUTE_NAMES } from './AdminFloatingTabBar.routes';
 import type { AdminFloatingTabOptions } from './AdminFloatingTabBarItem';
 import { AdminFloatingTabBarItem } from './AdminFloatingTabBarItem';
 import { animateAdminFloatingTabIndicator } from './AdminFloatingTabBarLiquidIndicator';
+import { createJumpToTabAction } from './create-jump-to-tab-action';
 import { useWarmAdminTabScreens } from './useWarmAdminTabScreens';
 
 const BAR_HORIZONTAL_MARGIN = 12;
@@ -27,15 +28,6 @@ const BAR_HORIZONTAL_PADDING = 8;
 const BAR_HEIGHT = 62;
 const CAPSULE_WIDTH = 42;
 const CAPSULE_HEIGHT = 38;
-
-type TabRoute = BottomTabBarProps['state']['routes'][number];
-
-function createJumpToTabAction(name: string, params: TabRoute['params']) {
-  return {
-    payload: { name, params },
-    type: 'JUMP_TO',
-  };
-}
 
 export function AdminFloatingTabBar({
   descriptors,
@@ -219,8 +211,7 @@ export function AdminFloatingTabBar({
           const handlePress = () => {
             if (pressInHandledRouteKeyRef.current === route.key) {
               pressInHandledRouteKeyRef.current = null;
-              // Count the pressIn selection as the first tap so a second
-              // focused tap can scroll-to-top without needing a third tap.
+              // Count pressIn selection as first double-tap press.
               lastFocusedPressRef.current = recordAdminTabPress(
                 lastFocusedPressRef.current,
                 route.key,
