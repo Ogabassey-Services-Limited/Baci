@@ -74,15 +74,21 @@ export async function bookWalletFundedOrderShipment(
     );
   }
   const resumedExistingReservation = Boolean(reservation);
+  // Never refresh/replace quotes while a provider submission may already be live.
+  // cleanupPreSubmissionReservation refunds shipment_id-null charges, including
+  // provider_submitting, which can double-book if GIGL already accepted.
+  const resumeProviderSubmitting =
+    reservation?.charge.status === 'provider_submitting';
   if (
     prepareQuote &&
     !pendingExistingShipment &&
+    !resumeProviderSubmitting &&
     (!reservation || reservedChargeState !== false)
   ) {
     try {
       preparedQuoteId = await prepareQuote();
     } catch (error) {
-      if (reservation) {
+      if (reservation && reservation.charge.status === 'reserved') {
         await cleanupPreSubmissionReservation(
           supabase,
           reservation,

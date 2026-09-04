@@ -106,6 +106,42 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
     expect(book).not.toHaveBeenCalled();
   });
 
+  it('bugfix: does not refund provider_submitting charges when quote prep would fail', async () => {
+    const prepareQuote = vi
+      .fn()
+      .mockRejectedValue(new Error('quote expired during retry'));
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+    };
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'charge-submitting',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'provider_submitting',
+      },
+      token: 's'.repeat(64),
+    });
+    const book = vi.fn();
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabase as never,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        undefined,
+        prepareQuote
+      )
+    ).rejects.toMatchObject({ code: 'SHIPMENT_BOOKING_IN_PROGRESS' });
+
+    expect(prepareQuote).not.toHaveBeenCalled();
+    expect(charge.refundMerchantShippingCharge).not.toHaveBeenCalled();
+    expect(book).not.toHaveBeenCalled();
+  });
+
   it('returns an existing booked shipment before preparing a quote', async () => {
     const existing = {
       shipmentId: 's-existing',
