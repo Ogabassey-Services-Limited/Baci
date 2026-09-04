@@ -1,6 +1,7 @@
 /**
  * Whether dashboard/webhook booking may proceed for this repair's payment state.
  * Legacy pre-payment-column rows (null status + null reference) remain bookable.
+ * New unpaid pickups are marked awaiting_payment and are not bookable yet.
  */
 export function isRepairPickupPaymentReady(repair: {
   pickup_fee: number | string | null;
@@ -12,6 +13,9 @@ export function isRepairPickupPaymentReady(repair: {
     repair.pickup_payment_reference == null
   ) {
     return true;
+  }
+  if (repair.pickup_payment_status === 'awaiting_payment') {
+    return false;
   }
   const paidPickupFee = Number(repair.pickup_fee);
   const pickupPaymentStatus = repair.pickup_payment_status ?? '';

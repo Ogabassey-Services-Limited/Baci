@@ -3,6 +3,7 @@ import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { initializeTransaction } from '@/lib/paystack';
 import { createRepairBooking } from '@/lib/repairs/create-repair-core';
 import { findResumablePickupRepair } from '@/lib/repairs/find-resumable-repair-pickup';
+import { markRepairPickupAwaitingPayment } from '@/lib/repairs/mark-repair-pickup-awaiting-payment';
 import {
   buildPickupItems,
   buildPickupSender,
@@ -223,6 +224,21 @@ export async function startRepairPickupPayment({
     },
     secret
   );
+
+  const awaiting = await markRepairPickupAwaitingPayment({
+    merchantId: merchant.id,
+    repairId: repair.id,
+  });
+  if (!awaiting.ok) {
+    return {
+      success: false,
+      code: 'payment_initialization_failed',
+      error: awaiting.error,
+      id: repair.id,
+      ticketNumber: repair.ticketNumber,
+      resumeToken: nextResumeToken,
+    };
+  }
 
   const reference = `RPU-${createReference()}`;
   const metadata = repairPickupPaymentClaims.create(

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   ensureActionRateLimit: vi.fn(),
   getRepairCenterAddress: vi.fn(),
   initializeTransaction: vi.fn(),
+  markRepairPickupAwaitingPayment: vi.fn(),
   quoteRepairPickup: vi.fn(),
   resolveWalletTopUpMerchant: vi.fn(),
   rpc: vi.fn(),
@@ -27,6 +28,9 @@ vi.mock('@/lib/ensure-action-rate-limit', () => ({
 }));
 vi.mock('@/lib/repairs/create-repair-core', () => ({
   createRepairBooking: mocks.createRepairBooking,
+}));
+vi.mock('@/lib/repairs/mark-repair-pickup-awaiting-payment', () => ({
+  markRepairPickupAwaitingPayment: mocks.markRepairPickupAwaitingPayment,
 }));
 vi.mock('@/lib/repairs/quote-repair-pickup', () => ({
   quoteRepairPickup: mocks.quoteRepairPickup,
@@ -113,6 +117,7 @@ export function arrangeStartRepairPickupPayment() {
     id: startRepairPickupPaymentRepairId,
     ticketNumber: 42,
   });
+  mocks.markRepairPickupAwaitingPayment.mockResolvedValue({ ok: true });
   mocks.initializeTransaction.mockResolvedValue({
     access_code: 'access-code',
     authorization_url: 'https://checkout.paystack.com/access-code',

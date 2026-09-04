@@ -11,6 +11,13 @@ describe('eventPipelineRepairPickupCredentialPaths', () => {
       'apps/web/src/env.ts',
     ]);
     expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
+      'apps/web/src/lib/repairs/mark-repair-pickup-awaiting-payment.ts',
+      'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
+      'apps/web/src/lib/supabase/scoped-jwt.ts',
+      'apps/web/src/lib/agentic/jwt-signing-material.ts',
+      'apps/web/src/env.ts',
+    ]);
+    expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
       'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts',
       'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
       'apps/web/src/lib/supabase/scoped-jwt.ts',

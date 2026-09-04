@@ -69,7 +69,7 @@ describe('RepairStatusTimeline', () => {
           ...baseResult,
           pickupCurrency: null,
           pickupFee: null,
-          pickupPaymentStatus: null,
+          pickupPaymentStatus: 'awaiting_payment',
         }}
       />
     );
@@ -77,6 +77,28 @@ describe('RepairStatusTimeline', () => {
     expect(
       screen.getByText('Pickup payment is still required.')
     ).toBeInTheDocument();
+  });
+
+  it('does not claim payment is required for legacy null payment columns', () => {
+    render(
+      <RepairStatusTimeline
+        result={{
+          ...baseResult,
+          pickupCurrency: null,
+          pickupFee: null,
+          pickupPaymentStatus: null,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'Courier pickup will be arranged once your request is confirmed.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Pickup payment is still required.')
+    ).not.toBeInTheDocument();
   });
 
   it('treats legacy tracked pickups as booked when payment status is null', () => {

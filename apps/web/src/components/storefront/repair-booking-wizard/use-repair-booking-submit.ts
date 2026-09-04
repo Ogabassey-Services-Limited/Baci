@@ -85,8 +85,12 @@ export function useRepairBookingSubmit({
         }
 
         if (result.code === 'payment_initialization_failed') {
+          const ticketSuffix =
+            typeof result.ticketNumber === 'number'
+              ? ` Ticket #${result.ticketNumber}.`
+              : '';
           toast({
-            description: result.error,
+            description: `${result.error}${ticketSuffix}`,
             title: 'Submission Failed',
             variant: 'destructive',
           });

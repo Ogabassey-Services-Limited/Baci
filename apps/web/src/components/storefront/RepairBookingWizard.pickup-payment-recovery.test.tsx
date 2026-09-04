@@ -170,7 +170,7 @@ describe('RepairBookingWizard pickup payment recovery', () => {
     ).toBeEnabled();
     expect(mocks.toast).toHaveBeenCalledWith({
       description:
-        'Your repair request was saved, but payment could not start. Use your ticket to retry shortly.',
+        'Your repair request was saved, but payment could not start. Use your ticket to retry shortly. Ticket #42.',
       title: 'Submission Failed',
       variant: 'destructive',
     });

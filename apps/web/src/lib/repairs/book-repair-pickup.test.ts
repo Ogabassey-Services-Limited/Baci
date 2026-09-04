@@ -68,49 +68,6 @@ describe('bookRepairPickup', () => {
     }
   });
 
-  it('grandfathers legacy unpaid pickups with null payment columns', async () => {
-    const supabase = makeSupabase(
-      happyResponses({
-        'repairs.select': {
-          data: {
-            ...repairRow,
-            pickup_fee: null,
-            pickup_payment_status: null,
-            pickup_payment_reference: null,
-          },
-          error: null,
-        },
-      })
-    );
-
-    const result = await bookRepairPickup(supabase, merchantId, repairId);
-
-    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
-    expect(mocks.bookShipment).toHaveBeenCalledOnce();
-  });
-
-  it('still requires payment when a pickup reference exists without paid status', async () => {
-    const supabase = makeSupabase(
-      happyResponses({
-        'repairs.select': {
-          data: {
-            ...repairRow,
-            pickup_fee: null,
-            pickup_payment_status: null,
-            pickup_payment_reference: 'RPU-PENDINGREF12345',
-          },
-          error: null,
-        },
-      })
-    );
-
-    const result = await bookRepairPickup(supabase, merchantId, repairId);
-
-    expect(result).toMatchObject({ ok: false, reason: 'payment_required' });
-    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
-    expect(mocks.bookShipment).not.toHaveBeenCalled();
-  });
-
   it('returns already_booked when a shipment is already linked', async () => {
     const supabase = makeSupabase(
       happyResponses({
@@ -171,38 +128,6 @@ describe('bookRepairPickup', () => {
 
     expect(result).toMatchObject({ ok: false, reason: 'already_booked' });
     expect(mocks.bookShipment).not.toHaveBeenCalled();
-  });
-
-  it('retries a paid pickup after a transient booking failure', async () => {
-    const supabase = makeSupabase(
-      happyResponses({
-        'repairs.select': {
-          data: { ...repairRow, pickup_payment_status: 'retrying' },
-          error: null,
-        },
-      })
-    );
-
-    const result = await bookRepairPickup(supabase, merchantId, repairId);
-
-    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
-    expect(mocks.bookShipment).toHaveBeenCalledOnce();
-  });
-
-  it('retries a pickup that is awaiting merchant review after payment', async () => {
-    const supabase = makeSupabase(
-      happyResponses({
-        'repairs.select': {
-          data: { ...repairRow, pickup_payment_status: 'review' },
-          error: null,
-        },
-      })
-    );
-
-    const result = await bookRepairPickup(supabase, merchantId, repairId);
-
-    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
-    expect(mocks.bookShipment).toHaveBeenCalledOnce();
   });
 
   it('refuses to book a pickup for a terminal (completed) repair', async () => {

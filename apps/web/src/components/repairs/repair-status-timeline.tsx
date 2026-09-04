@@ -36,7 +36,12 @@ function getPickupPaymentMessage(result: RepairStatusResult): string {
       ? 'Your GIGL pickup is booked. Follow its progress below.'
       : 'Your GIGL pickup is booked. Tracking will appear shortly.';
   }
-  if (!result.pickupPaymentStatus) return 'Pickup payment is still required.';
+  if (result.pickupPaymentStatus === 'awaiting_payment') {
+    return 'Pickup payment is still required.';
+  }
+  if (!result.pickupPaymentStatus) {
+    return 'Courier pickup will be arranged once your request is confirmed.';
+  }
   if (result.pickupPaymentStatus === 'review') {
     return 'Payment confirmed. Your pickup needs support review.';
   }

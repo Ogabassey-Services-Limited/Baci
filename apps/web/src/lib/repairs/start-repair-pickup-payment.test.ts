@@ -54,6 +54,10 @@ describe('startRepairPickupPayment', () => {
         authorizationUrl: 'https://checkout.paystack.com/access-code',
       },
     });
+    expect(mocks.markRepairPickupAwaitingPayment).toHaveBeenCalledWith({
+      merchantId,
+      repairId,
+    });
     const initPayload = mocks.initializeTransaction.mock.calls[0]?.[0];
     expect(initPayload.amount).toBe(825_000);
     expect(initPayload.email).toBe('ada@example.com');
@@ -131,6 +135,33 @@ describe('startRepairPickupPayment', () => {
       ticketNumber: 42,
     });
     expect(result).toHaveProperty('resumeToken');
+    expect(mocks.markRepairPickupAwaitingPayment).toHaveBeenCalledWith({
+      merchantId,
+      repairId,
+    });
+  });
+
+  it('does not initialize Paystack when awaiting_payment cannot be marked', async () => {
+    mocks.markRepairPickupAwaitingPayment.mockResolvedValueOnce({
+      ok: false,
+      error:
+        'We could not prepare pickup payment for this request. Please try again shortly.',
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'payment_initialization_failed',
+      id: repairId,
+      ticketNumber: 42,
+    });
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 
   it('returns pickup_unavailable when the live quote request throws', async () => {

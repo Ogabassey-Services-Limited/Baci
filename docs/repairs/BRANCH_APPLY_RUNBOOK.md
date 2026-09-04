@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (13+ September migrations, including security hardenings).
+pickup follow-on** set (15 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -52,6 +52,8 @@ July catalog:
 11. `20260904090000_find_resumable_repair_pickup.sql` — unpaid pickup reclaim RPC (initial)
 12. `20260904110000_secure_find_resumable_repair_pickup.sql` — lock reclaim behind the same receiver capability; exclude terminal statuses
 13. `20260904110100_exclude_repair_pickup_refunds_from_reconciliation.sql` — exclude pickup refunds from admin reconciliation metrics/lanes
+14. `20260904120000_record_repair_pickup_payment_mismatch.sql` — ledger claim mismatches and force review without booking
+15. `20260904130000_awaiting_repair_pickup_payment.sql` — allow `awaiting_payment` status + capability-gated mark RPC so unpaid new pickups are not bookable
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

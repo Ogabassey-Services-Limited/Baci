@@ -25,6 +25,16 @@ describe('isRepairPickupPaymentReady', () => {
     ).toBe(false);
   });
 
+  it('blocks newly created pickups marked awaiting_payment', () => {
+    expect(
+      isRepairPickupPaymentReady({
+        pickup_fee: null,
+        pickup_payment_reference: null,
+        pickup_payment_status: 'awaiting_payment',
+      })
+    ).toBe(false);
+  });
+
   it('allows paid pickups with a positive fee', () => {
     expect(
       isRepairPickupPaymentReady({

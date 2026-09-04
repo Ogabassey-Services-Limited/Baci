@@ -48,6 +48,10 @@ describe('startRepairPickupPayment resume and validation', () => {
       p_customer_email: input.customerEmail,
     });
     expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(mocks.markRepairPickupAwaitingPayment).toHaveBeenCalledWith({
+      merchantId,
+      repairId: existingId,
+    });
     expect(result).toMatchObject({
       success: true,
       id: existingId,
