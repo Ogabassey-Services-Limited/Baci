@@ -107,5 +107,6 @@ export const eventPipelineRepairPickupCredentialPaths = [
   [...receiverJwtEnv],
   [startPayment, ...centerReceiverJwtEnv],
   [startPayment, findResumable, ...receiverJwtEnv],
+  [findResumable, ...receiverJwtEnv],
   [repairPickupPaymentAction, startPayment, findResumable, ...receiverJwtEnv],
 ] as const;
