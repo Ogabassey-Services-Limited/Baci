@@ -208,6 +208,51 @@ describe('refreshWalletOrderShipmentQuote', () => {
       status: 400,
       code: 'SHIPPING_QUOTE_ITEMS_MISMATCH',
     },
+    {
+      name: 'the order package dimensions no longer match the attested quote',
+      options: {
+        order: {
+          data: {
+            ...matchingOrder,
+            order_items: [
+              {
+                name: 'Widget',
+                quantity: 1,
+                price: 5000,
+                product: {
+                  weight_value: 1,
+                  weight_unit: 'kg',
+                  dimensions: { length: 20, width: 15, height: 10, unit: 'cm' },
+                },
+              },
+            ],
+          },
+          error: null,
+        },
+        quote: {
+          data: {
+            ...storedQuote,
+            quote_request: {
+              ...domesticQuoteRequest,
+              items: [
+                {
+                  name: 'Widget',
+                  quantity: 1,
+                  weight: 1,
+                  value: 5000,
+                  length: 10,
+                  width: 8,
+                  height: 6,
+                },
+              ],
+            },
+          },
+          error: null,
+        },
+      },
+      status: 400,
+      code: 'SHIPPING_QUOTE_ITEMS_MISMATCH',
+    },
   ])('throws $code when $name', async ({ options, status, code }) => {
     await expect(refresh(createSupabase(options))).rejects.toMatchObject({
       status,

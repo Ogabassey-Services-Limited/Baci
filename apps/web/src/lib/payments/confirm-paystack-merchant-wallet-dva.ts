@@ -71,6 +71,14 @@ export async function confirmPaystackMerchantWalletDva({
     verifiedAmount.currency !== 'NGN'
   )
     return { kind: 'none' };
+  const authorization = paystackResponse.authorization;
+  const paystackChannel =
+    authorization &&
+    typeof authorization === 'object' &&
+    'channel' in authorization
+      ? String((authorization as { channel?: unknown }).channel ?? '').trim()
+      : '';
+  if (paystackChannel !== 'dedicated_nuban') return { kind: 'none' };
   const { data: accounts, error } = await supabase
     .from('merchant_wallet_payment_accounts')
     .select('merchant_id, account_number, status')

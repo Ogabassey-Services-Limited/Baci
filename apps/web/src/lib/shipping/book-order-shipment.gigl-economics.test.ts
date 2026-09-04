@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/shipping', () => ({
@@ -40,6 +41,7 @@ function createSupabase(
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
+    ...prepaidGiglCustomerCheckoutPayment,
     shipping_funding_source: options.fundingSource ?? 'customer_checkout',
     shipping_provider_cost: 1000,
     shipping_platform_margin: 100,

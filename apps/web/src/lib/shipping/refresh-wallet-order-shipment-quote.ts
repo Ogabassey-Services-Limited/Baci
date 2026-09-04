@@ -27,7 +27,7 @@ export async function refreshWalletOrderShipmentQuote(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product:products!order_items_product_id_fkey(weight_value, weight_unit))'
+      'id, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)

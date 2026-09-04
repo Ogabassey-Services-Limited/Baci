@@ -18,6 +18,9 @@ type OrderItemRecord = {
   price?: number | string | null;
   quantity: number | null;
   weight?: number | string | null;
+  length?: number | string | null;
+  width?: number | string | null;
+  height?: number | string | null;
 };
 
 export type InternationalQuoteOrder = {
@@ -122,6 +125,29 @@ function amountsMatch(
   );
 }
 
+function dimensionsMatch(
+  orderItem: OrderItemRecord,
+  quoteItem: QuoteRequest['items'][number]
+): boolean {
+  const quoteHasDimensions =
+    quoteItem.length !== undefined &&
+    quoteItem.width !== undefined &&
+    quoteItem.height !== undefined;
+  if (!quoteHasDimensions) return true;
+
+  const orderHasDimensions =
+    orderItem.length !== undefined &&
+    orderItem.width !== undefined &&
+    orderItem.height !== undefined;
+  if (!orderHasDimensions) return true;
+
+  return (
+    amountsMatch(orderItem.length!, quoteItem.length!) &&
+    amountsMatch(orderItem.width!, quoteItem.width!) &&
+    amountsMatch(orderItem.height!, quoteItem.height!)
+  );
+}
+
 function matchesQuoteItem(
   orderItem: OrderItemRecord,
   quoteItem: QuoteRequest['items'][number]
@@ -131,7 +157,8 @@ function matchesQuoteItem(
     (orderItem.quantity ?? 1) === quoteItem.quantity &&
     amountsMatch(orderItem.price, quoteItem.value) &&
     (orderItem.weight === undefined ||
-      amountsMatch(orderItem.weight, quoteItem.weight))
+      amountsMatch(orderItem.weight, quoteItem.weight)) &&
+    dimensionsMatch(orderItem, quoteItem)
   );
 }
 

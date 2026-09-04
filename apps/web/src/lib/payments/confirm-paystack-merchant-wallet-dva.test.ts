@@ -45,7 +45,7 @@ const input = (
   accountNumber: '1234567890',
   gatewayReference: 'R1',
   verifiedAmount: { amount: 1500, currency: 'NGN' },
-  paystackResponse: {},
+  paystackResponse: { authorization: { channel: 'dedicated_nuban' } },
   ...extra,
 });
 describe('verified merchant-wallet DVA credit', () => {
@@ -184,13 +184,46 @@ describe('verified merchant-wallet DVA credit', () => {
     const s = client([{ merchant_id: 'm' }]);
     const before = Date.now();
     await confirmPaystackMerchantWalletDva(
-      input(s, { paystackResponse: { paid_at: 'not-a-date' } })
+      input(s, {
+        paystackResponse: {
+          authorization: { channel: 'dedicated_nuban' },
+          paid_at: 'not-a-date',
+        },
+      })
     );
     const aliasCall = alias.mock.calls.at(-1)?.[0] as { asOf: Date };
     expect(aliasCall.asOf).toBeInstanceOf(Date);
     expect(aliasCall.asOf.getTime()).toBeGreaterThanOrEqual(before);
     expect(Number.isNaN(aliasCall.asOf.getTime())).toBe(false);
   });
+  it('returns none when Paystack channel is not dedicated_nuban', async () => {
+    const s = client([{ merchant_id: 'm' }]);
+    expect(
+      (
+        await confirmPaystackMerchantWalletDva(
+          input(s, {
+            paystackResponse: {
+              authorization: { channel: 'card' },
+            },
+          })
+        )
+      ).kind
+    ).toBe('none');
+    expect(s.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns none when Paystack authorization channel is missing', async () => {
+    const s = client([{ merchant_id: 'm' }]);
+    expect(
+      (
+        await confirmPaystackMerchantWalletDva(
+          input(s, { paystackResponse: { authorization: {} } })
+        )
+      ).kind
+    ).toBe('none');
+    expect(s.rpc).not.toHaveBeenCalled();
+  });
+
   it('credits exact active account and returns balance', async () => {
     const s = client([{ merchant_id: 'm' }]);
     const result = await confirmPaystackMerchantWalletDva(input(s));

@@ -24,6 +24,12 @@ export const correctedSender = {
   postalCode: '100001',
 };
 
+export const prepaidGiglCustomerCheckoutPayment = {
+  payment_status: 'paid' as const,
+  payment_method: 'card',
+  shipping_funding_source: 'customer_checkout' as const,
+};
+
 type StoredSender = typeof staleSender | typeof correctedSender;
 
 export function stubShippingService() {
@@ -74,7 +80,8 @@ export function createSupabase({
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
-    shipping_funding_source: fundingSource,
+    ...prepaidGiglCustomerCheckoutPayment,
+    shipping_funding_source: fundingSource ?? 'customer_checkout',
     shipping_address: {
       address: 'Receiver Road',
       city: 'Abuja',
@@ -158,21 +165,27 @@ export function createSupabase({
       return { data: null, error: null };
     }),
     from: vi.fn((table: string) => {
-      if (table === 'orders') return { select: vi.fn(() => orderSelect) };
+      if (table === 'orders') {
+        return { select: vi.fn((..._args: unknown[]) => orderSelect) };
+      }
       if (table === 'shipments') {
         return {
-          select: vi.fn(() => existingShipmentSelect),
-          insert: vi.fn(() => ({ select: vi.fn(() => insertSelect) })),
+          select: vi.fn((..._args: unknown[]) => existingShipmentSelect),
+          insert: vi.fn(() => ({
+            select: vi.fn((..._args: unknown[]) => insertSelect),
+          })),
         };
       }
       if (table === 'shipping_quotes') {
         return {
-          select: vi.fn(() => quoteSelect),
+          select: vi.fn((..._args: unknown[]) => quoteSelect),
           update: vi.fn(() => update),
           upsert: vi.fn().mockResolvedValue({ error: upsertError }),
         };
       }
-      if (table === 'merchants') return { select: vi.fn(() => merchantSelect) };
+      if (table === 'merchants') {
+        return { select: vi.fn((..._args: unknown[]) => merchantSelect) };
+      }
       throw new Error(`Unexpected table ${table}`);
     }),
   } as never;

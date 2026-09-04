@@ -5,6 +5,87 @@ import {
 } from './international-shipment-items';
 
 describe('toInternationalShipmentItemsFromOrder', () => {
+  it('falls back to 1 kilogram for unsupported weight units', () => {
+    expect(
+      toInternationalShipmentItemsFromOrder([
+        {
+          name: 'Phone',
+          quantity: 1,
+          price: 100_000,
+          product: {
+            weight_value: 2,
+            weight_unit: 'lb',
+            commodity_code: '851712',
+          },
+        },
+      ])
+    ).toEqual([
+      {
+        name: 'Phone',
+        description: 'Phone',
+        quantity: 1,
+        weight: 1,
+        value: 100_000,
+        hsCode: '851712',
+      },
+    ]);
+  });
+
+  it('matches buildOrderGiglQuoteRequest for a 2 lb product weight', async () => {
+    const { buildOrderGiglQuoteRequest } = await import(
+      './build-order-gigl-quote-request'
+    );
+    const orderItem = {
+      name: 'Phone',
+      quantity: 1,
+      price: 100_000,
+      product_id: 'p1',
+    };
+    const quoteResult = await buildOrderGiglQuoteRequest(
+      {
+        id: 'order-1',
+        customer_name: 'Ada',
+        customer_phone: '081',
+        shipping_address: {
+          address: 'Dest',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        order_items: [orderItem],
+      },
+      {
+        name: 'Store',
+        phone: '0800',
+        address: 'Origin',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
+      async () => ({
+        p1: { weight_value: 2, weight_unit: 'lb', commodity_code: '851712' },
+      })
+    );
+    const bookedItems = toInternationalShipmentItemsFromOrder(
+      [
+        {
+          ...orderItem,
+          product: {
+            weight_value: 2,
+            weight_unit: 'lb',
+            commodity_code: '851712',
+          },
+        },
+      ],
+      quoteResult.ok ? quoteResult.request.items : []
+    );
+
+    expect(quoteResult.ok && quoteResult.request.items[0].weight).toBe(1);
+    expect(bookedItems[0]?.weight).toBe(1);
+  });
+
   it('derives international package metadata from the linked product', () => {
     expect(
       toInternationalShipmentItemsFromOrder([

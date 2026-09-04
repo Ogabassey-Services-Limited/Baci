@@ -7,6 +7,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, selected_quote_id, shipping_funding_source, shipping_status, shipping_fee, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+        'id, merchant_id, selected_quote_id, shipping_funding_source, shipping_provider, shipping_status, shipping_fee, payment_method, payment_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
       )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
@@ -180,6 +181,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    assertGiglCustomerCheckoutPrepaid({
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+      shipping_funding_source: order.shipping_funding_source,
+      shipping_provider: order.shipping_provider ?? quote.provider,
+    });
 
     const usesStoredInternationalSender = Boolean(quotePayload.sender);
     const bookingAttempt = await prepareDirectBookingAttempt(

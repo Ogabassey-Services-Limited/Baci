@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { shippingQuoteEnvTestMock } from '@/lib/shipping/shipping-quote-env.test-mock';
+import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/env')>();
@@ -64,6 +65,7 @@ function createSupabase(
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: provider,
+    ...(provider === 'GIGL' ? prepaidGiglCustomerCheckoutPayment : {}),
     shipping_address: orderAddress,
     order_items: [
       {

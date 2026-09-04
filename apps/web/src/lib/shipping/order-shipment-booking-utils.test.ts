@@ -188,4 +188,34 @@ describe('toDomesticBookingItems', () => {
       )
     ).toEqual([{ name: 'Widget', quantity: 1, price: 5000, weight: 1 }]);
   });
+
+  it('includes normalized package dimensions for quote comparison', () => {
+    expect(
+      toQuoteComparableOrderItems(
+        [
+          {
+            name: 'Widget',
+            quantity: 1,
+            price: 5000,
+            product: {
+              weight_value: 1,
+              weight_unit: 'kg',
+              dimensions: { length: 4, width: 3, height: 2, unit: 'in' },
+            },
+          },
+        ],
+        { defaultWeight: 1 }
+      )
+    ).toEqual([
+      {
+        name: 'Widget',
+        quantity: 1,
+        price: 5000,
+        weight: 1,
+        length: 10.16,
+        width: 7.62,
+        height: 5.08,
+      },
+    ]);
+  });
 });

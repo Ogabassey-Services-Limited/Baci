@@ -30,7 +30,7 @@ describe('merchant wallet payment-account provisioning — assignment persist', 
     ]);
   });
 
-  it('prefers customer funding metadata when a direct source belongs to another flow', async () => {
+  it('ignores assignments when a direct source belongs to another flow', async () => {
     const supabase = client([], {
       assignmentRequestRows: [{ id: 'r', merchant_id: 'm', status: 'pending' }],
     });
@@ -55,7 +55,7 @@ describe('merchant wallet payment-account provisioning — assignment persist', 
 
     expect(
       (await persistMerchantWalletAssignmentEvent(supabase, payload)).kind
-    ).toBe('match');
+    ).toBe('ignored');
   });
 
   it('treats an exact fulfilled replay as success without rewriting the account', async () => {

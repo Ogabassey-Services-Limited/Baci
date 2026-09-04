@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
@@ -17,6 +18,7 @@ const order = {
   customer_phone: '08012345678',
   selected_quote_id: 'quote-1',
   shipping_provider: 'GIGL',
+  ...prepaidGiglCustomerCheckoutPayment,
   shipping_address: {
     address: '123 Queen Street West',
     city: 'Toronto',

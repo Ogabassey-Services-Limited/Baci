@@ -71,19 +71,23 @@ function readProductMetadata(
   return isRecord(product) ? product : null;
 }
 
-function normalizeWeightKg(product: ProductShippingMetadata | null): number {
+function readSupportedProductWeightKg(
+  product: ProductShippingMetadata | null
+): number | undefined {
   const weight = readPositiveNumber(product?.weight_value);
-  if (!weight) return 1;
+  if (!weight) return undefined;
 
-  const unit = product?.weight_unit?.toLowerCase();
-  const multiplier = { g: 0.001, lb: 0.453_592_37, oz: 0.028_349_523_125 }[
-    unit ?? ''
-  ];
-  return weight * (multiplier ?? 1);
+  const unit = String(product?.weight_unit ?? 'kg').toLowerCase();
+  if (unit !== 'kg' && unit !== 'g') return undefined;
+  return unit === 'g' ? weight * 0.001 : weight;
+}
+
+function normalizeWeightKg(product: ProductShippingMetadata | null): number {
+  return readSupportedProductWeightKg(product) ?? 1;
 }
 
 function hasProductWeight(product: ProductShippingMetadata | null): boolean {
-  return readPositiveNumber(product?.weight_value) !== undefined;
+  return readSupportedProductWeightKg(product) !== undefined;
 }
 
 function normalizeDimensionCm(

@@ -11,18 +11,19 @@ import { persistAdminGiglQuote } from '@/lib/shipping/persist-admin-gigl-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
 import type { ShippingQuote } from '@/lib/shipping/types';
 import {
-  adminOrderGiglQuoteSchema,
-  orderGiglQuoteSchema,
-} from '@/schemas/order-gigl-shipping';
-import {
   calculateAdminWalletFunding,
   selectEligibleAdminGiglQuote,
   toAdminPublicQuote,
 } from './admin-order-gigl-quote.helpers';
+import { resolveAdminOrderGiglQuoteInput } from './admin-order-gigl-quote-input';
 import {
   buildAdminOrderGiglProductLookup,
   mapAdminOrderGiglQuoteItems,
 } from './admin-order-gigl-quote-items';
+import {
+  ADMIN_ORDER_GIGL_QUOTE_ORDER_SELECT,
+  getAdminOrderGiglQuoteOrderConflict,
+} from './admin-order-gigl-quote-order';
 import {
   loadBoundAdminWalletGiglQuoteResponse,
   shouldReuseBoundAdminWalletGiglQuote,
@@ -35,25 +36,9 @@ export {
   selectEligibleAdminGiglQuote,
 } from './admin-order-gigl-quote.helpers';
 
-type AdminInput = {
-  admin_order_id: string;
-  preview?: boolean;
-  receiver?: {
-    address: string;
-    city?: string;
-    state?: string;
-    phone: string;
-    latitude?: number;
-    longitude?: number;
-  };
-};
-
-const orderSelect =
-  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipping_provider, shipping_funding_source, selected_quote_id, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))';
-
 export async function postAdminOrderGiglQuote(
   request: NextRequest,
-  input?: Partial<AdminInput>
+  input?: Parameters<typeof resolveAdminOrderGiglQuoteInput>[1]
 ) {
   const auth = await authenticateApiRequest(request);
   if (!auth.user || !auth.supabase)
@@ -64,44 +49,13 @@ export async function postAdminOrderGiglQuote(
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
-  let resolvedInput = input;
-  if (!resolvedInput?.admin_order_id || resolvedInput.receiver === undefined) {
-    const body = await request.json().catch(() => null);
-    const headerOrderId = request.headers.get('x-baci-admin-order-id');
-    const parsed =
-      resolvedInput?.admin_order_id || headerOrderId
-        ? orderGiglQuoteSchema.safeParse(body)
-        : adminOrderGiglQuoteSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-    const parsedOrderId =
-      'admin_order_id' in parsed.data &&
-      typeof parsed.data.admin_order_id === 'string'
-        ? parsed.data.admin_order_id
-        : undefined;
-    resolvedInput = {
-      admin_order_id:
-        resolvedInput?.admin_order_id ?? headerOrderId ?? parsedOrderId ?? '',
-      preview: resolvedInput?.preview ?? parsed.data.preview,
-      receiver: resolvedInput?.receiver ?? parsed.data.receiver,
-    };
+
+  const resolvedInput = await resolveAdminOrderGiglQuoteInput(request, input);
+  if ('error' in resolvedInput) {
+    return NextResponse.json(resolvedInput.error, { status: 400 });
   }
-  const validatedInput = adminOrderGiglQuoteSchema.safeParse(resolvedInput);
-  if (!validatedInput.success) {
-    return NextResponse.json(
-      { error: 'Invalid input', details: validatedInput.error.flatten() },
-      { status: 400 }
-    );
-  }
-  const adminOrderId = validatedInput.data.admin_order_id;
-  const isPreview = validatedInput.data.preview === true;
+  const adminOrderId = resolvedInput.admin_order_id;
+  const isPreview = resolvedInput.preview === true;
 
   const access = await getUserAccess(auth.supabase);
   if (
@@ -122,7 +76,7 @@ export async function postAdminOrderGiglQuote(
 
   const { data: order, error: orderError } = await auth.supabase
     .from('orders')
-    .select(orderSelect)
+    .select(ADMIN_ORDER_GIGL_QUOTE_ORDER_SELECT)
     .eq('id', adminOrderId)
     .eq('merchant_id', access.merchantId)
     .maybeSingle();
@@ -133,24 +87,9 @@ export async function postAdminOrderGiglQuote(
     );
   if (!order)
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-  if (
-    order.shipment_id ||
-    order.tracking_number ||
-    ['shipped', 'booked', 'in_transit'].includes(
-      String(order.shipping_status).toLowerCase()
-    )
-  ) {
-    return NextResponse.json(
-      { error: 'Order already shipped or booked' },
-      { status: 409 }
-    );
-  }
-  if (String(order.shipping_status).toLowerCase() !== 'processing') {
-    return NextResponse.json(
-      { error: 'Order must be processing before shipping' },
-      { status: 409 }
-    );
-  }
+
+  const orderConflict = getAdminOrderGiglQuoteOrderConflict(order);
+  if (orderConflict) return orderConflict;
 
   const boundQuoteId = shouldReuseBoundAdminWalletGiglQuote(order, isPreview);
   if (boundQuoteId) {
@@ -179,7 +118,7 @@ export async function postAdminOrderGiglQuote(
     { ...order, order_items: rawItems },
     senderResult.sender,
     async () => productLookup,
-    validatedInput.data.receiver
+    resolvedInput.receiver
   );
   if (!built.ok) {
     return NextResponse.json(

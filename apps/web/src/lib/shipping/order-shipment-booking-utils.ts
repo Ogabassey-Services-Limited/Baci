@@ -8,6 +8,7 @@ import type {
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import { matchesGiglProviderRate } from './matches-gigl-provider-rate';
 import { OrderShipmentBookingError } from './order-shipment-booking-error';
+import { readPackageDimensionsCm } from './package-dimensions';
 
 export { OrderShipmentBookingError };
 
@@ -177,15 +178,27 @@ export function toQuoteComparableOrderItems(
       name?: string | null;
       quantity?: number | null;
       price?: number | string | null;
-      product?: Parameters<typeof quotedShipmentItemWeight>[0]['product'];
-      products?: Parameters<typeof quotedShipmentItemWeight>[0]['products'];
+      product?: Parameters<typeof quotedShipmentItemWeight>[0]['product'] & {
+        dimensions?: unknown;
+      };
+      products?: Parameters<typeof quotedShipmentItemWeight>[0]['products'] & {
+        dimensions?: unknown;
+      };
     };
+    const related = record.product ?? record.products;
+    const product = Array.isArray(related) ? related[0] : related;
+    const dimensions = readPackageDimensionsCm(
+      product && typeof product === 'object' && 'dimensions' in product
+        ? product.dimensions
+        : undefined
+    );
     return [
       {
         name: record.name ?? null,
         quantity: record.quantity ?? null,
         price: record.price,
         weight: quotedShipmentItemWeight(record) ?? options.defaultWeight,
+        ...(dimensions ?? {}),
       },
     ];
   });

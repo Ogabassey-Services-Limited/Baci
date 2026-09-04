@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
@@ -69,6 +70,7 @@ function createSupabase(
     customer_phone: '08000000001',
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
+    ...prepaidGiglCustomerCheckoutPayment,
     shipping_address: {
       address: 'Receiver Road',
       city: 'Abuja',
