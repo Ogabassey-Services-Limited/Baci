@@ -6255,6 +6255,122 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
+    it('does not record settlement when completion-failure fallback economics lookup errors', async () => {
+      const body = {
+        reference: 'REF-FB-ECON-ERR',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-FB-ECON-ERR',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      let transactionCallCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-fb-econ-err',
+                  merchant_id: 'merchant-fb-econ-err',
+                  order_id: 'order-fb-econ-err',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-FB-ECON-ERR',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'txn-fb-econ-err' },
+              error: null,
+            }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'transient economics lookup failure' },
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        if (name === 'complete_order_gateway_payment') {
+          const result = {
+            data: { error_code: 'ORDER_NOT_FOUND' },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+        const result = { data: null, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+        error: 'Order payment completion failed',
+      });
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.anything()
+      );
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement_gigl_v1',
+        expect.anything()
+      );
+    });
+
     it('routes completion-failure fallback settlements through the GIGL wrapper for GIGL orders', async () => {
       const body = {
         reference: 'REF-FB-GIGL',

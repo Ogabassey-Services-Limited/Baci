@@ -119,6 +119,7 @@ type ExistingOrder = {
   order_number: string;
   shipping_status: string;
   payment_status: string;
+  payment_method?: string | null;
   is_credit_order: boolean;
   customer_id: string | null;
   selected_quote_id: string | null;
@@ -745,6 +746,70 @@ describe('PATCH /api/orders/[id]', () => {
       shipping_provider: 'TOPSHIP',
       shipping_status: 'shipped',
       tracking_number: 'TRACK-1',
+    });
+  });
+
+  it('books prepaid GIGL checkout shipments using the requested paid status', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      payment_method: 'card',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'customer_checkout',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'GIGL',
+      tracking_number: 'TRACK-1',
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(bookOrderShipment).mockResolvedValue({
+      shipmentId: 'shipment-1',
+      provider: 'GIGL',
+      providerShipmentId: 'provider-shipment-1',
+      trackingNumber: 'TRACK-1',
+      carrierName: 'GIGL',
+      quoteId: 'quote-1',
+      estimatedDays: 2,
+      shipmentStatus: 'booked',
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(bookOrderShipment).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1',
+      'quote-1'
+    );
+    expect(ordersUpdate).toHaveBeenNthCalledWith(1, {
+      payment_status: 'paid',
     });
   });
 

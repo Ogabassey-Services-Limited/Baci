@@ -10,4 +10,8 @@ describe('order PATCH merchant wallet booking', () => {
     expect(source).toContain('bookWalletOrCustomerCheckout');
     expect(source).toContain('existingOrder.shipping_funding_source');
   });
+
+  it('passes the requested payment status into prepaid GIGL booking', () => {
+    expect(source).toContain('payment_status ?? existingOrder.payment_status');
+  });
 });

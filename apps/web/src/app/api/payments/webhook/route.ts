@@ -2778,13 +2778,30 @@ export async function POST(request: NextRequest) {
             calculatePlatformFee(grossAmount * 100).platformFee / 100;
           let orderEconomics = null;
           if (transaction.order_id) {
-            const { data: order } = await supabase
-              .from('orders')
-              .select(
-                'shipping_provider, shipping_funding_source, shipping_platform_retained_amount'
-              )
-              .eq('id', transaction.order_id)
-              .maybeSingle();
+            const { data: order, error: orderEconomicsLoadError } =
+              await supabase
+                .from('orders')
+                .select(
+                  'shipping_provider, shipping_funding_source, shipping_platform_retained_amount'
+                )
+                .eq('id', transaction.order_id)
+                .maybeSingle();
+            if (orderEconomicsLoadError) {
+              logger.error({
+                message:
+                  'Failed to load order economics for completion-failure settlement fallback',
+                error: orderEconomicsLoadError,
+                orderId: transaction.order_id,
+                reference,
+              });
+              return NextResponse.json(
+                {
+                  code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+                  error: 'Order payment completion failed',
+                },
+                { status: 500 }
+              );
+            }
             orderEconomics = order;
           }
           const settlement = resolveOrderGiglSettlementRpc(orderEconomics);

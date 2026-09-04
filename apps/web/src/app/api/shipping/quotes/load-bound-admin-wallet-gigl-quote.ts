@@ -12,6 +12,11 @@ type BoundWalletOrder = {
   shipping_provider?: string | null;
 };
 
+const ACTIVE_BOUND_QUOTE_CHARGE_STATUSES = new Set([
+  'reserved',
+  'provider_submitting',
+]);
+
 export function shouldReuseBoundAdminWalletGiglQuote(
   order: BoundWalletOrder,
   isPreview: boolean
@@ -74,6 +79,16 @@ export async function loadBoundAdminWalletGiglQuoteResponse(
   // A refunded charge keeps the order bound to the old quote, but booking that
   // quote again returns MERCHANT_WALLET_CHARGE_REFUNDED. Force a new quote.
   if (latestCharge?.status === 'refunded') {
+    return null;
+  }
+
+  const expiresAt = Date.parse(String(boundQuote.expires_at ?? ''));
+  const isExpired = Number.isFinite(expiresAt) && expiresAt <= Date.now();
+  const hasActiveCharge =
+    typeof latestCharge?.status === 'string' &&
+    ACTIVE_BOUND_QUOTE_CHARGE_STATUSES.has(latestCharge.status);
+  // Expired quotes without an in-flight charge cannot be booked again.
+  if (isExpired && !hasActiveCharge) {
     return null;
   }
 

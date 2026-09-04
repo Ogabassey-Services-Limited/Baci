@@ -7,34 +7,62 @@ function createSupabase(result: {
   error: { message: string } | null;
 }) {
   const maybeSingle = vi.fn(async () => result);
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
+  const eqSourceId = vi.fn(() => ({ maybeSingle }));
+  const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+  const eqGatewayReference = vi.fn(() => ({ eq: eqSourceType }));
+  const eqGateway = vi.fn(() => ({ eq: eqGatewayReference }));
+  const select = vi.fn(() => ({ eq: eqGateway }));
   const from = vi.fn(() => ({ select }));
 
   return {
+    eqGateway,
+    eqGatewayReference,
+    eqSourceId,
+    eqSourceType,
     from,
     supabase: { from } as unknown as ServiceRoleClient,
   };
 }
 
+const lookup = {
+  gateway: 'paystack',
+  gatewayReference: 'BAC-REF-1',
+  sourceId: 'order-1',
+  sourceType: 'order',
+} as const;
+
 describe('loadGiglSettlementRetainedAmount', () => {
-  it('reads the authoritative retained amount from settlement metadata', async () => {
-    const { from, supabase } = createSupabase({
+  it('reads the authoritative retained amount from a scoped settlement row', async () => {
+    const {
+      eqGateway,
+      eqGatewayReference,
+      eqSourceId,
+      eqSourceType,
+      from,
+      supabase,
+    } = createSupabase({
       data: { metadata: { retained_shipping_amount: 8_500 } },
       error: null,
     });
 
     await expect(
-      loadGiglSettlementRetainedAmount(supabase, 'BAC-REF-1')
+      loadGiglSettlementRetainedAmount(supabase, lookup)
     ).resolves.toBe(8_500);
     expect(from).toHaveBeenCalledWith('merchant_settlements');
+    expect(eqGateway).toHaveBeenCalledWith('gateway', lookup.gateway);
+    expect(eqGatewayReference).toHaveBeenCalledWith(
+      'gateway_reference',
+      lookup.gatewayReference
+    );
+    expect(eqSourceType).toHaveBeenCalledWith('source_type', lookup.sourceType);
+    expect(eqSourceId).toHaveBeenCalledWith('source_id', lookup.sourceId);
   });
 
-  it('fails closed when the settlement row is missing', async () => {
+  it('fails closed when the scoped settlement row is missing', async () => {
     const { supabase } = createSupabase({ data: null, error: null });
 
     await expect(
-      loadGiglSettlementRetainedAmount(supabase, 'BAC-REF-1')
+      loadGiglSettlementRetainedAmount(supabase, lookup)
     ).rejects.toThrow('settlement row missing');
   });
 });

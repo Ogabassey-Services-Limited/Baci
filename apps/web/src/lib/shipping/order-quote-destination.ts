@@ -70,14 +70,62 @@ function matchesOptionalText(
   return normalizedOrderValue === normalizedQuoteValue;
 }
 
+export function normalizeAddressForQuoteMatch(
+  address: string | null | undefined,
+  city: string | null | undefined,
+  state: string | null | undefined
+): string {
+  const normalizedAddress = normalizeText(address);
+  const normalizedCity = normalizeText(city);
+  const normalizedState = normalizeText(state);
+  if (!normalizedCity && !normalizedState) {
+    return normalizedAddress;
+  }
+  const suffix = `, ${normalizedCity}, ${normalizedState}`;
+  if (normalizedAddress.endsWith(suffix)) {
+    return normalizedAddress.slice(0, -suffix.length).trim();
+  }
+  return normalizedAddress;
+}
+
+function matchesDomesticGiglQuoteAddress(
+  shippingAddress: OrderShippingAddressForQuote,
+  receiver: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>['receiver']
+): boolean {
+  if (
+    normalizeText(shippingAddress.city) !== normalizeText(receiver.city) ||
+    normalizeText(shippingAddress.state) !== normalizeText(receiver.state)
+  ) {
+    return false;
+  }
+
+  const quoteStreet = normalizeText(receiver.address);
+  const orderStreet = normalizeAddressForQuoteMatch(
+    shippingAddress.address,
+    shippingAddress.city,
+    shippingAddress.state
+  );
+  if (orderStreet === quoteStreet) {
+    return true;
+  }
+
+  const normalizedOrderAddress = normalizeText(shippingAddress.address);
+  return normalizedOrderAddress.startsWith(`${quoteStreet},`);
+}
+
 function matchesQuoteDestination(
   shippingAddress: OrderShippingAddressForQuote,
   quoteRequest: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>
 ): boolean {
   const receiver = quoteRequest.receiver;
+  const addressMatches =
+    quoteRequest.shipmentType === 'domestic'
+      ? matchesDomesticGiglQuoteAddress(shippingAddress, receiver)
+      : normalizeText(shippingAddress.address) ===
+        normalizeText(receiver.address);
+
   return (
-    normalizeText(shippingAddress.address) ===
-      normalizeText(receiver.address) &&
+    addressMatches &&
     normalizeText(shippingAddress.city) === normalizeText(receiver.city) &&
     normalizeText(shippingAddress.state) === normalizeText(receiver.state) &&
     matchesOptionalText(shippingAddress.country, receiver.country) &&

@@ -415,7 +415,7 @@ export async function PATCH(
             },
             {
               shipping_provider: existingOrder.shipping_provider,
-              payment_status: existingOrder.payment_status,
+              payment_status: payment_status ?? existingOrder.payment_status,
               payment_method: existingOrder.payment_method,
             }
           );

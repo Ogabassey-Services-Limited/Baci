@@ -36,8 +36,11 @@ function setup(actualRetainedShippingAmount = 11_000) {
     },
     error: null,
   }));
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
+  const eqSourceId = vi.fn(() => ({ maybeSingle }));
+  const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+  const eqGatewayReference = vi.fn(() => ({ eq: eqSourceType }));
+  const eqGateway = vi.fn(() => ({ eq: eqGatewayReference }));
+  const select = vi.fn(() => ({ eq: eqGateway }));
   const from = vi.fn((table: string) => {
     if (table === 'merchant_settlements') {
       return { select };

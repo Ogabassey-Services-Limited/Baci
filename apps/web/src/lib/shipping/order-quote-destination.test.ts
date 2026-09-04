@@ -112,6 +112,49 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
     });
   });
 
+  it('accepts domestic GIGL quotes when checkout stores a composed street, city, state address', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabaseRpcMock({
+          price: 2500,
+          provider_rate_id: 'gigl:door-delivery:5',
+          quote_request: {
+            merchantId: 'merchant-current',
+            sessionId: 'session-1',
+            shipmentType: 'domestic',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '12 Admiralty Way',
+              city: 'Lagos',
+              state: 'Lagos',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        {
+          address: '12 Admiralty Way, Lagos, Lagos',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: undefined,
+          countryCode: undefined,
+          postalCode: undefined,
+        },
+        {
+          merchantId: 'merchant-current',
+          items: [checkoutPhoneItem],
+          shippingFee: 2500,
+          shippingProvider: 'GIGL',
+        }
+      )
+    ).resolves.toMatchObject({
+      address: '12 Admiralty Way, Lagos, Lagos',
+      city: 'Lagos',
+      state: 'Lagos',
+    });
+  });
+
   it('rejects domestic GIGL quote destinations that do not match checkout address', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(

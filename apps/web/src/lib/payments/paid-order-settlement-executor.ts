@@ -213,10 +213,12 @@ export function buildSettlementExecutor(args: {
     });
     if (error) throwSettlementRpcError(error);
     const reportedRetainedShippingAmount = useGiglSettlementRpc
-      ? await loadGiglSettlementRetainedAmount(
-          validatedArgs.supabase,
-          validatedArgs.externalGatewayReference
-        )
+      ? await loadGiglSettlementRetainedAmount(validatedArgs.supabase, {
+          gateway: validatedArgs.settlementGateway,
+          gatewayReference: validatedArgs.externalGatewayReference,
+          sourceId: validatedArgs.transaction.order_id,
+          sourceType: 'order',
+        })
       : retainedShippingAmount;
     return {
       gateway_fee: normalizedGatewayFee,

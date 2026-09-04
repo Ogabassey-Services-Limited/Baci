@@ -12,14 +12,24 @@ function parseRetainedShippingAmount(metadata: unknown): number {
   return Number.isFinite(retained) ? Math.max(0, retained) : 0;
 }
 
+export type GiglSettlementRetainedAmountLookup = {
+  gateway: string;
+  gatewayReference: string;
+  sourceId: string;
+  sourceType: string;
+};
+
 export async function loadGiglSettlementRetainedAmount(
   supabase: ServiceRoleClient,
-  gatewayReference: string
+  lookup: GiglSettlementRetainedAmountLookup
 ): Promise<number> {
   const { data, error } = await supabase
     .from('merchant_settlements')
     .select('metadata')
-    .eq('gateway_reference', gatewayReference)
+    .eq('gateway', lookup.gateway)
+    .eq('gateway_reference', lookup.gatewayReference)
+    .eq('source_type', lookup.sourceType)
+    .eq('source_id', lookup.sourceId)
     .maybeSingle();
 
   if (error) {
