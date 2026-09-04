@@ -45,6 +45,9 @@ describe('commerce variant axis contract', () => {
     expect(canonicalizeCommerceVariantAxis('Color Hex')).toBeNull();
     expect(canonicalizeCommerceVariantAxis('colorhex')).toBeNull();
     expect(canonicalizeCommerceVariantAxis('colourhex')).toBeNull();
+    expect(canonicalizeCommerceVariantAxis('sku')).toBeNull();
+    expect(canonicalizeCommerceVariantAxis('variant_id')).toBeNull();
+    expect(canonicalizeCommerceVariantAxis('price')).toBeNull();
     expect(canonicalizeCommerceVariantAxis('material')).toBe('material');
     expect(canonicalizeCommerceVariantAxis('flavor')).toBe('flavor');
     expect(canonicalizeCommerceVariantAxis('Warranty')).toBe('warranty');

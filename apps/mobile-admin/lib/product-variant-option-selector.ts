@@ -128,13 +128,15 @@ export function buildVariantOptionGroups(
   const valuesByKey = new Map<string, string[]>();
 
   for (const variant of variants) {
-    for (const entry of getVariantAttributeEntries(variant)) {
-      labelsByKey.set(entry.key, entry.label);
-      const values = valuesByKey.get(entry.key) ?? [];
-      if (!values.includes(entry.value)) {
-        values.push(entry.value);
+    // Use the coalesced map so aliased keys (gpu/graphics) contribute one value.
+    const attributeMap = getVariantAttributeMap(variant);
+    for (const [key, value] of Object.entries(attributeMap)) {
+      labelsByKey.set(key, formatAttributeLabel(key));
+      const values = valuesByKey.get(key) ?? [];
+      if (!values.includes(value)) {
+        values.push(value);
       }
-      valuesByKey.set(entry.key, values);
+      valuesByKey.set(key, values);
     }
   }
 
