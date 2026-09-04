@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  assertQuoteItemsMatchOrder,
-  assertQuoteReceiverMatchesOrder,
-} from './international-quote-order-guard';
+import { assertQuoteItemsMatchOrder } from './international-quote-items-match';
+import { assertQuoteReceiverMatchesOrder } from './international-quote-order-guard';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,

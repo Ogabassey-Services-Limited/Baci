@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { assertQuoteItemsMatchOrder } from '@/lib/shipping/international-quote-items-match';
 import {
-  assertQuoteItemsMatchOrder,
   assertQuoteReceiverMatchesOrder,
   type InternationalQuoteOrder,
 } from '@/lib/shipping/international-quote-order-guard';

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertInternationalQuoteMatchesOrder,
-  assertQuoteItemsMatchOrder,
   assertQuoteReceiverMatchesOrder,
 } from './international-quote-order-guard';
 import type { QuoteRequest } from './types';
@@ -319,58 +318,6 @@ describe('assertQuoteReceiverMatchesOrder', () => {
       })
     ).toThrowError(
       expect.objectContaining({ code: 'SHIPPING_QUOTE_RECEIVER_MISMATCH' })
-    );
-  });
-});
-
-describe('assertQuoteItemsMatchOrder', () => {
-  it('rejects a heavier domestic item set against the attested quote', () => {
-    const domesticQuote: QuoteRequest = {
-      ...quoteRequest,
-      shipmentType: 'domestic',
-      items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
-    };
-
-    expect(() =>
-      assertQuoteItemsMatchOrder(domesticQuote, [
-        { name: 'Widget', quantity: 1, price: 5000, weight: 4 },
-      ])
-    ).toThrowError(
-      expect.objectContaining({ code: 'SHIPPING_QUOTE_ITEMS_MISMATCH' })
-    );
-  });
-
-  it('rejects attested quote dimensions that no longer match the order', () => {
-    const domesticQuote: QuoteRequest = {
-      ...quoteRequest,
-      shipmentType: 'domestic',
-      items: [
-        {
-          name: 'Widget',
-          quantity: 1,
-          weight: 1,
-          value: 5000,
-          length: 10,
-          width: 8,
-          height: 6,
-        },
-      ],
-    };
-
-    expect(() =>
-      assertQuoteItemsMatchOrder(domesticQuote, [
-        {
-          name: 'Widget',
-          quantity: 1,
-          price: 5000,
-          weight: 1,
-          length: 20,
-          width: 15,
-          height: 10,
-        },
-      ])
-    ).toThrowError(
-      expect.objectContaining({ code: 'SHIPPING_QUOTE_ITEMS_MISMATCH' })
     );
   });
 });

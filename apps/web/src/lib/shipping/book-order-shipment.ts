@@ -13,9 +13,9 @@ import {
   findReusableOrderShipment,
   type ReusableOrderShipmentResult,
 } from '@/lib/shipping/find-reusable-order-shipment';
+import { assertQuoteItemsMatchOrder } from '@/lib/shipping/international-quote-items-match';
 import {
   assertInternationalQuoteMatchesOrder,
-  assertQuoteItemsMatchOrder,
   assertQuoteReceiverMatchesOrder,
 } from '@/lib/shipping/international-quote-order-guard';
 import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
