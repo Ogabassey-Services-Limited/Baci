@@ -41,4 +41,15 @@ describe('isMergedRepairPickupPhoneValid', () => {
       })
     ).toBe(false);
   });
+
+  describe('bugfix: short numeric phones that pass isValidPhone after NG dial prefix', () => {
+    it('rejects 12345 when courier pickup stays enabled', () => {
+      expect(
+        isMergedRepairPickupPhoneValid({
+          pickup_enabled: true,
+          contact_phone: '12345',
+        })
+      ).toBe(false);
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { isValidPhone } from '@baci/shared/lib';
+import { hasMinimumPhoneDigits } from '@/lib/phone';
 
 /**
  * Post-merge guard for repair-center PATCH. Schema alone cannot see persisted
@@ -15,6 +16,7 @@ export function isMergedRepairPickupPhoneValid(settings: {
 
   return (
     typeof settings.contact_phone === 'string' &&
+    hasMinimumPhoneDigits(settings.contact_phone) &&
     isValidPhone(settings.contact_phone)
   );
 }

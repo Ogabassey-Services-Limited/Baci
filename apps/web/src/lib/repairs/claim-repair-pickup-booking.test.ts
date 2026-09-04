@@ -56,4 +56,21 @@ describe('claimRepairPickupBooking', () => {
 
     expect(result).toEqual({ status: 'terminal' });
   });
+
+  describe('bugfix: manual_fulfilled during automatic booking race', () => {
+    it('maps terminal=true from a manual_fulfilled claim refusal', async () => {
+      const rpc = vi.fn().mockResolvedValue({
+        data: [{ claimed: false, shipment_id: null, terminal: true }],
+        error: null,
+      });
+
+      const result = await claimRepairPickupBooking(
+        { rpc } as unknown as SupabaseClient,
+        'merchant-1',
+        'repair-1'
+      );
+
+      expect(result).toEqual({ status: 'terminal' });
+    });
+  });
 });

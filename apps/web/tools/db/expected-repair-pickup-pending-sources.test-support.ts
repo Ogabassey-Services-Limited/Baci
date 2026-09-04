@@ -154,4 +154,9 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904190650_claim_gigl_tracking_notifications_repair_id.sql',
     sha256: 'eed6d935135baa88523d468f1a796bd13655645b29311d30fc55f3a6f327bbc2',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190700_claim_repair_pickup_booking_manual_fulfilled_guard.sql',
+    sha256: '729f5157d203065cb55ea82bf2f34b1ddcbd3404d8cba8ec626fb97e2557cc19',
+  },
 ];

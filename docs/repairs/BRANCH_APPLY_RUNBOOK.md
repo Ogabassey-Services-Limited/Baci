@@ -70,6 +70,7 @@ July catalog:
 29. `20260904190550_fix_gigl_tracking_notification_conflict_target.sql` — rebind orderless apply RPC ON CONFLICT to bare exclusion so partial milestone/attempt indexes race safely
 30. `20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql` — keep pending RPU history until booked/manual_fulfilled so Paystack redelivery can bind after secret-key rotation while GIGL booking is still retrying
 31. `20260904190650_claim_gigl_tracking_notifications_repair_id.sql` — project `repair_id` on GIGL notification claims for orderless pickups (no privileged `repairs` table read in the worker)
+32. `20260904190700_claim_repair_pickup_booking_manual_fulfilled_guard.sql` — refuse claims when `pickup_payment_status = manual_fulfilled` and return `terminal=true` (merchant offline fulfillment race)
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
@@ -89,6 +90,7 @@ Run these after the September paid-pickup migrations:
 - `supabase/migrations/tests/find_resumable_repair_pickup.sql` — resumable unpaid pickup reclaim requires matching JWT claims; `p_repair_id` pins the claim ticket; anon/authenticated cannot execute
 - `supabase/migrations/tests/normalize_nigerian_repair_pickup_receiver_phone.sql` — local trunk phones like `09070007000` normalize and pass the usable-phone gate
 - `supabase/migrations/tests/claim_repair_pickup_booking_terminal.sql` — claim RPC refuses terminal repairs and reports `terminal=true`
+- `supabase/migrations/tests/claim_repair_pickup_booking_manual_fulfilled.sql` — claim RPC refuses `manual_fulfilled` (non-terminal repair status) and reports `terminal=true`
 
 ### Manual smoke checks (do these on the branch too)
 - **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).
