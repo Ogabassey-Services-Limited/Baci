@@ -488,4 +488,89 @@ describe('NewOrderAddressInput', () => {
 
     expect(styles?.listView?.elevation).toBe(5);
   });
+
+  it('bugfix: shows manual city/state when Places details are unavailable', () => {
+    const setDeliveryInfo = vi.fn();
+
+    const { rerender } = render(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: 'Old address',
+            city: 'Old city',
+            name: '',
+            phone: '',
+            state: 'Old state',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    expect(screen.queryByPlaceholderText('City')).toBeNull();
+    expect(screen.queryByPlaceholderText('State')).toBeNull();
+
+    const onPress = googlePlacesState.lastProps?.onPress as
+      | ((data: { description: string }, details?: unknown) => void)
+      | undefined;
+
+    onPress?.({ description: '42 Marina, Lagos' }, null);
+
+    const updater = setDeliveryInfo.mock.calls[0][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+    expect(
+      updater({
+        address: 'Old address',
+        city: 'Old city',
+        name: '',
+        phone: '',
+        state: 'Old state',
+      })
+    ).toEqual({
+      address: '42 Marina, Lagos',
+      city: '',
+      name: '',
+      phone: '',
+      state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
+    });
+
+    rerender(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: '42 Marina, Lagos',
+            city: '',
+            name: '',
+            phone: '',
+            state: '',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    // State is internal; re-fire onPress so recovery UI mounts on this render.
+    (
+      googlePlacesState.lastProps?.onPress as (
+        data: { description: string },
+        details?: unknown
+      ) => void
+    )?.({ description: '42 Marina, Lagos' }, null);
+
+    expect(
+      screen.getByText(
+        'Could not load full address details. Enter city and state to continue.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('City')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('State')).toBeInTheDocument();
+  });
 });
