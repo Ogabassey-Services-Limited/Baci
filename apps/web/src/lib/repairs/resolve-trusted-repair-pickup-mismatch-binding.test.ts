@@ -24,7 +24,7 @@ describe('resolveTrustedRepairPickupMismatchBinding', () => {
 
   it('resolves merchant and repair from the trusted pending reference', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: repairId, merchant_id: merchantId },
+      data: { repair_id: repairId, merchant_id: merchantId },
       error: null,
     });
     const eq = vi.fn().mockReturnValue({ maybeSingle });
@@ -42,12 +42,11 @@ describe('resolveTrustedRepairPickupMismatchBinding', () => {
       merchantId,
       repairId,
     });
-    expect(from).toHaveBeenCalledWith('repairs');
-    expect(select).toHaveBeenCalledWith('id, merchant_id');
-    expect(eq).toHaveBeenCalledWith(
-      'pickup_payment_pending_reference',
-      reference
+    expect(from).toHaveBeenCalledWith(
+      'repair_pickup_pending_payment_references'
     );
+    expect(select).toHaveBeenCalledWith('repair_id, merchant_id');
+    expect(eq).toHaveBeenCalledWith('reference', reference);
   });
 
   it('returns orphan when no pending binding exists for the reference', async () => {

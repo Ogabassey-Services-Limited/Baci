@@ -35,6 +35,16 @@ describe('isRepairPickupPaymentReady', () => {
     ).toBe(false);
   });
 
+  it('blocks merchant manual fulfillment from GIGL booking', () => {
+    expect(
+      isRepairPickupPaymentReady({
+        pickup_fee: 3500,
+        pickup_payment_reference: 'RPU-ABC123DEF45678',
+        pickup_payment_status: 'manual_fulfilled',
+      })
+    ).toBe(false);
+  });
+
   it('allows paid pickups with a positive fee', () => {
     expect(
       isRepairPickupPaymentReady({

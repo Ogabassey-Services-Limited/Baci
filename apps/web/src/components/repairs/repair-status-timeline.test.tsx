@@ -169,4 +169,18 @@ describe('RepairStatusTimeline', () => {
       screen.getByText('Payment confirmed. Your pickup needs support review.')
     ).toBeInTheDocument();
   });
+
+  it('shows merchant manual fulfillment without claiming GIGL is booked', () => {
+    render(
+      <RepairStatusTimeline
+        result={{ ...baseResult, pickupPaymentStatus: 'manual_fulfilled' }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'Payment confirmed. Your merchant arranged pickup manually.'
+      )
+    ).toBeInTheDocument();
+  });
 });

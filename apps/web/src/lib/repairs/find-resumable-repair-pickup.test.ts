@@ -28,7 +28,60 @@ const input = {
 } as RepairBookingInput;
 
 describe('findResumablePickupRepair', () => {
-  it('does not reclaim by email alone without a resume capability', async () => {
+  it('reclaims the newest unpaid pickup when details match without a resume token', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: repairId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: input.pickupAddress,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await findResumablePickupRepair({
+      input,
+      merchantId,
+      resumeToken: null,
+      secret,
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
+      p_merchant_id: merchantId,
+      p_customer_email: input.customerEmail,
+      p_repair_id: null,
+    });
+    expect(result).toEqual({
+      kind: 'found',
+      repair: { success: true, id: repairId, ticketNumber: 17 },
+    });
+  });
+
+  it('does not reclaim by email alone when saved pickup details differ', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: repairId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: '99 Different Street, Lagos',
+        },
+      ],
+      error: null,
+    });
+
     const result = await findResumablePickupRepair({
       input,
       merchantId,
@@ -37,7 +90,6 @@ describe('findResumablePickupRepair', () => {
     });
 
     expect(result).toEqual({ kind: 'none' });
-    expect(mocks.createRepairPickupReceiverClient).not.toHaveBeenCalled();
   });
 
   it('reclaims only when the signed resume token matches the unpaid repair', async () => {

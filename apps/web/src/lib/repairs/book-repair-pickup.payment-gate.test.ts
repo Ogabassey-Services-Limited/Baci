@@ -114,4 +114,24 @@ describe('bookRepairPickup payment gate', () => {
     expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
     expect(mocks.bookShipment).toHaveBeenCalledOnce();
   });
+
+  it('refuses GIGL booking after merchant manual fulfillment', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: {
+            ...repairRow,
+            pickup_payment_status: 'manual_fulfilled',
+          },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'payment_required' });
+    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
 });

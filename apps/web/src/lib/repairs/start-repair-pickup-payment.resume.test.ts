@@ -75,7 +75,22 @@ describe('startRepairPickupPayment resume and validation', () => {
     expect(result).toHaveProperty('resumeToken');
   });
 
-  it('does not reclaim by email alone when no resume token is provided', async () => {
+  it('reclaims a matching unpaid pickup on double submit without a resume token', async () => {
+    const existingId = '323e4567-e89b-12d3-a456-426614174000';
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: existingId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: input.pickupAddress,
+        },
+      ],
+      error: null,
+    });
+
     const result = await startRepairPickupPayment({
       data: input,
       expectedPickupFee: 8250,
@@ -83,7 +98,41 @@ describe('startRepairPickupPayment resume and validation', () => {
       merchantIdentifier: 'ogabassey',
     });
 
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
+      p_merchant_id: merchantId,
+      p_customer_email: input.customerEmail,
+      p_repair_id: null,
+    });
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      id: existingId,
+      ticketNumber: 17,
+    });
+  });
+
+  it('does not reclaim by email alone when saved pickup details differ', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: '323e4567-e89b-12d3-a456-426614174000',
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: '99 Different Street, Lagos',
+        },
+      ],
+      error: null,
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
     expect(mocks.createRepairBooking).toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,

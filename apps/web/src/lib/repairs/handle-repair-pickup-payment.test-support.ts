@@ -34,7 +34,8 @@ export function createRepairPickupPaymentSupabase(
     data: [{ confirmed }],
     error: null,
   });
-  const reviewNeq = vi.fn().mockResolvedValue({ error: null });
+  const manualNeq = vi.fn().mockResolvedValue({ error: null });
+  const reviewNeq = vi.fn().mockReturnValue({ neq: manualNeq });
   const bookedNeq = vi.fn().mockReturnValue({ neq: reviewNeq });
   const thirdEq = vi.fn().mockReturnValue({ neq: bookedNeq });
   const secondEq = vi.fn().mockReturnValue({ eq: thirdEq, neq: bookedNeq });
@@ -53,6 +54,7 @@ export function createRepairPickupPaymentSupabase(
     client: { from, rpc } as never,
     firstEq,
     from,
+    manualNeq,
     maybeSingle,
     reviewNeq,
     rpc,

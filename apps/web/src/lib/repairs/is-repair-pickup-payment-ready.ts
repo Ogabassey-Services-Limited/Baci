@@ -2,6 +2,7 @@
  * Whether dashboard/webhook booking may proceed for this repair's payment state.
  * Legacy pre-payment-column rows (null status + null reference) remain bookable.
  * New unpaid pickups are marked awaiting_payment and are not bookable yet.
+ * Merchant manual fulfillment is terminal — GIGL must not book again.
  */
 export function isRepairPickupPaymentReady(repair: {
   pickup_fee: number | string | null;
@@ -14,7 +15,10 @@ export function isRepairPickupPaymentReady(repair: {
   ) {
     return true;
   }
-  if (repair.pickup_payment_status === 'awaiting_payment') {
+  if (
+    repair.pickup_payment_status === 'awaiting_payment' ||
+    repair.pickup_payment_status === 'manual_fulfilled'
+  ) {
     return false;
   }
   const paidPickupFee = Number(repair.pickup_fee);

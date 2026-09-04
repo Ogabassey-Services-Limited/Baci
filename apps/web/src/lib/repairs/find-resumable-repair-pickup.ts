@@ -19,7 +19,32 @@ type ResumablePickupRow = {
   pickup_address?: unknown;
 };
 
-/** Reclaim an unpaid pickup only with a signed resume capability. */
+function parseResumableRow(
+  row: unknown,
+  expectedRepairId: string | null
+): ResumableRepair | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  const record = row as ResumablePickupRow;
+  const ticketNumber =
+    typeof record.ticket_number === 'number'
+      ? record.ticket_number
+      : Number(record.ticket_number);
+  if (typeof record.id !== 'string' || !Number.isFinite(ticketNumber)) {
+    return null;
+  }
+  if (expectedRepairId != null && record.id !== expectedRepairId) {
+    return null;
+  }
+  return { success: true, id: record.id, ticketNumber };
+}
+
+/**
+ * Reclaim an unpaid pickup with a signed resume capability, or — when no token
+ * is present — the newest email-matched unpaid row only if device/phone/address
+ * still match (blocks email-only takeover).
+ */
 export async function findResumablePickupRepair(options: {
   input: RepairBookingInput;
   merchantId: string;
@@ -30,19 +55,23 @@ export async function findResumablePickupRepair(options: {
     options.resumeToken,
     options.secret
   );
-  if (
-    !claim ||
-    claim.merchantId !== options.merchantId ||
-    claim.customerEmail !== options.input.customerEmail.trim().toLowerCase()
-  ) {
+  const hasValidClaim =
+    Boolean(claim) &&
+    claim !== null &&
+    claim.merchantId === options.merchantId &&
+    claim.customerEmail === options.input.customerEmail.trim().toLowerCase();
+
+  if (options.resumeToken && !hasValidClaim) {
     return { kind: 'none' };
   }
+
+  const pinnedRepairId = hasValidClaim && claim ? claim.repairId : null;
 
   const supabase = createRepairPickupReceiverClient(options.merchantId);
   const { data, error } = await supabase.rpc('find_resumable_repair_pickup', {
     p_merchant_id: options.merchantId,
     p_customer_email: options.input.customerEmail,
-    p_repair_id: claim.repairId,
+    p_repair_id: pinnedRepairId,
   });
 
   if (error) {
@@ -55,34 +84,19 @@ export async function findResumablePickupRepair(options: {
   }
 
   const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row !== 'object') {
-    return { kind: 'none' };
-  }
-
-  const record = row as ResumablePickupRow;
-  const ticketNumber =
-    typeof record.ticket_number === 'number'
-      ? record.ticket_number
-      : Number(record.ticket_number);
-  if (
-    typeof record.id !== 'string' ||
-    record.id !== claim.repairId ||
-    !Number.isFinite(ticketNumber)
-  ) {
+  const repair = parseResumableRow(row, pinnedRepairId);
+  if (!repair || !row || typeof row !== 'object') {
     return { kind: 'none' };
   }
 
   if (
     !matchesResumablePickupDetails({
       input: options.input,
-      saved: record,
+      saved: row as ResumablePickupRow,
     })
   ) {
     return { kind: 'none' };
   }
 
-  return {
-    kind: 'found',
-    repair: { success: true, id: record.id, ticketNumber },
-  };
+  return { kind: 'found', repair };
 }

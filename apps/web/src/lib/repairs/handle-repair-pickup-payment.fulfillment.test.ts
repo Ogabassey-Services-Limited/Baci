@@ -31,8 +31,16 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('marks an ambiguous provider result for review without retrying the webhook', async () => {
-    const { client, firstEq, secondEq, thirdEq, bookedNeq, reviewNeq, update } =
-      createRepairPickupPaymentSupabase();
+    const {
+      client,
+      firstEq,
+      secondEq,
+      thirdEq,
+      bookedNeq,
+      reviewNeq,
+      manualNeq,
+      update,
+    } = createRepairPickupPaymentSupabase();
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
       reason: 'shipment_save_failed',
@@ -70,6 +78,10 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
     );
     expect(bookedNeq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
     expect(reviewNeq).toHaveBeenCalledWith('pickup_payment_status', 'review');
+    expect(manualNeq).toHaveBeenCalledWith(
+      'pickup_payment_status',
+      'manual_fulfilled'
+    );
     expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
       client,
       repairPickupPaymentTestMerchantId,
@@ -152,7 +164,7 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('does not ask Paystack to retry definitive GIGL booking rejections', async () => {
-    const { client, update, bookedNeq, reviewNeq } =
+    const { client, update, bookedNeq, reviewNeq, manualNeq } =
       createRepairPickupPaymentSupabase();
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
@@ -182,6 +194,10 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
     expect(bookedNeq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
     expect(reviewNeq).toHaveBeenCalledWith('pickup_payment_status', 'review');
+    expect(manualNeq).toHaveBeenCalledWith(
+      'pickup_payment_status',
+      'manual_fulfilled'
+    );
     expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
       client,
       repairPickupPaymentTestMerchantId,
@@ -190,8 +206,8 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('asks Paystack to retry when definitive failure review state cannot be persisted', async () => {
-    const { client, reviewNeq } = createRepairPickupPaymentSupabase();
-    reviewNeq.mockResolvedValueOnce({ error: { message: 'write failed' } });
+    const { client, manualNeq } = createRepairPickupPaymentSupabase();
+    manualNeq.mockResolvedValueOnce({ error: { message: 'write failed' } });
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
       reason: 'quote_increased',
@@ -221,7 +237,7 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
     expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
   });
 
-  it('ACKs without rebooking after merchant manual fallback marked review', async () => {
+  it('ACKs without rebooking after merchant payment-side review', async () => {
     const { client } = createRepairPickupPaymentSupabase({
       confirmed: false,
       pickupPaymentStatus: 'review',
@@ -243,6 +259,35 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
       status: 200,
       body: {
         message: 'Repair pickup payment confirmed; shipment requires review',
+      },
+    });
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+    expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
+  });
+
+  it('ACKs without rebooking after merchant manual fulfillment', async () => {
+    const { client } = createRepairPickupPaymentSupabase({
+      confirmed: false,
+      pickupPaymentStatus: 'manual_fulfilled',
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 200,
+      body: {
+        message:
+          'Repair pickup payment confirmed; merchant arranged pickup manually',
       },
     });
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();

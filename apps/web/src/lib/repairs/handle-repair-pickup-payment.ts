@@ -40,10 +40,11 @@ async function setPickupPaymentStatus(
     .eq('id', claim.repairId)
     .eq('merchant_id', claim.merchantId)
     .eq('pickup_payment_reference', claim.reference)
-    // Never let a slower duplicate webhook overwrite a completed booking or a
-    // merchant manual-fallback review state (which terminates auto retries).
+    // Never let a slower duplicate webhook overwrite a completed booking, a
+    // payment-side review state, or merchant manual fulfillment.
     .neq('pickup_payment_status', 'booked')
-    .neq('pickup_payment_status', 'review');
+    .neq('pickup_payment_status', 'review')
+    .neq('pickup_payment_status', 'manual_fulfilled');
 
   if (error) {
     console.error('Repair pickup payment status update failed:', error);
@@ -162,6 +163,16 @@ export async function handleRepairPickupPayment({
   }
 
   const pickupPaymentStatus = await readPickupPaymentStatus(supabase, claim);
+  if (pickupPaymentStatus === 'manual_fulfilled') {
+    return {
+      handled: true,
+      status: 200,
+      body: {
+        message:
+          'Repair pickup payment confirmed; merchant arranged pickup manually',
+      },
+    };
+  }
   if (pickupPaymentStatus === 'review') {
     return {
       handled: true,

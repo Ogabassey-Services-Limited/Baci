@@ -63,6 +63,9 @@ July catalog:
 22. `20260904190050_clear_repair_pickup_pending_payment_reference.sql` — clear pending binding on confirm and mismatch ledger
 23. `20260904190100_activate_gigl_monitor_for_repair_pickups.sql` — enroll repair-linked orderless GIGL shipments in automated tracking monitors
 24. `20260904190200_apply_gigl_tracking_orderless_repair_pickups.sql` — null-safe apply RPC + nullable notification outbox for orderless repair pickups
+25. `20260904190300_manual_fulfilled_repair_pickup_payment_status.sql` — distinct `manual_fulfilled` status so merchant offline arrangement is non-bookable (unlike payment-side `review`)
+26. `20260904190400_repair_pickup_pending_payment_references.sql` — history table preserving every pending RPU tip across payment retries
+27. `20260904190450_consume_repair_pickup_pending_payment_references.sql` — consume history rows on confirm/mismatch; clear tip only when it matches the settled reference
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

@@ -12,7 +12,7 @@ export type TrustedRepairPickupMismatchBinding =
 /**
  * Resolve merchant/repair for mismatch ledgering from a signed claim, or — when
  * the claim is missing/invalid — from the trusted pending Paystack reference
- * binding. Never trusts unsigned metadata UUIDs.
+ * history (every retry tip is preserved). Never trusts unsigned metadata UUIDs.
  */
 export async function resolveTrustedRepairPickupMismatchBinding(options: {
   claim: { merchantId: string; repairId: string } | null;
@@ -28,9 +28,9 @@ export async function resolveTrustedRepairPickupMismatchBinding(options: {
   }
 
   const { data, error } = await options.supabase
-    .from('repairs')
-    .select('id, merchant_id')
-    .eq('pickup_payment_pending_reference', options.reference)
+    .from('repair_pickup_pending_payment_references')
+    .select('repair_id, merchant_id')
+    .eq('reference', options.reference)
     .maybeSingle();
 
   if (error) {
@@ -44,7 +44,7 @@ export async function resolveTrustedRepairPickupMismatchBinding(options: {
   if (
     !data ||
     typeof data !== 'object' ||
-    typeof (data as { id?: unknown }).id !== 'string' ||
+    typeof (data as { repair_id?: unknown }).repair_id !== 'string' ||
     typeof (data as { merchant_id?: unknown }).merchant_id !== 'string'
   ) {
     return { kind: 'orphan' };
@@ -53,6 +53,6 @@ export async function resolveTrustedRepairPickupMismatchBinding(options: {
   return {
     kind: 'bound',
     merchantId: (data as { merchant_id: string }).merchant_id,
-    repairId: (data as { id: string }).id,
+    repairId: (data as { repair_id: string }).repair_id,
   };
 }

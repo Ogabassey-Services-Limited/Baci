@@ -85,14 +85,14 @@ async function recordManualPickup(
     Date.now() - REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS * 1000
   ).toISOString();
 
-  // Terminal `review` stops Paystack webhook rebooking loops (503 + retrying)
-  // while still allowing a later dashboard auto booking if needed. Guard the
+  // Terminal `manual_fulfilled` stops Paystack webhook rebooking and blocks
+  // further GIGL auto booking (distinct from payment-side `review`). Guard the
   // write so a concurrent provider link / active lock loses the race cleanly.
   const { data: updated, error: updateError } = await admin
     .from('repairs')
     .update({
       admin_notes: note,
-      pickup_payment_status: 'review',
+      pickup_payment_status: 'manual_fulfilled',
       pickup_booking_lock_token: null,
       pickup_booking_started_at: null,
       updated_at: new Date().toISOString(),
@@ -100,6 +100,7 @@ async function recordManualPickup(
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
     .neq('pickup_payment_status', 'booked')
+    .neq('pickup_payment_status', 'manual_fulfilled')
     .is('shipment_id', null)
     .or(
       `pickup_booking_lock_token.is.null,pickup_booking_started_at.is.null,pickup_booking_started_at.lt.${staleCutoff}`

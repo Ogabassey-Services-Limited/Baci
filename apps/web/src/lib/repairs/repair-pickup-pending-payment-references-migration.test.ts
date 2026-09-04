@@ -1,0 +1,54 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const manualMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260904190300_manual_fulfilled_repair_pickup_payment_status.sql'
+);
+const historyMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260904190400_repair_pickup_pending_payment_references.sql'
+);
+const consumeMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260904190450_consume_repair_pickup_pending_payment_references.sql'
+);
+
+describe('manual_fulfilled repair pickup payment status migration', () => {
+  it('allows manual_fulfilled distinct from payment-side review', () => {
+    const sql = readFileSync(manualMigrationPath, 'utf8');
+    expect(sql).toContain("'manual_fulfilled'");
+    expect(sql).toContain('repairs_pickup_payment_status_check');
+    expect(sql).toContain("'review'");
+  });
+});
+
+describe('repair_pickup_pending_payment_references migration', () => {
+  it('stores every pending RPU reference in a history table', () => {
+    const sql = readFileSync(historyMigrationPath, 'utf8');
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS public.repair_pickup_pending_payment_references'
+    );
+    expect(sql).toContain('UNIQUE (reference)');
+    expect(sql).toContain('ON CONFLICT (reference) DO NOTHING');
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.bind_repair_pickup_pending_payment_reference'
+    );
+  });
+
+  it('consumes history rows on confirm and mismatch without wiping newer tips', () => {
+    const sql = readFileSync(consumeMigrationPath, 'utf8');
+    expect(sql).toContain('consumed_at = now()');
+    expect(sql).toContain(
+      'WHEN repair.pickup_payment_pending_reference = p_reference THEN NULL'
+    );
+    expect(sql).toContain("'manual_fulfilled'");
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.confirm_repair_pickup_payment'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.record_repair_pickup_payment_mismatch'
+    );
+  });
+});

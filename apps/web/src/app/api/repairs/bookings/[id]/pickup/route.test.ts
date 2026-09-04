@@ -236,7 +236,7 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
     expect(admin.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        pickup_payment_status: 'review',
+        pickup_payment_status: 'manual_fulfilled',
         pickup_booking_lock_token: null,
         pickup_booking_started_at: null,
       })
