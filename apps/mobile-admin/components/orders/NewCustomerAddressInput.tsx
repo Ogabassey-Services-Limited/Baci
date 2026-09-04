@@ -95,6 +95,16 @@ export function NewCustomerAddressInput({
     }));
   };
 
+  // Recovery edits must keep the locality gate active until city+state are set.
+  const handleRecoveryAddressChange = (text: string) => {
+    setNewCustomer((previous) => ({
+      ...previous,
+      address: text,
+      latitude: undefined,
+      longitude: undefined,
+    }));
+  };
+
   const beginDetailsRecovery = () => {
     setDetailsError(DETAILS_RECOVERY_ERROR);
     setDetailsRecovery(true);
@@ -224,7 +234,7 @@ export function NewCustomerAddressInput({
               city={city}
               colors={colors}
               error={detailsError}
-              onAddressChange={handleAddressChange}
+              onAddressChange={handleRecoveryAddressChange}
               setNewCustomer={setNewCustomer}
               state={state}
             />

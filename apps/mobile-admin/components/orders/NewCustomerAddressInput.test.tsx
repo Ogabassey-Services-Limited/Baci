@@ -666,5 +666,101 @@ describe('NewCustomerAddressInput', () => {
         expect(onAddressDetailsPendingChange).toHaveBeenCalledWith(false)
       );
     });
+
+    it('keeps locality gate after editing the recovery address field', async () => {
+      const onAddressDetailsPendingChange = vi.fn();
+      const setNewCustomer = vi.fn();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.includes('/details/')) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ status: 'ZERO_RESULTS', result: null }),
+            });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              predictions: [
+                {
+                  description: '12 Allen Avenue, Ikeja',
+                  place_id: 'place-1',
+                },
+              ],
+            }),
+          });
+        })
+      );
+
+      const view = render(
+        <NewCustomerAddressInput
+          address=""
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          onAddressDetailsPendingChange={onAddressDetailsPendingChange}
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      fireEvent.focus(screen.getByPlaceholderText('Search Address'));
+      fireEvent.change(screen.getByPlaceholderText('Search Address'), {
+        target: { value: '12 Allen' },
+      });
+      view.rerender(
+        <NewCustomerAddressInput
+          address="12 Allen"
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          onAddressDetailsPendingChange={onAddressDetailsPendingChange}
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      await waitFor(() =>
+        expect(screen.getByText('12 Allen Avenue, Ikeja')).toBeInTheDocument()
+      );
+      fireEvent.click(screen.getByText('12 Allen Avenue, Ikeja'));
+
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('Enter address')).toBeInTheDocument()
+      );
+      onAddressDetailsPendingChange.mockClear();
+      setNewCustomer.mockClear();
+
+      fireEvent.change(screen.getByPlaceholderText('Enter address'), {
+        target: { value: '12 Allen Avenue, Suite 2' },
+      });
+
+      expect(
+        screen.getByText(
+          'Could not load full address details. Enter city and state to continue.'
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('City')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('State')).toBeInTheDocument();
+      expect(onAddressDetailsPendingChange).not.toHaveBeenCalledWith(false);
+
+      const updater = setNewCustomer.mock.calls[0][0] as (
+        previous: Record<string, unknown>
+      ) => Record<string, unknown>;
+      expect(
+        updater({
+          address: '12 Allen Avenue, Ikeja',
+          city: '',
+          state: '',
+          latitude: 6.5,
+          longitude: 3.3,
+        })
+      ).toEqual({
+        address: '12 Allen Avenue, Suite 2',
+        city: '',
+        state: '',
+        latitude: undefined,
+        longitude: undefined,
+      });
+    });
   });
 });
