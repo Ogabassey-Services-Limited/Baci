@@ -218,4 +218,32 @@ describe('toDomesticBookingItems', () => {
       },
     ]);
   });
+
+  it('bugfix: falls back to top-level item dimensions when product metadata is absent', () => {
+    expect(
+      toQuoteComparableOrderItems(
+        [
+          {
+            name: 'Widget',
+            quantity: 1,
+            price: 5000,
+            length: 10,
+            width: 8,
+            height: 6,
+          },
+        ],
+        { defaultWeight: 1 }
+      )
+    ).toEqual([
+      {
+        name: 'Widget',
+        quantity: 1,
+        price: 5000,
+        weight: 1,
+        length: 10,
+        width: 8,
+        height: 6,
+      },
+    ]);
+  });
 });
