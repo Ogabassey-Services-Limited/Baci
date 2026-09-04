@@ -278,6 +278,7 @@ describe('Self-fulfill API routes', () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error: 'Order has an active shipping booking',
+      code: 'ACTIVE_SHIPPING_BOOKING',
     });
     expect(rpc).toHaveBeenCalledWith(
       'self_fulfill_order_with_wallet_release',
@@ -317,8 +318,39 @@ describe('Self-fulfill API routes', () => {
     expect(second.status).toBe(400);
     expect(await second.json()).toEqual({
       error: 'Order has already been shipped',
+      code: 'ORDER_ALREADY_SHIPPED',
     });
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('bugfix: returns 409 when settled retention blocks self-fulfillment', async () => {
+    const { supabase, rpc } = createSupabaseMock();
+    vi.mocked(rpc).mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0001',
+        message: 'settled_checkout_retention_blocks_self_fulfillment',
+      },
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        carrierName: 'Dispatch Rider',
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error:
+        'Shipping retention has already settled for this order, so self-fulfillment is unavailable.',
+      code: 'SETTLED_CHECKOUT_RETENTION_BLOCKS_SELF_FULFILLMENT',
+    });
   });
 
   it('returns 401 when api auth fails', async () => {

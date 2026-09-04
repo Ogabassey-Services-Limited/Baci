@@ -8,6 +8,7 @@ import {
   SelfFulfillmentSchema,
   SelfFulfillmentUpdateSchema,
 } from '@/schemas/shipping';
+import { mapSelfFulfillRpcError } from './map-self-fulfill-rpc-error';
 
 async function notifySelfFulfillmentStatusChange(
   customerUserId: string,
@@ -124,25 +125,13 @@ export async function POST(request: NextRequest) {
     );
     if (fulfillError) {
       console.error('Error self-fulfilling order:', fulfillError);
-      const status =
-        fulfillError.code === '55P03' ||
-        fulfillError.message?.includes('active_merchant_shipping_charge') ||
-        fulfillError.message?.includes('active_shipment_booking_lock')
-          ? 409
-          : fulfillError.code === 'P0001' &&
-              fulfillError.message?.includes('order_already_shipped')
-            ? 400
-            : 500;
+      const mapped = mapSelfFulfillRpcError(fulfillError);
       return NextResponse.json(
         {
-          error:
-            status === 409
-              ? 'Order has an active shipping booking'
-              : status === 400
-                ? 'Order has already been shipped'
-                : 'Failed to update order',
+          error: mapped.error,
+          ...(mapped.code ? { code: mapped.code } : {}),
         },
-        { status }
+        { status: mapped.status }
       );
     }
 
