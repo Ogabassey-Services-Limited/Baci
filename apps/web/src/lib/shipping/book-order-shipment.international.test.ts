@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
+import {
+  createSettledRetentionSelectChain,
+  prepaidGiglCustomerCheckoutPayment,
+} from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
@@ -162,6 +165,9 @@ function createSupabase(
             return shipmentInsert;
           }),
         };
+      }
+      if (table === 'merchant_settlements') {
+        return { select: vi.fn(() => createSettledRetentionSelectChain()) };
       }
       throw new Error(`Unexpected table: ${table}`);
     }),

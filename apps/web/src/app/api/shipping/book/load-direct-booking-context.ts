@@ -204,14 +204,21 @@ export async function loadDirectBookingContext(
     };
   }
 
-  assertGiglCustomerCheckoutPrepaid({
-    payment_method: orderWithEconomics.payment_method,
-    payment_status: orderWithEconomics.payment_status,
-    shipping_funding_source: orderWithEconomics.shipping_funding_source,
-    shipping_platform_retained_amount:
-      orderWithEconomics.shipping_platform_retained_amount,
-    shipping_provider: orderWithEconomics.shipping_provider ?? quote.provider,
-  });
+  await assertGiglCustomerCheckoutPrepaid(
+    {
+      payment_method: orderWithEconomics.payment_method,
+      payment_status: orderWithEconomics.payment_status,
+      shipping_funding_source: orderWithEconomics.shipping_funding_source,
+      shipping_platform_retained_amount:
+        orderWithEconomics.shipping_platform_retained_amount,
+      shipping_provider: orderWithEconomics.shipping_provider ?? quote.provider,
+    },
+    {
+      supabase,
+      merchantId,
+      orderId: orderWithEconomics.id,
+    }
+  );
 
   return {
     ok: true,

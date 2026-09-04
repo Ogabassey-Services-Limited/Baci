@@ -59,6 +59,7 @@ function createMockSupabase(overrides?: {
   merchant?: { data: unknown; error: unknown };
   shipmentInsert?: { data: unknown; error: unknown };
   onShipmentInsert?: (payload: unknown) => void;
+  settlements?: { data: unknown; error: unknown };
 }) {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
@@ -115,6 +116,27 @@ function createMockSupabase(overrides?: {
   };
   shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
 
+  const settlementsSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
+    then(
+      onfulfilled: (value: unknown) => unknown,
+      onrejected?: (reason: unknown) => unknown
+    ) {
+      return Promise.resolve(
+        overrides?.settlements ?? {
+          data: [
+            {
+              metadata: { retained_shipping_amount: 2500 },
+              status: 'completed',
+            },
+          ],
+          error: null,
+        }
+      ).then(onfulfilled, onrejected);
+    },
+  };
+
   const chain: MockChain = {
     rpc: vi.fn().mockImplementation((fn: string) => {
       if (fn === 'get_shipping_quote_booking_metadata') {
@@ -168,6 +190,12 @@ function createMockSupabase(overrides?: {
       if (table === 'merchants') {
         return {
           select: vi.fn(() => merchantsSelectChain),
+        };
+      }
+
+      if (table === 'merchant_settlements') {
+        return {
+          select: vi.fn(() => settlementsSelectChain),
         };
       }
 
@@ -557,6 +585,7 @@ describe('bookOrderShipment', () => {
         data: {
           ...validOrder,
           shipping_provider: 'GIGL',
+          shipping_funding_source: 'customer_checkout',
           payment_status: 'paid',
           payment_method: 'paystack',
         },

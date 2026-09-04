@@ -44,8 +44,8 @@ describe('wallet-funded shipment orchestration — checkout', () => {
     expect(book).not.toHaveBeenCalled();
   });
 
-  it('rejects customer-checkout GIGL pay-on-delivery bookings before provider dispatch', () => {
-    expect(() =>
+  it('rejects customer-checkout GIGL pay-on-delivery bookings before provider dispatch', async () => {
+    await expect(
       bookWalletOrCustomerCheckout(
         supabaseFixture,
         'm1',
@@ -62,9 +62,7 @@ describe('wallet-funded shipment orchestration — checkout', () => {
           payment_method: 'pay_on_delivery',
         }
       )
-    ).toThrow(
-      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
-    );
+    ).rejects.toMatchObject({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' });
   });
 
   it('never calls wallet RPCs for customer checkout', async () => {
@@ -85,6 +83,7 @@ describe('wallet-funded shipment orchestration — checkout', () => {
         payment_method: 'paystack',
         shipping_funding_source: 'customer_checkout',
         shipping_platform_retained_amount: 2500,
+        settledRetainedAmount: 2500,
       }
     );
     expect(book).toHaveBeenCalledOnce();

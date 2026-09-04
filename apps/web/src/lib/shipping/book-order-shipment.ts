@@ -99,7 +99,11 @@ export async function bookOrderShipment(
     ((typedOrder.payment_status ?? '').trim().toLowerCase() !== 'paid' ||
       isPayOnDeliveryPaymentMethod(typedOrder.payment_method))
   ) {
-    assertGiglCustomerCheckoutPrepaid(typedOrder);
+    await assertGiglCustomerCheckoutPrepaid(typedOrder, {
+      supabase,
+      merchantId,
+      orderId,
+    });
   }
   const orderItems = typedOrder.order_items ?? [];
   if (orderItems.length === 0) {
@@ -136,7 +140,11 @@ export async function bookOrderShipment(
     typedOrder,
     bookingEconomics
   );
-  assertGiglCustomerCheckoutPrepaid(orderWithEconomics);
+  await assertGiglCustomerCheckoutPrepaid(orderWithEconomics, {
+    supabase,
+    merchantId,
+    orderId,
+  });
   const bookingQuote = await attachBookingQuoteMetadata(
     supabase,
     merchantId,

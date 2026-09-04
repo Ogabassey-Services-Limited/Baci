@@ -31,6 +31,43 @@ export const prepaidGiglCustomerCheckoutPayment = {
   shipping_platform_retained_amount: 2500,
 };
 
+/** Thenable PostgREST chain for settled GIGL retention coverage. */
+export function createSettledRetentionSelectChain(retainedAmount = 2500): {
+  eq: ReturnType<typeof vi.fn>;
+  then: (
+    onfulfilled: (value: unknown) => unknown,
+    onrejected?: (reason: unknown) => unknown
+  ) => Promise<unknown>;
+} {
+  const result = {
+    data: [
+      {
+        metadata: { retained_shipping_amount: retainedAmount },
+        status: 'completed',
+      },
+    ],
+    error: null as null,
+  };
+  const chain: {
+    eq: ReturnType<typeof vi.fn>;
+    then: (
+      onfulfilled: (value: unknown) => unknown,
+      onrejected?: (reason: unknown) => unknown
+    ) => Promise<unknown>;
+  } = {
+    eq: vi.fn(),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
+    then(
+      onfulfilled: (value: unknown) => unknown,
+      onrejected?: (reason: unknown) => unknown
+    ) {
+      return Promise.resolve(result).then(onfulfilled, onrejected);
+    },
+  };
+  chain.eq.mockReturnValue(chain);
+  return chain;
+}
+
 type StoredSender = typeof staleSender | typeof correctedSender;
 
 export function stubShippingService() {
@@ -208,6 +245,32 @@ export function createSupabase({
       }
       if (table === 'merchants') {
         return { select: vi.fn((..._args: unknown[]) => merchantSelect) };
+      }
+      if (table === 'merchant_settlements') {
+        const settlementsChain = {
+          eq: vi.fn().mockReturnThis(),
+          // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
+          then(
+            onfulfilled: (value: unknown) => unknown,
+            onrejected?: (reason: unknown) => unknown
+          ) {
+            return Promise.resolve({
+              data: [
+                {
+                  metadata: {
+                    retained_shipping_amount:
+                      order.shipping_funding_source === 'customer_checkout'
+                        ? (order.shipping_platform_retained_amount ?? 2500)
+                        : 0,
+                  },
+                  status: 'completed',
+                },
+              ],
+              error: null,
+            }).then(onfulfilled, onrejected);
+          },
+        };
+        return { select: vi.fn(() => settlementsChain) };
       }
       throw new Error(`Unexpected table ${table}`);
     }),

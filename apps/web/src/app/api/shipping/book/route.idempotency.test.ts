@@ -198,6 +198,25 @@ function buildSupabaseMock(options: { respectRetainedLock?: boolean } = {}) {
           })),
         };
       }
+      if (table === 'merchant_settlements') {
+        const eqSourceId = vi.fn().mockResolvedValue({
+          data: [
+            {
+              metadata: {
+                retained_shipping_amount:
+                  giglBookingEconomicsProjection.shipping_platform_retained_amount,
+              },
+              status: 'completed',
+            },
+          ],
+          error: null,
+        });
+        const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+        const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   };

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createSettledRetentionSelectChain } from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
@@ -109,6 +110,9 @@ function createSupabase(order: unknown, quote: unknown) {
       if (table === 'shipments') return shipments;
       if (table === 'merchants')
         return { select: vi.fn().mockReturnValue(merchantChain) };
+      if (table === 'merchant_settlements') {
+        return { select: vi.fn(() => createSettledRetentionSelectChain()) };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   } as never;

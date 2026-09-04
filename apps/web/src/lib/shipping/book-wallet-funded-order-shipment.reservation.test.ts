@@ -113,15 +113,8 @@ describe('wallet-funded shipment orchestration — reservation', () => {
   });
 
   it('rotates an existing reservation before refreshing an expired quote', async () => {
-    const from = vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: 'charge-existing' },
-        error: null,
-      }),
-    }));
-    const supabase = { from } as unknown as typeof supabaseFixture;
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    const supabase = { rpc } as unknown as typeof supabaseFixture;
     const prepareQuote = vi
       .fn()
       .mockRejectedValue(new Error('quote replacement required'));
@@ -149,7 +142,10 @@ describe('wallet-funded shipment orchestration — reservation', () => {
       )
     ).rejects.toThrow('quote replacement required');
 
-    expect(from).toHaveBeenCalledWith('merchant_shipping_charges');
+    expect(rpc).toHaveBeenCalledWith('has_active_merchant_shipping_charge', {
+      p_order_id: 'o1',
+      p_quote_id: 'q-expired',
+    });
     expect(prepareQuote).toHaveBeenCalledOnce();
     expect(charge.reserveMerchantShippingCharge).toHaveBeenCalledWith(
       supabase,

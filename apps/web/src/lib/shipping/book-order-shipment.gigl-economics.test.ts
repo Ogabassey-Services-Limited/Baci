@@ -143,6 +143,26 @@ function createSupabase(
           }),
         };
       }
+      if (table === 'merchant_settlements') {
+        const settlementsChain = {
+          eq: vi.fn().mockReturnThis(),
+          // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are thenable.
+          then: (
+            onfulfilled: (value: unknown) => unknown,
+            onrejected?: (reason: unknown) => unknown
+          ) =>
+            Promise.resolve({
+              data: [
+                {
+                  metadata: { retained_shipping_amount: 2500 },
+                  status: 'completed',
+                },
+              ],
+              error: null,
+            }).then(onfulfilled, onrejected),
+        };
+        return { select: vi.fn().mockReturnValue(settlementsChain) };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   };

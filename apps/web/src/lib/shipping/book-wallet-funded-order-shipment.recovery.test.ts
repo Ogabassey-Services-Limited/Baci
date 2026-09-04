@@ -13,17 +13,6 @@ import { bookWalletOrCustomerCheckout } from './book-wallet-funded-order-shipmen
 import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
-function reservedChargeQuery() {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({
-      data: { id: 'charge-reserved' },
-      error: null,
-    }),
-  };
-}
-
 describe('wallet-funded shipment orchestration — process-death recovery', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -36,7 +25,7 @@ describe('wallet-funded shipment orchestration — process-death recovery', () =
     const events: string[] = [];
     const release = vi.fn().mockResolvedValue(undefined);
     const supabase = {
-      from: vi.fn(() => reservedChargeQuery()),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
     const book = vi.fn();
     const rotatedToken = 'rotated-token';
@@ -79,6 +68,10 @@ describe('wallet-funded shipment orchestration — process-death recovery', () =
     });
 
     expect(events).toEqual(['reserve', 'prepare']);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'has_active_merchant_shipping_charge',
+      { p_order_id: 'o1', p_quote_id: 'q-stale' }
+    );
     expect(charge.refundMerchantShippingCharge).toHaveBeenCalledWith(
       supabase,
       'charge-reserved',
@@ -94,14 +87,10 @@ describe('wallet-funded shipment orchestration — process-death recovery', () =
     const events: string[] = [];
     const release = vi.fn().mockResolvedValue(undefined);
     const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: null,
-          error: new Error('temporary read failure'),
-        }),
-      })),
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'temporary read failure' },
+      }),
     };
     vi.mocked(charge.reserveMerchantShippingCharge).mockImplementation(
       async () => {

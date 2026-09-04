@@ -56,14 +56,7 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
       .fn()
       .mockRejectedValue(new Error('refresh would replace active charge'));
     const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: { id: 'charge-reserved' },
-          error: null,
-        }),
-      })),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
       charge: {

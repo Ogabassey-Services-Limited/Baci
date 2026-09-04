@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { shippingQuoteEnvTestMock } from '@/lib/shipping/shipping-quote-env.test-mock';
-import { prepaidGiglCustomerCheckoutPayment } from './book-order-shipment.refresh-fixtures.test-helper';
+import {
+  createSettledRetentionSelectChain,
+  prepaidGiglCustomerCheckoutPayment,
+} from './book-order-shipment.refresh-fixtures.test-helper';
 
 vi.mock('@/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/env')>();
@@ -154,6 +157,9 @@ function createSupabase() {
             })),
           })),
         };
+      }
+      if (table === 'merchant_settlements') {
+        return { select: vi.fn(() => createSettledRetentionSelectChain()) };
       }
       throw new Error(`Unexpected table ${table}`);
     }),

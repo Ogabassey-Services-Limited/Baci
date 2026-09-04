@@ -108,6 +108,22 @@ function buildSupabaseMock(orderOverrides: Record<string, unknown> = {}) {
           })),
         };
       }
+      if (table === 'merchant_settlements') {
+        const eqSourceId = vi.fn().mockResolvedValue({
+          data: [
+            {
+              metadata: { retained_shipping_amount: 4500 },
+              status: 'completed',
+            },
+          ],
+          error: null,
+        });
+        const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+        const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   } as unknown as SupabaseClient;

@@ -27,7 +27,9 @@ type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
 type GiglBookingPaymentContext = Parameters<
   typeof assertGiglCustomerCheckoutPrepaid
->[0];
+>[0] & {
+  settledRetainedAmount?: number;
+};
 type ChargeReservation = Awaited<
   ReturnType<typeof reserveMerchantShippingCharge>
 >;
@@ -257,7 +259,7 @@ export async function bookWalletFundedOrderShipment(
   }
 }
 
-export function bookWalletOrCustomerCheckout(
+export async function bookWalletOrCustomerCheckout(
   supabase: SupabaseClient,
   merchantId: string,
   orderId: string,
@@ -270,10 +272,19 @@ export function bookWalletOrCustomerCheckout(
   orderPayment?: GiglBookingPaymentContext
 ) {
   if (fundingSource !== 'merchant_wallet') {
-    assertGiglCustomerCheckoutPrepaid({
-      shipping_funding_source: fundingSource,
-      ...orderPayment,
-    });
+    const { settledRetainedAmount, ...paymentFields } = orderPayment ?? {};
+    await assertGiglCustomerCheckoutPrepaid(
+      {
+        shipping_funding_source: fundingSource,
+        ...paymentFields,
+      },
+      {
+        supabase,
+        merchantId,
+        orderId,
+        settledRetainedAmount,
+      }
+    );
     return book(quoteId);
   }
   if (!merchantId || !orderId || !quoteId) {

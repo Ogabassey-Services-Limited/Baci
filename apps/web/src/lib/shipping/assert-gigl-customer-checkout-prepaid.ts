@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadOrderGiglSettledRetainedAmount } from './load-order-gigl-settled-retained-amount';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 type GiglBookingPaymentContext = {
@@ -6,6 +8,14 @@ type GiglBookingPaymentContext = {
   shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
   shipping_platform_retained_amount?: number | string | null;
   shipping_provider?: string | null;
+};
+
+export type AssertGiglCustomerCheckoutPrepaidContext = {
+  supabase: SupabaseClient;
+  merchantId: string;
+  orderId: string;
+  /** Test injection / preloaded settled retention; skips the settlements read. */
+  settledRetainedAmount?: number;
 };
 
 const GIGL_CHECKOUT_PAYMENT_METHODS_WITHOUT_RETENTION = new Set([
@@ -49,7 +59,7 @@ export function isGiglCheckoutPaymentWithoutRetainedShipping(
 }
 
 /**
- * Authoritative prepaid shipping proof: customer_checkout funding with a
+ * Authoritative prepaid shipping intent: customer_checkout funding with a
  * positive retained amount. Never infer retention from Paystack/Korapay/etc.
  * when shipping_funding_source is null — payment method alone is not proof
  * GIGL shipping was retained at checkout.
@@ -69,9 +79,24 @@ export function hasGiglCheckoutShippingRetention(
   );
 }
 
-export function assertGiglCustomerCheckoutPrepaid(
-  order: GiglBookingPaymentContext
-): void {
+function throwPrepaidRequired(): never {
+  throw new OrderShipmentBookingError(
+    'GIGL shipping must be prepaid at checkout or funded from the merchant wallet before booking.',
+    400,
+    'GIGL_REQUIRES_PREPAID_OR_WALLET'
+  );
+}
+
+/**
+ * Before customer-checkout GIGL booking, require paid status, retention intent
+ * on the order, and completed settlement retention that covers the stamped
+ * amount. Order.shipping_platform_retained_amount is stamped at quote time and
+ * is not proof Baci holds the tariff.
+ */
+export async function assertGiglCustomerCheckoutPrepaid(
+  order: GiglBookingPaymentContext,
+  context?: AssertGiglCustomerCheckoutPrepaidContext
+): Promise<void> {
   if (order.shipping_provider !== 'GIGL') {
     return;
   }
@@ -82,19 +107,38 @@ export function assertGiglCustomerCheckoutPrepaid(
 
   const paymentStatus = (order.payment_status ?? '').trim().toLowerCase();
   const paymentMethod = normalizePaymentMethod(order.payment_method);
+  const hasRetentionIntent = hasGiglCheckoutShippingRetention(order);
   const requiresPrepaidShipping =
     paymentStatus !== 'paid' ||
     isPayOnDeliveryPaymentMethod(order.payment_method) ||
     isGiglCheckoutPaymentWithoutRetainedShipping(paymentMethod) ||
-    !hasGiglCheckoutShippingRetention(order);
+    !hasRetentionIntent;
 
-  if (!requiresPrepaidShipping) {
-    return;
+  if (requiresPrepaidShipping) {
+    throwPrepaidRequired();
   }
 
-  throw new OrderShipmentBookingError(
-    'GIGL shipping must be prepaid at checkout or funded from the merchant wallet before booking.',
-    400,
-    'GIGL_REQUIRES_PREPAID_OR_WALLET'
+  const requiredRetained = parseRetainedShippingAmount(
+    order.shipping_platform_retained_amount
   );
+  let settledRetained: number;
+  if (typeof context?.settledRetainedAmount === 'number') {
+    settledRetained = context.settledRetainedAmount;
+  } else if (context) {
+    try {
+      settledRetained = await loadOrderGiglSettledRetainedAmount(
+        context.supabase,
+        context.merchantId,
+        context.orderId
+      );
+    } catch {
+      throwPrepaidRequired();
+    }
+  } else {
+    throwPrepaidRequired();
+  }
+
+  if (settledRetained < requiredRetained) {
+    throwPrepaidRequired();
+  }
 }
