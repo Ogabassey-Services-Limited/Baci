@@ -115,6 +115,11 @@ export function NewOrderProductSheet({
       variantOptionGroups.some((group) => group.values.length > 1)
   );
   useEffect(() => {
+    if (!showProductModal || !isPickingVariant) {
+      setVariantSelectionState({ selection: {} });
+    }
+  }, [showProductModal, isPickingVariant]);
+  useEffect(() => {
     if (showProductModal && !isPickingVariant) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();

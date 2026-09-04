@@ -152,10 +152,10 @@ describe('critical variant selector options', () => {
   it('deduplicates a fixed fallback declared through canonical axis aliases', () => {
     expect(
       getVariantAxisOptions([], 'storage', {
-        Storage: ['1TB SSD'],
-        storage: ['1TB'],
+        Storage: ['1 TB SSD'],
+        storage: ['1TB SSD'],
       })
-    ).toEqual(['1TB']);
+    ).toEqual(['1TB SSD']);
   });
 
   it('does not render multi-option metadata axes that no variant can resolve', () => {

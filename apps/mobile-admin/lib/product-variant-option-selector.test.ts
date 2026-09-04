@@ -150,9 +150,34 @@ describe('buildVariantOptionGroups', () => {
     );
 
     expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
-      { available: true, label: '256GB', selected: false, value: '256GB' },
-      { available: true, label: '512GB', selected: false, value: '512GB' },
-      { available: true, label: '1TB', selected: false, value: '1TB' },
+      {
+        available: true,
+        label: '256GB SSD',
+        selected: false,
+        value: '256GB SSD',
+      },
+      {
+        available: true,
+        label: '512GB SSD',
+        selected: false,
+        value: '512GB SSD',
+      },
+      { available: true, label: '1TB SSD', selected: false, value: '1TB SSD' },
+    ]);
+  });
+
+  it('keeps SSD and HDD as distinct selectable storage options', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-ssd', { storage: '1TB SSD' }),
+        variant('variant-hdd', { storage: '1TB HDD' }),
+      ],
+      {}
+    );
+
+    expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
+      { available: true, label: '1TB HDD', selected: false, value: '1TB HDD' },
+      { available: true, label: '1TB SSD', selected: false, value: '1TB SSD' },
     ]);
   });
 

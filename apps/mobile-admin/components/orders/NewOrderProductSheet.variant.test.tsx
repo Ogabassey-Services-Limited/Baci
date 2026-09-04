@@ -322,6 +322,54 @@ describe('NewOrderProductSheet variant mode', () => {
     );
   });
 
+  it('clears prior variant choices when returning to the same parent product', () => {
+    const rows = [
+      makeVariantRow('variant-1', 'Baci Phone Blue 512GB', [
+        { name: 'Color', value: 'Blue' },
+        { name: 'Storage', value: '512GB' },
+      ]),
+      makeVariantRow('variant-2', 'Baci Phone Black 256GB', [
+        { name: 'Color', value: 'Black' },
+        { name: 'Storage', value: '256GB' },
+      ]),
+    ];
+    const controller = makeController({
+      selectableProductRows: rows,
+      selectedParentProduct,
+    });
+
+    const { rerender } = render(
+      <NewOrderProductSheet controller={controller} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Color Blue' }));
+    expect(
+      screen.getByRole('button', { name: 'Add selected variant' })
+    ).toBeEnabled();
+
+    rerender(
+      <NewOrderProductSheet
+        controller={makeController({
+          isPickingVariant: false,
+          selectableProductRows: rows,
+          selectedParentProduct: null,
+        })}
+      />
+    );
+    rerender(
+      <NewOrderProductSheet
+        controller={makeController({
+          selectableProductRows: rows,
+          selectedParentProduct,
+        })}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Add selected variant' })
+    ).toBeDisabled();
+  });
+
   it('resets variant picking from the back control', () => {
     const controller = makeController();
 

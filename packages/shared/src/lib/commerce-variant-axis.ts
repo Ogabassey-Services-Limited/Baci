@@ -5,30 +5,32 @@ const COMMERCE_VARIANT_AXIS_ALIASES: Record<string, string> = {
   storage_capacity: 'storage',
 };
 
-const COMMERCE_VARIANT_AXES = new Set([
-  'bundle',
-  'capacity',
-  'case_size',
-  'color',
-  'condition',
-  'configuration',
-  'connectivity',
-  'edition',
-  'extended_warranty',
-  'generation',
-  'graphics',
-  'memory',
-  'network',
-  'notebook_size',
-  'platform',
-  'processor',
-  'ram',
-  'region',
-  'rom',
-  'sim_type',
-  'size',
-  'storage',
-  'warranty',
+/**
+ * Descriptive / display-only metadata that must never become a purchase axis.
+ * Merchant-defined SKU dimensions outside the historical allowlist (material,
+ * style, flavor, …) stay selectable.
+ */
+const NON_COMMERCE_VARIANT_AXIS_METADATA = new Set([
+  'availability',
+  'availability_note',
+  'camera',
+  'color_hex',
+  'colour_hex',
+  'delivery_notice',
+  'disclaimer',
+  'disclaimers',
+  'display_size',
+  'display_type',
+  'keyboard',
+  'model',
+  'model_number',
+  'note',
+  'notes',
+  'notice',
+  'operating_system',
+  'screen_size',
+  'warranty_note',
+  'wireless',
 ]);
 
 function normalizeAxisKey(axis: string) {
@@ -39,10 +41,23 @@ function normalizeAxisKey(axis: string) {
     .replace(/[\s.-]+/g, '_');
 }
 
+function isNonCommerceVariantAxis(canonical: string): boolean {
+  if (NON_COMMERCE_VARIANT_AXIS_METADATA.has(canonical)) {
+    return true;
+  }
+
+  // Nested specification dumps flatten to specs_* and are never purchase axes.
+  return canonical === 'specs' || canonical.startsWith('specs_');
+}
+
 export function canonicalizeCommerceVariantAxis(axis: string): string | null {
   const normalized = normalizeAxisKey(axis);
+  if (!normalized) {
+    return null;
+  }
+
   const canonical = COMMERCE_VARIANT_AXIS_ALIASES[normalized] ?? normalized;
-  return COMMERCE_VARIANT_AXES.has(canonical) ? canonical : null;
+  return isNonCommerceVariantAxis(canonical) ? null : canonical;
 }
 
 function normalizeGraphicsOption(value: string) {
@@ -58,6 +73,13 @@ function normalizeGraphicsOption(value: string) {
     .replace(/TI\b/, 'Ti')
     .replace(/SUPER\b/, 'Super');
   return `NVIDIA GeForce ${normalizedModel} ${memory[1]}GB`;
+}
+
+function normalizeCapacityToken(value: string) {
+  return value.replace(
+    /^(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB)\b/i,
+    (_match, amount: string, unit: string) => `${amount}${unit.toUpperCase()}`
+  );
 }
 
 export function normalizeCommerceVariantOption(axis: string, value: unknown) {
@@ -76,11 +98,16 @@ export function normalizeCommerceVariantOption(axis: string, value: unknown) {
   } else if (canonicalAxis === 'processor') {
     normalized = normalized.replace(/\bIntel\s+Ultra\b/i, 'Intel Core Ultra');
   } else if (canonicalAxis === 'ram') {
-    normalized = normalized.replace(/\s+RAM$/i, '');
-  } else if (canonicalAxis === 'storage') {
+    normalized = normalizeCapacityToken(normalized.replace(/\s+RAM$/i, ''));
+  } else if (canonicalAxis === 'storage' || canonicalAxis === 'capacity') {
+    // Preserve SSD/HDD (and similar medium tokens) so distinct SKUs like
+    // "1TB SSD" vs "1TB HDD" do not collapse into a single option.
     normalized = normalized.replace(
-      /^(\d+(?:\.\d+)?\s*(?:GB|TB))\s+(?:SSD|HDD)$/i,
-      '$1'
+      /^(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB)(?:\s+(SSD|HDD|NVMe|eMMC))?$/i,
+      (_match, amount: string, unit: string, medium: string | undefined) =>
+        medium
+          ? `${amount}${unit.toUpperCase()} ${medium.toUpperCase()}`
+          : `${amount}${unit.toUpperCase()}`
     );
   }
 
