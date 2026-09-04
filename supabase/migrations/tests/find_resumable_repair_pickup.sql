@@ -4,7 +4,6 @@
 
 BEGIN;
 
-SET LOCAL ROLE service_role;
 SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
 
 INSERT INTO public.merchants (id, email, business_name, slug, is_published)
@@ -45,14 +44,13 @@ VALUES (
   now() - interval '30 minutes'
 );
 
--- Capture ticket_number while still service_role: repair_pickup_receiver
--- lacks SELECT on public.repairs (by design).
-CREATE TEMP TABLE pg_temp.find_resumable_repair_pickup_expected (
-  ticket_number integer NOT NULL
-) ON COMMIT DROP;
-
-INSERT INTO pg_temp.find_resumable_repair_pickup_expected (ticket_number)
-SELECT repairs.ticket_number
+-- Persist expected ticket in session GUC before switching roles.
+-- repair_pickup_receiver cannot SELECT public.repairs (by design).
+SELECT pg_catalog.set_config(
+  'test.find_resumable_expected_ticket',
+  repairs.ticket_number::text,
+  true
+)
 FROM public.repairs AS repairs
 WHERE repairs.id = '84a63d82-0000-4000-8000-000000000010';
 
@@ -62,11 +60,15 @@ DO $$
 DECLARE
   found_id uuid;
   found_ticket integer;
-  expected_ticket integer;
+  expected_ticket integer :=
+    nullif(
+      current_setting('test.find_resumable_expected_ticket', true),
+      ''
+    )::integer;
 BEGIN
-  SELECT expected.ticket_number
-  INTO expected_ticket
-  FROM pg_temp.find_resumable_repair_pickup_expected AS expected;
+  IF expected_ticket IS NULL THEN
+    RAISE EXCEPTION 'expected ticket was not captured before role switch';
+  END IF;
 
   IF EXISTS (
     SELECT 1
