@@ -296,4 +296,43 @@ describe('POST /api/shipping/quotes', () => {
       error: 'Failed to get shipping quotes',
     });
   });
+
+  it('repairs a postal code supplied as receiver state before carrier quoting', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Lagos',
+        country: 'NG',
+        payout_currency: 'NGN',
+        phone: '08012345678',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        shipmentType: 'domestic',
+        receiver: {
+          name: 'Ada Buyer',
+          phone: '08011112222',
+          address: '2 Olaide Tomori Street, Ikeja, Lagos 100001, Nigeria',
+          city: 'Ikeja',
+          state: '100001',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receiver: expect.objectContaining({ city: 'Ikeja', state: 'Lagos' }),
+      }),
+      []
+    );
+  });
 });

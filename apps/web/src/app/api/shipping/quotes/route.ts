@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { shippingService } from '@/lib/shipping';
+import { normalizeNigerianQuoteReceiver } from '@/lib/shipping/normalize-nigerian-quote-receiver';
 import {
   MERCHANT_PROVIDER_CODE,
   type QuoteRequest,
@@ -56,7 +57,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = parseResult.data;
+    const data = {
+      ...parseResult.data,
+      receiver: normalizeNigerianQuoteReceiver(
+        parseResult.data.receiver,
+        parseResult.data.shipmentType
+      ),
+    };
 
     const supabase = createAdminClient();
 
