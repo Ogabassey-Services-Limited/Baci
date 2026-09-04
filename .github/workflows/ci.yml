@@ -311,6 +311,7 @@ jobs:
           --sql-check supabase/migrations/tests/public_shipping_sender_projection.sql
           --sql-check supabase/migrations/tests/repair_pickup_payment_confirmation.sql
           --sql-check supabase/migrations/tests/repair_pickup_receiver_projection.sql
+          --sql-check supabase/migrations/tests/find_resumable_repair_pickup.sql
       - name: Run migration replay regression test
         run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
       - name: Test Cache Invalidation Outbox SQL

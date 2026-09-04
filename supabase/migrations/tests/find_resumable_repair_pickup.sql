@@ -3,6 +3,7 @@
 
 BEGIN;
 
+SET LOCAL ROLE service_role;
 SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
 
 INSERT INTO public.merchants (id, email, business_name, slug, is_published)
@@ -26,7 +27,6 @@ INSERT INTO public.repairs (
   service_type,
   pickup_address,
   status,
-  ticket_number,
   created_at
 )
 VALUES (
@@ -41,7 +41,6 @@ VALUES (
   'pickup',
   '12 Station Road, Osogbo',
   'pending',
-  1042,
   now() - interval '30 minutes'
 );
 
@@ -49,7 +48,13 @@ DO $$
 DECLARE
   found_id uuid;
   found_ticket integer;
+  expected_ticket integer;
 BEGIN
+  SELECT ticket_number
+  INTO expected_ticket
+  FROM public.repairs
+  WHERE id = '84a63d82-0000-4000-8000-000000000010';
+
   SELECT id, ticket_number
   INTO found_id, found_ticket
   FROM public.find_resumable_repair_pickup(
@@ -58,7 +63,7 @@ BEGIN
   );
 
   IF found_id IS DISTINCT FROM '84a63d82-0000-4000-8000-000000000010'::uuid
-    OR found_ticket IS DISTINCT FROM 1042
+    OR found_ticket IS DISTINCT FROM expected_ticket
   THEN
     RAISE EXCEPTION
       'expected matching unpaid pickup; got id=% ticket=%',
