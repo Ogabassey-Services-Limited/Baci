@@ -14,6 +14,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { shippingService } from '@/lib/shipping';
 import { rankQuotes, selectFeaturedQuotes } from '@/lib/shipping/aggregator';
+import { normalizeNigerianQuoteReceiver } from '@/lib/shipping/normalize-nigerian-quote-receiver';
 import {
   MERCHANT_PROVIDER_CODE,
   type QuoteRequest,
@@ -80,7 +81,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = parseResult.data;
+    const data = {
+      ...parseResult.data,
+      receiver: normalizeNigerianQuoteReceiver(
+        parseResult.data.receiver,
+        parseResult.data.shipmentType
+      ),
+    };
 
     // Single admin client instance for the lifetime of this request.
     // The service-role key bypasses RLS for quote storage. For auth we
