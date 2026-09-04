@@ -130,6 +130,7 @@ type ExistingOrder = {
   selected_quote_id: string | null;
   shipping_provider: string | null;
   shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
+  shipping_platform_retained_amount?: number | string | null;
   tracking_number: string | null;
   shipment_id: string | null;
   shipping_address?: Record<string, unknown> | null;
@@ -194,6 +195,32 @@ function createSupabaseMock(
               error: null,
             })
           ),
+        };
+      }
+
+      if (table === 'merchant_settlements') {
+        const retained = Number(
+          existingOrder.shipping_platform_retained_amount ??
+            (existingOrder.shipping_funding_source === 'customer_checkout'
+              ? 1500
+              : 0)
+        );
+        const eqSourceId = vi.fn().mockResolvedValue({
+          data:
+            retained > 0
+              ? [
+                  {
+                    metadata: { retained_shipping_amount: retained },
+                    status: 'completed',
+                  },
+                ]
+              : [],
+          error: null,
+        });
+        const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+        const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
         };
       }
 
@@ -639,6 +666,59 @@ describe('PATCH /api/orders/[id]', () => {
         state: 'Lagos',
       },
     });
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: rejects funded checkout address edits before clearing the quote', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      payment_method: 'paystack',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'customer_checkout',
+      shipping_platform_retained_amount: 2500,
+      tracking_number: null,
+      shipment_id: null,
+      shipping_address: {
+        address: '1 Old Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'processing',
+      shipping_provider: 'GIGL',
+      tracking_number: null,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      code: 'FUNDED_CHECKOUT_ADDRESS_LOCKED',
+    });
+    expect(ordersUpdate).not.toHaveBeenCalled();
     expect(bookOrderShipment).not.toHaveBeenCalled();
   });
 

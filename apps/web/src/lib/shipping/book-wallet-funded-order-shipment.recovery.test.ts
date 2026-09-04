@@ -9,7 +9,7 @@ vi.mock('./merchant-shipping-charge', () => ({
   markMerchantShippingChargeForReconciliation: vi.fn(),
 }));
 
-import { bookWalletOrCustomerCheckout } from './book-wallet-funded-order-shipment';
+import { bookWalletOrCustomerCheckout } from './book-wallet-or-customer-checkout';
 import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 

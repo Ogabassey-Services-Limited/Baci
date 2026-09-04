@@ -14,8 +14,9 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { hasGiglCheckoutShippingRetention } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
-import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-funded-order-shipment';
+import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-or-customer-checkout';
 import { findReusableOrderShipment } from '@/lib/shipping/find-reusable-order-shipment';
 import {
   claimOrderShipmentBooking,
@@ -155,7 +156,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, payment_method, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, tracking_number, shipment_id'
+        'id, order_number, shipping_status, payment_status, payment_method, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_platform_retained_amount, shipping_address, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -251,6 +252,28 @@ export async function PATCH(
               error:
                 'Changing the shipping address requires a new shipping quote before shipping.',
               code: 'SHIPPING_QUOTE_INVALIDATED',
+            },
+            { status: 409 }
+          );
+        }
+        // Paid checkout-funded GIGL retention survives quote clears via DB
+        // triggers, but Admin re-quote cannot rebind away from checkout. Reject
+        // before clearing so prepaid shipping is not stranded without a quote.
+        if (
+          existingOrder.shipping_provider === 'GIGL' &&
+          (existingOrder.payment_status ?? '').trim().toLowerCase() ===
+            'paid' &&
+          hasGiglCheckoutShippingRetention({
+            shipping_funding_source: existingOrder.shipping_funding_source,
+            shipping_platform_retained_amount:
+              existingOrder.shipping_platform_retained_amount,
+          })
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'This order already has prepaid checkout shipping. Change the address only through a settlement-safe reprice flow.',
+              code: 'FUNDED_CHECKOUT_ADDRESS_LOCKED',
             },
             { status: 409 }
           );

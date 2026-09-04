@@ -9,8 +9,8 @@ vi.mock('./merchant-shipping-charge', () => ({
   markMerchantShippingChargeForReconciliation: vi.fn(),
 }));
 
-import { bookWalletOrCustomerCheckout } from './book-wallet-funded-order-shipment';
 import { supabaseFixture } from './book-wallet-funded-order-shipment.test-support';
+import { bookWalletOrCustomerCheckout } from './book-wallet-or-customer-checkout';
 import * as charge from './merchant-shipping-charge';
 
 describe('finalizeWalletFundedExistingShipment', () => {

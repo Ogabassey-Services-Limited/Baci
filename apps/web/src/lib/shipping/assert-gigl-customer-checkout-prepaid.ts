@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadOrderGiglInternalCreditRetainedAmount } from './load-order-gigl-internal-credit-retained-amount';
 import { loadOrderGiglSettledRetainedAmount } from './load-order-gigl-settled-retained-amount';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
@@ -126,11 +127,22 @@ export async function assertGiglCustomerCheckoutPrepaid(
     settledRetained = context.settledRetainedAmount;
   } else if (context) {
     try {
-      settledRetained = await loadOrderGiglSettledRetainedAmount(
+      const fromSettlements = await loadOrderGiglSettledRetainedAmount(
         context.supabase,
         context.merchantId,
         context.orderId
       );
+      // Wallet/savings/store-credit checkouts often have no settlement row;
+      // include completed internal-credit payment evidence for the stamped tariff.
+      const fromInternalCredit =
+        fromSettlements >= requiredRetained
+          ? 0
+          : await loadOrderGiglInternalCreditRetainedAmount(
+              context.supabase,
+              context.merchantId,
+              context.orderId
+            );
+      settledRetained = Math.max(fromSettlements, fromInternalCredit);
     } catch {
       throwPrepaidRequired();
     }

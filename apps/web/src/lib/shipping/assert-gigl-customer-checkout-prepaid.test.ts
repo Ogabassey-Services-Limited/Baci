@@ -84,6 +84,72 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('bugfix: allows wallet-paid checkout GIGL when settlements are missing', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'merchant_settlements') {
+        const eqSourceId = vi.fn().mockResolvedValue({
+          data: [],
+          error: null,
+        });
+        const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+        const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
+        };
+      }
+
+      if (table === 'transactions') {
+        const inGateways = vi.fn().mockResolvedValue({
+          data: [{ gateway: 'wallet', status: 'completed' }],
+          error: null,
+        });
+        const eqStatus = vi.fn(() => ({ in: inGateways }));
+        const eqOrderId = vi.fn(() => ({ eq: eqStatus }));
+        const eqMerchant = vi.fn(() => ({ eq: eqOrderId }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    shipping_funding_source: 'customer_checkout',
+                    shipping_platform_retained_amount: 2500,
+                  },
+                  error: null,
+                }),
+              })),
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(
+      assertGiglCustomerCheckoutPrepaid(
+        {
+          shipping_provider: 'GIGL',
+          shipping_funding_source: 'customer_checkout',
+          payment_status: 'paid',
+          payment_method: 'wallet',
+          shipping_platform_retained_amount: 2500,
+        },
+        {
+          supabase: { from } as never,
+          merchantId: 'merchant-1',
+          orderId: 'order-1',
+        }
+      )
+    ).resolves.toBeUndefined();
+  });
+
   it('bugfix: rejects paid gateway orders when stamped retention is not settled', async () => {
     await expect(
       assertGiglCustomerCheckoutPrepaid(

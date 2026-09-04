@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertGiglCustomerCheckoutPrepaid } from './assert-gigl-customer-checkout-prepaid';
 import { assertWalletExistingShipmentReusableOrRelease } from './assert-wallet-existing-shipment-reusable';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
@@ -25,11 +24,6 @@ type ReleaseLock = () => Promise<void>;
 type PrepareQuote = () => Promise<string>;
 type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
-type GiglBookingPaymentContext = Parameters<
-  typeof assertGiglCustomerCheckoutPrepaid
->[0] & {
-  settledRetainedAmount?: number;
-};
 type ChargeReservation = Awaited<
   ReturnType<typeof reserveMerchantShippingCharge>
 >;
@@ -257,51 +251,4 @@ export async function bookWalletFundedOrderShipment(
     }
     throw error;
   }
-}
-
-export async function bookWalletOrCustomerCheckout(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderId: string,
-  quoteId: string,
-  fundingSource: 'customer_checkout' | 'merchant_wallet' | null | undefined,
-  book: BookShipment,
-  releaseLock?: ReleaseLock,
-  prepareQuote?: PrepareQuote,
-  readExistingShipment?: ReadExistingShipment,
-  orderPayment?: GiglBookingPaymentContext
-) {
-  if (fundingSource !== 'merchant_wallet') {
-    const { settledRetainedAmount, ...paymentFields } = orderPayment ?? {};
-    await assertGiglCustomerCheckoutPrepaid(
-      {
-        shipping_funding_source: fundingSource,
-        ...paymentFields,
-      },
-      {
-        supabase,
-        merchantId,
-        orderId,
-        settledRetainedAmount,
-      }
-    );
-    return book(quoteId);
-  }
-  if (!merchantId || !orderId || !quoteId) {
-    throw new OrderShipmentBookingError(
-      'Wallet-funded booking requires the order booking path.',
-      409,
-      'USE_ORDER_SHIPMENT_BOOKING'
-    );
-  }
-  return bookWalletFundedOrderShipment(
-    supabase,
-    merchantId,
-    orderId,
-    quoteId,
-    book,
-    releaseLock,
-    prepareQuote,
-    readExistingShipment
-  );
 }

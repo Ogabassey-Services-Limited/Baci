@@ -6,6 +6,23 @@ import {
   prepaidGiglCustomerCheckoutOrderFields,
 } from './route.test-fixtures';
 
+function createSettledRetentionEqChain(
+  retainedAmount = giglBookingEconomicsProjection.shipping_platform_retained_amount
+) {
+  const eqSourceId = vi.fn().mockResolvedValue({
+    data: [
+      {
+        metadata: { retained_shipping_amount: retainedAmount },
+        status: 'completed',
+      },
+    ],
+    error: null,
+  });
+  const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+  const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+  return { eq: eqMerchant };
+}
+
 export function buildInternationalBookingRequest(): NextRequest {
   return new Request('https://usebaci.com/api/shipping/book', {
     method: 'POST',
@@ -212,6 +229,11 @@ export function buildInternationalSupabaseMock({
               error: null,
             }),
           })),
+        };
+      }
+      if (table === 'merchant_settlements') {
+        return {
+          select: vi.fn(() => createSettledRetentionEqChain()),
         };
       }
       throw new Error(`Unexpected table: ${table}`);

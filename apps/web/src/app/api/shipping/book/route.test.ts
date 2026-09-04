@@ -6,6 +6,23 @@ import {
   prepaidGiglCustomerCheckoutOrderFields,
 } from './route.test-fixtures';
 
+function createSettledRetentionEqChain(
+  retainedAmount = giglBookingEconomicsProjection.shipping_platform_retained_amount
+) {
+  const eqSourceId = vi.fn().mockResolvedValue({
+    data: [
+      {
+        metadata: { retained_shipping_amount: retainedAmount },
+        status: 'completed',
+      },
+    ],
+    error: null,
+  });
+  const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
+  const eqMerchant = vi.fn(() => ({ eq: eqSourceType }));
+  return { eq: eqMerchant };
+}
+
 const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
 const mockCreateClient = vi.fn();
@@ -211,6 +228,12 @@ function buildSupabaseMock(
       if (table === 'merchants') {
         return {
           select: vi.fn(() => merchantSelectChain),
+        };
+      }
+
+      if (table === 'merchant_settlements') {
+        return {
+          select: vi.fn(() => createSettledRetentionEqChain()),
         };
       }
 
