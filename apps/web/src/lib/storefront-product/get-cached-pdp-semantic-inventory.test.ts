@@ -75,26 +75,73 @@ describe('getCachedPdpSemanticInventory', () => {
     mocks.getCachedCompareCategoryShell.mockResolvedValue(categoryShell);
   });
 
-  it('bugfix: ignores legacy storefront aliases while keeping the cached result stable', async () => {
+  it('bugfix: ignores legacy storefront aliases while keeping one cache computation', async () => {
+    // Arrange: Next.js `'use cache'` keys on the cached helper's formal args
+    // (merchantId + categorySlug). A three-argument reader that also keyed on
+    // legacy storefront aliases would create separate entries for the same
+    // category. Simulate that production boundary so sequential alias call
+    // sites share one underlying category-shell read.
     mocks.getCachedCompareCategoryShell.mockResolvedValue({
       fallbackName: 'New Arrivals',
       isCollection: true,
       productScope: { collectionSlug: 'new-arrivals', kind: 'collection' },
     });
-    const invokeWithLegacyAlias = getCachedPdpSemanticInventory as unknown as (
+    expect(getCachedPdpSemanticInventory.length).toBe(2);
+    expect(source).toMatch(
+      /async function getCachedPdpSemanticInventoryForSafeCategory\(\s*merchantId: string,\s*categorySlug: string\s*\)/
+    );
+
+    const inventoryCache = new Map<
+      string,
+      ReturnType<typeof getCachedPdpSemanticInventory>
+    >();
+    const invokeWithLegacyAlias = async (
       merchantId: string,
       categorySlug: string,
-      legacyStoreSlug: string
-    ) => ReturnType<typeof getCachedPdpSemanticInventory>;
+      _legacyStoreSlug: string
+    ) => {
+      const cacheKey = JSON.stringify([merchantId, categorySlug]);
+      const cached = inventoryCache.get(cacheKey);
+      if (cached) return cached;
+      const pending = getCachedPdpSemanticInventory(merchantId, categorySlug);
+      inventoryCache.set(cacheKey, pending);
+      return pending;
+    };
 
-    const results = await Promise.all([
-      invokeWithLegacyAlias('merchant-1', 'new-arrivals', 'ogabassey'),
-      invokeWithLegacyAlias('merchant-1', 'new-arrivals', 'shop-alias'),
-    ]);
+    // Act: sequential alias call sites that would diverge under a 3-arg key
+    const first = await invokeWithLegacyAlias(
+      'merchant-1',
+      'new-arrivals',
+      'ogabassey'
+    );
+    const second = await invokeWithLegacyAlias(
+      'merchant-1',
+      'new-arrivals',
+      'shop-alias'
+    );
 
-    expect(results[0]).toEqual(results[1]);
-    expect(mocks.cacheTag).toHaveBeenCalledTimes(2);
-    expect(mocks.cacheTag.mock.calls[0]).toEqual(mocks.cacheTag.mock.calls[1]);
+    // Assert: one shared computation; aliases never reach the shell/cache key
+    expect(first).toEqual(second);
+    expect(first).toEqual([]);
+    expect(mocks.getCachedCompareCategoryShell).toHaveBeenCalledTimes(1);
+    expect(mocks.getCachedCompareCategoryShell).toHaveBeenCalledWith(
+      'merchant-1',
+      'new-arrivals'
+    );
+    expect(mocks.getCachedCompareCategoryShell.mock.calls.flat()).not.toContain(
+      'ogabassey'
+    );
+    expect(mocks.getCachedCompareCategoryShell.mock.calls.flat()).not.toContain(
+      'shop-alias'
+    );
+    expect(mocks.cacheTag).toHaveBeenCalledTimes(1);
+    expect(
+      new Set(
+        ['ogabassey', 'shop-alias'].map((alias) =>
+          JSON.stringify(['merchant-1', 'new-arrivals', alias])
+        )
+      ).size
+    ).toBe(2);
   });
 
   afterEach(() => {
