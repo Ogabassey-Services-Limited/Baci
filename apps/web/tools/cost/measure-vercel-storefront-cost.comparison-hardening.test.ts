@@ -167,4 +167,72 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
       'billing export functionInvocations total is out of safe range'
     );
   });
+
+  it('bugfix: rejects impossible calendar dates instead of normalizing them', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vercel-cost-bad-date-'));
+    roots.push(root);
+    const path = join(root, 'bad-date.jsonl');
+    await writeFile(
+      path,
+      `${JSON.stringify({
+        ChargePeriodStart: '2026-02-31T00:00:00Z',
+        ChargePeriodEnd: '2026-03-01T00:00:00Z',
+        ConsumedQuantity: 1,
+        EffectiveCost: 1,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
+      })}\n`
+    );
+
+    await expect(
+      measureVercelStorefrontCost({
+        before: {
+          inputPath: path,
+          window: { deploymentSha: MEASUREMENT_BEFORE_SHA, label: 'before' },
+        },
+        projectId: MEASUREMENT_PROJECT_ID,
+      })
+    ).rejects.toThrow('billing row has an invalid ChargePeriodStart');
+  });
+
+  it('bugfix: marks mismatched DB cohort samples incomplete and suppresses DB deltas', async () => {
+    const { afterPath, beforePath, root } =
+      await createMeasurementFixtureFiles(roots);
+    const beforeDbTracePath = join(root, 'before-mismatch-db.jsonl');
+    const afterDbTracePath = join(root, 'after-mismatch-db.jsonl');
+    await writeFile(
+      beforeDbTracePath,
+      `${JSON.stringify({ cohort: 'pdp', dbCalls: 4, dbTimeouts: 0 })}\n`
+    );
+    await writeFile(
+      afterDbTracePath,
+      `${JSON.stringify({ cohort: 'blog', dbCalls: 1, dbTimeouts: 0 })}\n${JSON.stringify({ cohort: 'blog', dbCalls: 1, dbTimeouts: 0 })}\n`
+    );
+
+    const result = await measureVercelStorefrontCost({
+      after: {
+        inputPath: afterPath,
+        window: {
+          deploymentSha: MEASUREMENT_AFTER_SHA,
+          dbTracePath: afterDbTracePath,
+          label: 'after',
+        },
+      },
+      before: {
+        inputPath: beforePath,
+        window: {
+          deploymentSha: MEASUREMENT_BEFORE_SHA,
+          dbTracePath: beforeDbTracePath,
+          label: 'before',
+        },
+      },
+      projectId: MEASUREMENT_PROJECT_ID,
+    });
+
+    expect(result.comparisonStatus).toBe('incomplete');
+    expect(result.comparison?.dbCalls).toBeUndefined();
+    expect(result.limitations).toContain(
+      'Comparison is incomplete because before and after DB traces do not share the same row count and cohort set; raw DB totals are suppressed until comparable route samples are supplied.'
+    );
+  });
 });

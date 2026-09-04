@@ -47,10 +47,24 @@ function finiteSigned(value: unknown, field: string) {
 function dateString(value: unknown, field: string) {
   if (typeof value !== 'string')
     throw new Error(`billing row has an invalid ${field}`);
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+  );
+  if (!match) throw new Error(`billing row has an invalid ${field}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const probe = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
   if (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
-      value
-    )
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day ||
+    probe.getUTCHours() !== hour ||
+    probe.getUTCMinutes() !== minute ||
+    probe.getUTCSeconds() !== second
   ) {
     throw new Error(`billing row has an invalid ${field}`);
   }
@@ -66,6 +80,24 @@ function comparableWindowDurationMs(window: {
 }) {
   const bounds = window.requestedWindow ?? window.observedChargePeriod;
   return Date.parse(bounds.end) - Date.parse(bounds.start);
+}
+
+function areDbTracesComparable(
+  before: CostWindowMeasurement,
+  after: CostWindowMeasurement
+): boolean {
+  if (!before.dbTrace || !after.dbTrace) return false;
+  if (before.dbTrace.rows !== after.dbTrace.rows) return false;
+  const beforeCohorts = Object.keys(before.dbTrace.byCohort).sort();
+  const afterCohorts = Object.keys(after.dbTrace.byCohort).sort();
+  if (beforeCohorts.length !== afterCohorts.length) return false;
+  return beforeCohorts.every((cohort, index) => cohort === afterCohorts[index]);
+}
+
+function withoutDbTrace(window: CostWindowMeasurement): CostWindowMeasurement {
+  if (!window.dbTrace) return window;
+  const { dbTrace: _dbTrace, ...rest } = window;
+  return rest;
 }
 
 function roundMetric(value: number) {
@@ -205,6 +237,8 @@ export async function measureVercelStorefrontCost(options: {
       )
     : null;
   const hasDbTracePair = Boolean(before.dbTrace && after?.dbTrace);
+  const hasComparableDbTraces =
+    after !== null && areDbTracesComparable(before, after);
   if (after) {
     const beforeHasRequestedWindow = Boolean(before.requestedWindow);
     const afterHasRequestedWindow = Boolean(after.requestedWindow);
@@ -225,19 +259,28 @@ export async function measureVercelStorefrontCost(options: {
     after,
     before,
     comparisonStatus: after
-      ? hasDbTracePair
+      ? hasComparableDbTraces
         ? 'complete'
         : 'incomplete'
       : 'not_available',
-    comparison: compareStorefrontCostWindows(before, after),
+    comparison: after
+      ? compareStorefrontCostWindows(
+          hasComparableDbTraces ? before : withoutDbTrace(before),
+          hasComparableDbTraces ? after : withoutDbTrace(after)
+        )
+      : null,
     limitations: [
       'FOCUS billing rows are project-level; they cannot attribute CPU, memory, or invocations to PDP, compare, or blog routes.',
       'The requested window is recorded as provenance; supply exports already filtered to that UTC window because billing rows are not split by route or request.',
-      ...(hasDbTracePair
+      ...(hasComparableDbTraces
         ? []
-        : [
-            'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.',
-          ]),
+        : hasDbTracePair
+          ? [
+              'Comparison is incomplete because before and after DB traces do not share the same row count and cohort set; raw DB totals are suppressed until comparable route samples are supplied.',
+            ]
+          : [
+              'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.',
+            ]),
       'Cache hit ratio requires the optional sampled cache-probe JSONL; it is not a billing-export field and is not a census.',
       ...(after
         ? []
