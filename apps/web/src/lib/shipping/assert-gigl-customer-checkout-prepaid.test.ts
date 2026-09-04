@@ -98,21 +98,9 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         };
       }
 
-      if (table === 'transactions') {
-        const inGateways = vi.fn().mockResolvedValue({
-          data: [{ gateway: 'wallet', status: 'completed', amount: 2500 }],
-          error: null,
-        });
-        const eqStatus = vi.fn(() => ({ in: inGateways }));
-        const eqOrderId = vi.fn(() => ({ eq: eqStatus }));
-        const eqMerchant = vi.fn(() => ({ eq: eqOrderId }));
-        return {
-          select: vi.fn(() => ({ eq: eqMerchant })),
-        };
-      }
-
       throw new Error(`Unexpected table: ${table}`);
     });
+    const rpc = vi.fn().mockResolvedValue({ data: 2500, error: null });
 
     await expect(
       assertGiglCustomerCheckoutPrepaid(
@@ -124,7 +112,7 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
           shipping_platform_retained_amount: 2500,
         },
         {
-          supabase: { from } as never,
+          supabase: { from, rpc } as never,
           merchantId: 'merchant-1',
           orderId: 'order-1',
         }
@@ -132,6 +120,15 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
     ).resolves.toBeUndefined();
 
     expect(from).not.toHaveBeenCalledWith('orders');
+    expect(from).not.toHaveBeenCalledWith('customer_wallet_transactions');
+    expect(from).not.toHaveBeenCalledWith('customer_savings_redemptions');
+    expect(rpc).toHaveBeenCalledWith(
+      'get_order_gigl_internal_credit_retained_amount',
+      {
+        p_merchant_id: 'merchant-1',
+        p_order_id: 'order-1',
+      }
+    );
   });
 
   it('bugfix: rejects when internal-credit amount is below the stamped tariff', async () => {
@@ -148,21 +145,9 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         };
       }
 
-      if (table === 'transactions') {
-        const inGateways = vi.fn().mockResolvedValue({
-          data: [{ gateway: 'wallet', status: 'completed', amount: 500 }],
-          error: null,
-        });
-        const eqStatus = vi.fn(() => ({ in: inGateways }));
-        const eqOrderId = vi.fn(() => ({ eq: eqStatus }));
-        const eqMerchant = vi.fn(() => ({ eq: eqOrderId }));
-        return {
-          select: vi.fn(() => ({ eq: eqMerchant })),
-        };
-      }
-
       throw new Error(`Unexpected table: ${table}`);
     });
+    const rpc = vi.fn().mockResolvedValue({ data: 500, error: null });
 
     await expect(
       assertGiglCustomerCheckoutPrepaid(
@@ -170,11 +155,11 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
           shipping_provider: 'GIGL',
           shipping_funding_source: 'customer_checkout',
           payment_status: 'paid',
-          payment_method: 'manual',
+          payment_method: 'wallet',
           shipping_platform_retained_amount: 2500,
         },
         {
-          supabase: { from } as never,
+          supabase: { from, rpc } as never,
           merchantId: 'merchant-1',
           orderId: 'order-1',
         }
