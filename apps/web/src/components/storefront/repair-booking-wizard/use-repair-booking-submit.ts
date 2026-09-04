@@ -77,6 +77,7 @@ export function useRepairBookingSubmit({
         }
 
         if (
+          'resumeToken' in result &&
           typeof result.resumeToken === 'string' &&
           result.resumeToken.length > 0
         ) {
