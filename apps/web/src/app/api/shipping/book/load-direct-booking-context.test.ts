@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
@@ -91,7 +92,7 @@ function buildSupabaseMock(orderOverrides: Record<string, unknown> = {}) {
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
-  };
+  } as unknown as SupabaseClient;
 }
 
 describe('loadDirectBookingContext', () => {

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { isShippingProviderCode } from '@/lib/shipping/order-shipment-booking-utils';
+import type { OrderShipmentQuoteRecord } from '@/lib/shipping/refresh-order-shipment-quote';
 import { getShippingQuoteBookingMetadata } from '@/lib/shipping/shipping-quote-booking-metadata';
 import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
 import {
@@ -36,25 +37,10 @@ type DirectBookingOrder = {
   }> | null;
 };
 
-type DirectBookingQuote = {
-  id: string;
-  merchant_id: string;
-  provider: string;
-  service_tier: string | null;
-  carrier_name: string | null;
-  provider_rate_id: string | null;
-  quote_request: unknown;
-  expires_at: string;
-  price: number;
-  currency: string;
-  estimated_days: number | null;
-  provider_metadata?: unknown;
-};
-
 export type LoadedDirectBookingContext = {
   order: DirectBookingOrder;
-  quote: DirectBookingQuote;
-  bookingQuote: DirectBookingQuote;
+  quote: OrderShipmentQuoteRecord;
+  bookingQuote: OrderShipmentQuoteRecord;
   quotePayload: NonNullable<
     ReturnType<typeof resolveBookingQuoteRequestPayload>
   >;
@@ -148,7 +134,7 @@ export async function loadDirectBookingContext(
     data.orderId,
     quote.id
   );
-  const bookingQuote: DirectBookingQuote = {
+  const bookingQuote: OrderShipmentQuoteRecord = {
     ...quote,
     provider_metadata: bookingMetadata,
   };
@@ -209,7 +195,10 @@ export async function loadDirectBookingContext(
     ok: true,
     context: {
       order,
-      quote,
+      quote: {
+        ...quote,
+        provider_metadata: null,
+      },
       bookingQuote,
       quotePayload,
       usesStoredInternationalSender: Boolean(quotePayload.sender),
