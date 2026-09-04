@@ -92,7 +92,12 @@ export async function getShippingQuoteBookingEconomics(
 export function applyShippingQuoteBookingEconomicsToQuote<T extends object>(
   quote: T,
   economics: ShippingQuoteBookingEconomics | null
-): T {
+): T & {
+  provider_cost?: number | null;
+  platform_margin?: number | null;
+  platform_margin_bps?: number | null;
+  pricing_version?: string | null;
+} {
   if (!economics) return quote;
   return {
     ...quote,
@@ -106,7 +111,12 @@ export function applyShippingQuoteBookingEconomicsToQuote<T extends object>(
 export function applyShippingQuoteBookingEconomicsToOrder<T extends object>(
   order: T,
   economics: ShippingQuoteBookingEconomics | null
-): T {
+): T & {
+  shipping_provider_cost?: number | string | null;
+  shipping_platform_margin?: number | string | null;
+  shipping_pricing_version?: string | null;
+  shipping_platform_retained_amount?: number | string | null;
+} {
   if (!economics) return order;
   return {
     ...order,
