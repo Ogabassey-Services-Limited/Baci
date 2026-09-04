@@ -4,7 +4,8 @@ import {
   matchesReceiverCountryFields,
   normalizeReceiverMatchText,
 } from './international-quote-receiver-match';
-import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+import { OrderShipmentBookingError } from './order-shipment-booking-error';
+import { toQuoteComparableOrderItems } from './order-shipment-booking-utils';
 import type { QuoteRequest } from './types';
 
 type OrderShippingAddress = {
@@ -31,7 +32,8 @@ type OrderItemRecord = {
 
 export type InternationalQuoteOrder = {
   shipping_address: OrderShippingAddress | null;
-  order_items: OrderItemRecord[] | null;
+  /** Raw order_items rows; nested product.dimensions are flattened for compare. */
+  order_items: unknown[] | null;
 };
 
 function normalizeText(value: string | null | undefined): string {
@@ -263,11 +265,17 @@ export function assertInternationalQuoteMatchesOrder(
     throw error;
   }
 
-  assertQuoteItemsMatchOrder(quoteRequest, order.order_items ?? [], {
-    message:
-      'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
-    code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
-  });
+  // Flatten nested product.dimensions the same way domestic booking does so
+  // newly added package size is visible against legacy quotes that omit it.
+  assertQuoteItemsMatchOrder(
+    quoteRequest,
+    toQuoteComparableOrderItems(order.order_items),
+    {
+      message:
+        'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+    }
+  );
 }
 
 export function assertQuoteItemsMatchOrder(

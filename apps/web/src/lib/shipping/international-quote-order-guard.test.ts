@@ -188,6 +188,26 @@ describe('assertInternationalQuoteMatchesOrder', () => {
       )
     ).toThrow('no longer matches this order');
   });
+
+  it('bugfix: flattens nested product.dimensions before comparing to the quote', () => {
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(quoteRequest, {
+        ...matchingOrder,
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 100_000,
+            product: {
+              weight_value: 1.2,
+              weight_unit: 'kg',
+              dimensions: { length: 10, width: 8, height: 6, unit: 'cm' },
+            },
+          },
+        ],
+      })
+    ).not.toThrow();
+  });
 });
 
 describe('assertQuoteReceiverMatchesOrder', () => {

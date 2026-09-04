@@ -178,6 +178,9 @@ export function toQuoteComparableOrderItems(
       name?: string | null;
       quantity?: number | null;
       price?: number | string | null;
+      length?: number | string | null;
+      width?: number | string | null;
+      height?: number | string | null;
       product?: Parameters<typeof quotedShipmentItemWeight>[0]['product'] & {
         dimensions?: unknown;
       };
@@ -187,11 +190,17 @@ export function toQuoteComparableOrderItems(
     };
     const related = record.product ?? record.products;
     const product = Array.isArray(related) ? related[0] : related;
-    const dimensions = readPackageDimensionsCm(
-      product && typeof product === 'object' && 'dimensions' in product
-        ? product.dimensions
-        : undefined
-    );
+    const dimensions =
+      readPackageDimensionsCm(
+        product && typeof product === 'object' && 'dimensions' in product
+          ? product.dimensions
+          : undefined
+      ) ??
+      readPackageDimensionsCm({
+        length: record.length,
+        width: record.width,
+        height: record.height,
+      });
     return [
       {
         name: record.name ?? null,
