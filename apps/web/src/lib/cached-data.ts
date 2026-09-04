@@ -12,16 +12,14 @@ import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import type {
   CachedCategoryRecord,
   CachedCategorySeo,
-} from '@/lib/cached-category-page-shell';
-import {
-  getCategoryPageShellData,
-  isPostgrestNoRowsError,
-} from '@/lib/cached-category-page-shell';
+} from '@/lib/cached-category-page-shell-types';
 import {
   type CachedCategoryPageProductScope,
   categoryPageProductIdCache,
 } from '@/lib/category-page-product-id-cache';
+import { getCategoryPageShellData } from '@/lib/get-category-page-shell-data';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
+import { isPostgrestNoRowsError } from '@/lib/is-postgrest-no-rows-error';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';

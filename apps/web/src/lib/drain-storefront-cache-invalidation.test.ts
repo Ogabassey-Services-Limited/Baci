@@ -102,6 +102,39 @@ describe('drainStorefrontCacheInvalidation', () => {
     expect(mocks.cloudflare).toHaveBeenCalledTimes(2);
   });
 
+  it('bugfix: does not coalesce Cloudflare behind a different Vercel tag set', async () => {
+    let releaseFirstCloudflare!: (value: { ok: true }) => void;
+    let firstCloudflareStarted = false;
+    mocks.cloudflare.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          firstCloudflareStarted = true;
+          releaseFirstCloudflare = resolve;
+        })
+    );
+
+    const first = drainStorefrontCacheInvalidation(claim);
+    await vi.waitFor(() => {
+      expect(firstCloudflareStarted).toBe(true);
+    });
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(1);
+
+    const second = drainStorefrontCacheInvalidation({
+      ...claim,
+      product_slugs: ['other-phone'],
+    });
+    await vi.waitFor(() => {
+      expect(mocks.cloudflare).toHaveBeenCalledTimes(2);
+    });
+
+    releaseFirstCloudflare({ ok: true });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { ok: true },
+      { ok: true },
+    ]);
+    expect(mocks.vercel).toHaveBeenCalledTimes(2);
+  });
+
   it('shares mixed provider failure outcomes while preserving retry visibility', async () => {
     let releaseVercel!: (value: { ok: true; reason: 'deleted' }) => void;
     mocks.vercel.mockReturnValue(

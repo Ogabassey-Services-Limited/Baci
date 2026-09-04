@@ -1,10 +1,23 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import type {
+  CachedCategoryPageShellData,
+  CachedCategoryRecord,
+} from '@/lib/cached-category-page-shell-types';
+import type {
   CachedCategoryPageProductScope,
   SpecialCollectionSlug,
 } from '@/lib/category-page-product-id-cache';
+import { getCategoryFallbackName } from '@/lib/get-category-fallback-name';
+import { isPostgrestNoRowsError } from '@/lib/is-postgrest-no-rows-error';
 import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
+
+export type {
+  CachedCategoryFaqItem,
+  CachedCategoryPageShellData,
+  CachedCategoryRecord,
+  CachedCategorySeo,
+} from '@/lib/cached-category-page-shell-types';
 
 interface StorefrontCategoryParentRow {
   name: string | null;
@@ -28,59 +41,6 @@ interface StorefrontCategoryRow {
 interface StorefrontCategorySlugState {
   is_active: boolean | null;
 }
-
-export interface CachedCategoryRecord {
-  description: string | null;
-  id: string;
-  image_url: string | null;
-  is_active: boolean;
-  name: string;
-  parent:
-    | { name: string; slug: string }
-    | Array<{ name: string; slug: string }>
-    | null;
-  parent_id?: string | null;
-  seo_description: string | null;
-  seo_faq: CachedCategoryFaqItem[] | null;
-  seo_features: string[] | null;
-  seo_heading: string | null;
-  slug: string;
-}
-
-interface CachedCategoryFaqItem {
-  answer: string;
-  question: string;
-}
-
-export interface CachedCategorySeo {
-  description: string;
-  faqs: CachedCategoryFaqItem[];
-  features: string[];
-  heading: string;
-}
-
-export type CachedCategoryPageShellData =
-  | {
-      description: string;
-      fallbackDescription?: string;
-      fallbackName?: string;
-      isCollection: true;
-      isInactiveCategory?: false;
-      name: string;
-      productScope: CachedCategoryPageProductScope;
-      seo: CachedCategorySeo;
-    }
-  | {
-      category: CachedCategoryRecord | null;
-      categoryQueryFailed?: boolean;
-      fallbackDescription: string;
-      fallbackName: string;
-      isCollection: false;
-      isInactiveCategory: boolean;
-      name?: string;
-      productScope: CachedCategoryPageProductScope;
-      seo?: null;
-    };
 
 const SPECIAL_COLLECTIONS = STOREFRONT_SPECIAL_COLLECTION_SLUGS;
 
@@ -113,29 +73,6 @@ function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
         name: 'Featured',
       };
   }
-}
-
-export function getCategoryFallbackName(categorySlug: string): string {
-  let decodedSlug = categorySlug;
-  try {
-    decodedSlug = decodeURIComponent(categorySlug);
-  } catch {
-    // Keep fallback naming total for malformed inputs from internal callers.
-  }
-
-  return decodedSlug
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-/** PostgREST's no-row result is a valid public category fallback. */
-export function isPostgrestNoRowsError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    Object.hasOwn(error, 'code') &&
-    Reflect.get(error, 'code') === 'PGRST116'
-  );
 }
 
 /**
@@ -258,25 +195,4 @@ export async function getCachedCategoryPageShellData(
     categoryQueryFailed: false,
     productScope,
   };
-}
-
-export async function getCategoryPageShellData(
-  merchantId: string,
-  categorySlug: string
-): Promise<CachedCategoryPageShellData> {
-  try {
-    return await getCachedCategoryPageShellData(merchantId, categorySlug);
-  } catch (error) {
-    console.error('Category shell query error:', error);
-    const fallbackName = getCategoryFallbackName(categorySlug);
-    return {
-      isCollection: false,
-      category: null,
-      fallbackName,
-      fallbackDescription: `Browse our collection of ${fallbackName} products.`,
-      isInactiveCategory: false,
-      categoryQueryFailed: true,
-      productScope: { kind: 'none' },
-    };
-  }
 }

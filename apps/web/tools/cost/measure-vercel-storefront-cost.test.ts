@@ -1,83 +1,14 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import { measureVercelStorefrontCost } from './measure-vercel-storefront-cost';
-import { MAX_INPUT_ROWS } from './measure-vercel-storefront-cost-types';
+import {
+  createMeasurementFixtureFiles,
+  MEASUREMENT_AFTER_SHA,
+  MEASUREMENT_BEFORE_SHA,
+  MEASUREMENT_PROJECT_ID,
+} from './measure-vercel-storefront-cost.test-support';
 
-const projectId = 'prj_y6kGI7ZzyFWU6tyZbaklPtVsXeqx';
-const beforeSha = 'a'.repeat(40);
-const afterSha = 'b'.repeat(40);
 const roots: string[] = [];
-
-async function fixtureFiles() {
-  const root = await mkdtemp(join(tmpdir(), 'vercel-cost-measurement-'));
-  roots.push(root);
-  const beforePath = join(root, 'before.jsonl');
-  const afterPath = join(root, 'after.jsonl');
-  const cachePath = join(root, 'cache.jsonl');
-  const afterCachePath = join(root, 'after-cache.jsonl');
-  const beforeDbTracePath = join(root, 'before-db.jsonl');
-  const afterDbTracePath = join(root, 'after-db.jsonl');
-  const rows = [
-    {
-      ChargePeriodStart: '2026-08-01T00:00:00.000Z',
-      ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
-      ConsumedQuantity: 10,
-      EffectiveCost: 2.5,
-      ServiceName: 'Fluid Active CPU',
-      Tags: { ProjectId: projectId },
-    },
-    {
-      ChargePeriodStart: '2026-08-01T00:00:00.000Z',
-      ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
-      ConsumedQuantity: 100,
-      EffectiveCost: 1,
-      ServiceName: 'Function Invocations',
-      Tags: { ProjectId: projectId },
-    },
-    {
-      ChargePeriodStart: '2026-08-01T00:00:00.000Z',
-      ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
-      ConsumedQuantity: 900,
-      EffectiveCost: 9,
-      ServiceName: 'Fluid Active CPU',
-      Tags: { ProjectId: 'prj_other' },
-    },
-  ];
-  await writeFile(
-    beforePath,
-    `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`
-  );
-  await writeFile(
-    afterPath,
-    `${JSON.stringify({ ...rows[0], ConsumedQuantity: 4, EffectiveCost: 1 })}\n${JSON.stringify({ ...rows[1], ConsumedQuantity: 40, EffectiveCost: 0.4 })}\n`
-  );
-  await writeFile(
-    cachePath,
-    `${JSON.stringify({ cacheStatus: 'HIT', ttfbMs: 12 })}\n${JSON.stringify({ cacheStatus: 'MISS', ttfbMs: 40 })}\n${JSON.stringify({ cacheStatus: 'STALE', ttfbMs: 20 })}\n${JSON.stringify({ cacheStatus: 'PRERENDER', ttfbMs: 18 })}\n`
-  );
-  await writeFile(
-    afterCachePath,
-    `${JSON.stringify({ cacheStatus: 'HIT', ttfbMs: 10 })}\n${JSON.stringify({ cacheStatus: 'MISS', ttfbMs: 30 })}\n`
-  );
-  await writeFile(
-    beforeDbTracePath,
-    `${JSON.stringify({ cohort: 'pdp', dbCalls: 4, dbTimeouts: 1 })}\n${JSON.stringify({ cohort: 'compare', dbCalls: 2, dbTimeouts: 0 })}\n`
-  );
-  await writeFile(
-    afterDbTracePath,
-    `${JSON.stringify({ cohort: 'pdp', dbCalls: 1, dbTimeouts: 0 })}\n${JSON.stringify({ cohort: 'compare', dbCalls: 1, dbTimeouts: 0 })}\n`
-  );
-  return {
-    afterCachePath,
-    afterDbTracePath,
-    afterPath,
-    beforeDbTracePath,
-    beforePath,
-    cachePath,
-  };
-}
 
 afterEach(async () => {
   await Promise.all(
@@ -85,7 +16,7 @@ afterEach(async () => {
   );
 });
 
-describe('measureVercelStorefrontCost', () => {
+describe('measureVercelStorefrontCost comparisons', () => {
   it('filters the project, aggregates billable services, and compares cache probes', async () => {
     const {
       afterCachePath,
@@ -94,7 +25,7 @@ describe('measureVercelStorefrontCost', () => {
       beforeDbTracePath,
       beforePath,
       cachePath,
-    } = await fixtureFiles();
+    } = await createMeasurementFixtureFiles(roots);
 
     const result = await measureVercelStorefrontCost({
       after: {
@@ -102,7 +33,7 @@ describe('measureVercelStorefrontCost', () => {
         window: {
           dbTracePath: afterDbTracePath,
           cacheProbePath: afterCachePath,
-          deploymentSha: afterSha,
+          deploymentSha: MEASUREMENT_AFTER_SHA,
           label: 'after',
           requestedWindowEnd: '2026-09-01T00:00:00.000Z',
           requestedWindowStart: '2026-08-02T00:00:00.000Z',
@@ -113,13 +44,13 @@ describe('measureVercelStorefrontCost', () => {
         window: {
           cacheProbePath: cachePath,
           dbTracePath: beforeDbTracePath,
-          deploymentSha: beforeSha,
+          deploymentSha: MEASUREMENT_BEFORE_SHA,
           label: 'before',
           requestedWindowEnd: '2026-08-01T00:00:00.000Z',
           requestedWindowStart: '2026-07-01T00:00:00.000Z',
         },
       },
-      projectId,
+      projectId: MEASUREMENT_PROJECT_ID,
     });
 
     expect(result.before.ignoredRows).toBe(1);
@@ -182,13 +113,13 @@ describe('measureVercelStorefrontCost', () => {
   });
 
   it('does not claim savings when no after window is supplied', async () => {
-    const { beforePath } = await fixtureFiles();
+    const { beforePath } = await createMeasurementFixtureFiles(roots);
     const result = await measureVercelStorefrontCost({
       before: {
         inputPath: beforePath,
-        window: { deploymentSha: beforeSha, label: 'before' },
+        window: { deploymentSha: MEASUREMENT_BEFORE_SHA, label: 'before' },
       },
-      projectId,
+      projectId: MEASUREMENT_PROJECT_ID,
     });
 
     expect(result.after).toBeNull();
@@ -207,13 +138,13 @@ describe('measureVercelStorefrontCost', () => {
     ['after-only', false, true],
   ] as const)('marks an asymmetric %s DB trace comparison incomplete without DB deltas', async (_label, includeBeforeTrace, includeAfterTrace) => {
     const { afterPath, beforePath, beforeDbTracePath, afterDbTracePath } =
-      await fixtureFiles();
+      await createMeasurementFixtureFiles(roots);
     const result = await measureVercelStorefrontCost({
       after: {
         inputPath: afterPath,
         window: {
           dbTracePath: includeAfterTrace ? afterDbTracePath : undefined,
-          deploymentSha: afterSha,
+          deploymentSha: MEASUREMENT_AFTER_SHA,
           label: 'after',
         },
       },
@@ -221,11 +152,11 @@ describe('measureVercelStorefrontCost', () => {
         inputPath: beforePath,
         window: {
           dbTracePath: includeBeforeTrace ? beforeDbTracePath : undefined,
-          deploymentSha: beforeSha,
+          deploymentSha: MEASUREMENT_BEFORE_SHA,
           label: 'before',
         },
       },
-      projectId,
+      projectId: MEASUREMENT_PROJECT_ID,
     });
 
     expect(result.comparisonStatus).toBe('incomplete');
@@ -233,118 +164,5 @@ describe('measureVercelStorefrontCost', () => {
     expect(result.limitations).toContain(
       'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.'
     );
-  });
-
-  it('normalizes offset billing timestamps before comparing charge periods', async () => {
-    const { beforePath } = await fixtureFiles();
-    const offsetPath = beforePath.replace('before.jsonl', 'offset.jsonl');
-    await writeFile(
-      offsetPath,
-      `${JSON.stringify({
-        ChargePeriodStart: '2026-08-01T01:00:00+01:00',
-        ChargePeriodEnd: '2026-08-01T02:00:00+01:00',
-        ConsumedQuantity: 1,
-        EffectiveCost: 1,
-        ServiceName: 'Function Invocations',
-        Tags: { ProjectId: projectId },
-      })}\n${JSON.stringify({
-        ChargePeriodStart: '2026-08-01T00:30:00Z',
-        ChargePeriodEnd: '2026-08-01T01:30:00Z',
-        ConsumedQuantity: 1,
-        EffectiveCost: 1,
-        ServiceName: 'Function Invocations',
-        Tags: { ProjectId: projectId },
-      })}\n`
-    );
-
-    const result = await measureVercelStorefrontCost({
-      before: {
-        inputPath: offsetPath,
-        window: { deploymentSha: beforeSha, label: 'before' },
-      },
-      projectId,
-    });
-
-    expect(result.before.observedChargePeriod).toEqual({
-      end: '2026-08-01T01:30:00.000Z',
-      start: '2026-08-01T00:00:00.000Z',
-    });
-  });
-
-  it('rejects a half-specified before billing window', async () => {
-    const { beforePath } = await fixtureFiles();
-    await expect(
-      measureVercelStorefrontCost({
-        before: {
-          inputPath: beforePath,
-          window: {
-            deploymentSha: beforeSha,
-            label: 'before',
-            requestedWindowStart: '2026-08-01T00:00:00.000Z',
-          },
-        },
-        projectId,
-      })
-    ).rejects.toThrow('requested billing window requires both start and end');
-  });
-
-  it('rejects a half-specified after billing window', async () => {
-    const { afterPath, beforePath } = await fixtureFiles();
-    await expect(
-      measureVercelStorefrontCost({
-        after: {
-          inputPath: afterPath,
-          window: {
-            deploymentSha: afterSha,
-            label: 'after',
-            requestedWindowEnd: '2026-08-02T00:00:00.000Z',
-          },
-        },
-        before: {
-          inputPath: beforePath,
-          window: { deploymentSha: beforeSha, label: 'before' },
-        },
-        projectId,
-      })
-    ).rejects.toThrow('requested billing window requires both start and end');
-  });
-
-  it('rejects malformed or unbounded billing input', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'vercel-cost-invalid-'));
-    roots.push(root);
-    const invalidPath = join(root, 'invalid.jsonl');
-    await writeFile(invalidPath, '{"EffectiveCost":"not-a-number"}\n');
-    await expect(
-      measureVercelStorefrontCost({
-        before: {
-          inputPath: invalidPath,
-          window: { deploymentSha: beforeSha, label: 'before' },
-        },
-        projectId,
-      })
-    ).rejects.toThrow('billing row has an invalid ChargePeriodStart');
-
-    const oversizedPath = join(root, 'oversized.jsonl');
-    const validRow = JSON.stringify({
-      ChargePeriodStart: '2026-08-01T00:00:00.000Z',
-      ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
-      ConsumedQuantity: 1,
-      EffectiveCost: 1,
-      ServiceName: 'Function Invocations',
-      Tags: { ProjectId: projectId },
-    });
-    await writeFile(
-      oversizedPath,
-      `${`${validRow}\n`.repeat(MAX_INPUT_ROWS + 1)}`
-    );
-    await expect(
-      measureVercelStorefrontCost({
-        before: {
-          inputPath: oversizedPath,
-          window: { deploymentSha: beforeSha, label: 'before' },
-        },
-        projectId,
-      })
-    ).rejects.toThrow('exceeds the 100000-row bound');
   });
 });

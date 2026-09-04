@@ -32,6 +32,17 @@ function finiteNonnegative(value: unknown, field: string) {
   return value;
 }
 
+/** FOCUS EffectiveCost may be negative for credits/corrections. */
+function finiteSigned(value: unknown, field: string) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    Math.abs(value) > Number.MAX_SAFE_INTEGER
+  )
+    throw new Error(`billing row has an invalid ${field}`);
+  return value;
+}
+
 function dateString(value: unknown, field: string) {
   if (typeof value !== 'string')
     throw new Error(`billing row has an invalid ${field}`);
@@ -78,7 +89,7 @@ async function summarizeBillingWindow(
     const end = dateString(row.ChargePeriodEnd, 'ChargePeriodEnd');
     if (Date.parse(end) <= Date.parse(start))
       throw new Error('billing row has a non-positive charge period');
-    const effectiveCost = finiteNonnegative(row.EffectiveCost, 'EffectiveCost');
+    const effectiveCost = finiteSigned(row.EffectiveCost, 'EffectiveCost');
     const quantity = finiteNonnegative(
       row.ConsumedQuantity,
       'ConsumedQuantity'

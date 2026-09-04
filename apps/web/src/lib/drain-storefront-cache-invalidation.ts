@@ -168,7 +168,15 @@ export async function drainStorefrontCacheInvalidation(
 
   if (identity.hostnames.length === 0) return { ok: true };
   const hostnames = uniqueStable(identity.hostnames);
-  const key = [...hostnames].sort().join('|');
+  const vercelTags = uniqueStable([
+    ...dataTags,
+    ...productTags,
+    ...buildStorefrontPublicationCacheTags(identity),
+  ]);
+  // Key Cloudflare coalescing on the same upstream invalidation set that just
+  // finished on Vercel so a later claim with different tags cannot join an
+  // earlier hostname-only purge that raced ahead of its own Vercel delete.
+  const key = `${[...hostnames].sort().join('|')}::${[...vercelTags].sort().join('|')}`;
   return cloudflarePurgeSingleFlight.run(key, () =>
     strictCloudflareHostnamePurge(hostnames)
   );
