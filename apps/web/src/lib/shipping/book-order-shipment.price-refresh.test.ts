@@ -95,6 +95,10 @@ function createSupabase() {
       items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
     },
     provider_metadata: {},
+    provider_cost: 2000,
+    platform_margin: 500,
+    platform_margin_bps: 2000,
+    pricing_version: 'gigl_platform_margin_v1',
   };
   const orderSelect = {
     eq: vi.fn().mockReturnThis(),

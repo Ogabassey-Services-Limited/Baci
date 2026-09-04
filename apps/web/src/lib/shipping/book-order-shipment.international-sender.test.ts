@@ -97,6 +97,14 @@ function createSupabase(
       ? { ...savedQuoteRequest, shipmentType: undefined }
       : savedQuoteRequest,
     provider_metadata: {},
+    ...(provider === 'GIGL'
+      ? {
+          provider_cost: 2000,
+          platform_margin: 500,
+          platform_margin_bps: 2000,
+          pricing_version: 'gigl_platform_margin_v1',
+        }
+      : {}),
   };
   const orders = {
     eq: vi.fn().mockReturnThis(),

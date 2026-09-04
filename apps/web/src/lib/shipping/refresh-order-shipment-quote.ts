@@ -104,11 +104,14 @@ export async function refreshOrderShipmentQuote(
     provider,
     refreshRequest
   );
-  const replacement = selectPreferredQuote(freshQuotes, {
-    serviceTier: quote.service_tier,
-    carrierName: quote.carrier_name,
-    providerRateId: quote.provider_rate_id,
-  });
+  const replacement = selectPreferredQuote(
+    Array.isArray(freshQuotes) ? freshQuotes : [],
+    {
+      serviceTier: quote.service_tier,
+      carrierName: quote.carrier_name,
+      providerRateId: quote.provider_rate_id,
+    }
+  );
 
   if (!replacement) {
     throw new OrderShipmentBookingError(

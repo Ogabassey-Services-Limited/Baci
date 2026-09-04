@@ -66,6 +66,10 @@ function createSupabase(
     provider_rate_id: 'GIGL_4_0',
     expires_at: new Date(Date.now() + 86_400_000).toISOString(),
     quote_request: null,
+    provider_cost: 1000,
+    platform_margin: 100,
+    platform_margin_bps: 400,
+    pricing_version: 'gigl_platform_margin_v1',
   };
   const shippingQuotesUpdate = {
     eq: vi.fn().mockReturnThis(),
