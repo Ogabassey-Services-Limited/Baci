@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMeasurementArgs } from './measure-vercel-storefront-cost-cli';
+import { parseMeasurementArgs } from './parse-measurement-args';
 
 const sha = 'a'.repeat(40);
 
