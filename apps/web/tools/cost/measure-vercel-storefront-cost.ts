@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { compareStorefrontCostWindows } from './compare-storefront-cost-windows';
 import {
   type CostWindowMeasurement,
   type MetricName,
@@ -114,6 +115,14 @@ async function summarizeBillingWindow(
       continue;
     }
     projectEffectiveCostUsd += effectiveCost;
+    if (
+      !Number.isFinite(projectEffectiveCostUsd) ||
+      Math.abs(projectEffectiveCostUsd) > Number.MAX_SAFE_INTEGER
+    ) {
+      throw new Error(
+        'billing export EffectiveCost total is out of safe range'
+      );
+    }
     observedStart =
       !observedStart || start < observedStart ? start : observedStart;
     observedEnd = !observedEnd || end > observedEnd ? end : observedEnd;
@@ -176,60 +185,6 @@ async function summarizeBillingWindow(
   };
 }
 
-function compareWindows(
-  before: CostWindowMeasurement,
-  after: CostWindowMeasurement | null
-) {
-  if (!after) return null;
-  const values: Record<string, number> = {
-    projectEffectiveCostUsd: before.metrics.projectEffectiveCostUsd,
-    ...before.metrics.services,
-  };
-  const afterValues: Record<string, number> = {
-    projectEffectiveCostUsd: after.metrics.projectEffectiveCostUsd,
-    ...after.metrics.services,
-  };
-  if (before.dbTrace && after.dbTrace) {
-    values.dbCalls = before.dbTrace.dbCalls;
-    afterValues.dbCalls = after.dbTrace.dbCalls;
-    values.dbTimeouts = before.dbTrace.dbTimeouts;
-    afterValues.dbTimeouts = after.dbTrace.dbTimeouts;
-    values.dbCallsPerRequest = before.dbTrace.dbCallsPerRequest;
-    afterValues.dbCallsPerRequest = after.dbTrace.dbCallsPerRequest;
-  }
-  if (before.cacheProbe && after.cacheProbe) {
-    values.cacheStatusRows = before.cacheProbe.cacheStatusRows;
-    afterValues.cacheStatusRows = after.cacheProbe.cacheStatusRows;
-    values.cacheHitRows = before.cacheProbe.cacheHitRows;
-    afterValues.cacheHitRows = after.cacheProbe.cacheHitRows;
-    if (
-      before.cacheProbe.cacheHitRatio !== null &&
-      after.cacheProbe.cacheHitRatio !== null
-    ) {
-      values.cacheHitRatio = before.cacheProbe.cacheHitRatio;
-      afterValues.cacheHitRatio = after.cacheProbe.cacheHitRatio;
-    }
-  }
-  return Object.fromEntries(
-    Object.keys(values).map((metric) => {
-      const beforeValue = values[metric];
-      const afterValue = afterValues[metric];
-      return [
-        metric,
-        {
-          absoluteDelta: roundMetric(afterValue - beforeValue),
-          after: afterValue,
-          before: beforeValue,
-          relativeChangePct:
-            beforeValue === 0
-              ? null
-              : roundMetric(((afterValue - beforeValue) / beforeValue) * 100),
-        },
-      ];
-    })
-  );
-}
-
 export async function measureVercelStorefrontCost(options: {
   after?: { inputPath: string; window: WindowOptions };
   before: { inputPath: string; window: WindowOptions };
@@ -248,13 +203,21 @@ export async function measureVercelStorefrontCost(options: {
       )
     : null;
   const hasDbTracePair = Boolean(before.dbTrace && after?.dbTrace);
-  if (
-    after &&
-    comparableWindowDurationMs(before) !== comparableWindowDurationMs(after)
-  ) {
-    throw new Error(
-      'before and after measurement windows must have equal durations'
-    );
+  if (after) {
+    const beforeHasRequestedWindow = Boolean(before.requestedWindow);
+    const afterHasRequestedWindow = Boolean(after.requestedWindow);
+    if (beforeHasRequestedWindow !== afterHasRequestedWindow) {
+      throw new Error(
+        'before and after measurement windows must both supply requested windows or neither'
+      );
+    }
+    if (
+      comparableWindowDurationMs(before) !== comparableWindowDurationMs(after)
+    ) {
+      throw new Error(
+        'before and after measurement windows must have equal durations'
+      );
+    }
   }
   return {
     after,
@@ -264,7 +227,7 @@ export async function measureVercelStorefrontCost(options: {
         ? 'complete'
         : 'incomplete'
       : 'not_available',
-    comparison: compareWindows(before, after),
+    comparison: compareStorefrontCostWindows(before, after),
     limitations: [
       'FOCUS billing rows are project-level; they cannot attribute CPU, memory, or invocations to PDP, compare, or blog routes.',
       'The requested window is recorded as provenance; supply exports already filtered to that UTC window because billing rows are not split by route or request.',

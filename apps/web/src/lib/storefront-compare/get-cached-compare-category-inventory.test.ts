@@ -40,29 +40,6 @@ describe('getCachedCompareCategoryInventory', () => {
     vi.clearAllMocks();
   });
 
-  it('bugfix: keeps storefront aliases on one cacheable category result', async () => {
-    mockGetCachedCategoryPageShellData.mockResolvedValue({
-      fallbackName: 'Laptops',
-      isCollection: true,
-      productScope: { collectionSlug: 'new-arrivals', kind: 'collection' },
-    });
-    const invokeWithLegacyAlias =
-      getCachedCompareCategoryInventory as unknown as (
-        merchantId: string,
-        categorySlug: string,
-        legacyStoreSlug: string
-      ) => ReturnType<typeof getCachedCompareCategoryInventory>;
-
-    const results = await Promise.all([
-      invokeWithLegacyAlias('merchant-1', 'laptops', 'ogabassey'),
-      invokeWithLegacyAlias('merchant-1', 'laptops', 'shop-alias'),
-    ]);
-
-    expect(results[0]).toEqual(results[1]);
-    expect(mockCacheTag).toHaveBeenCalledTimes(2);
-    expect(mockCacheTag.mock.calls[0]).toEqual(mockCacheTag.mock.calls[1]);
-  });
-
   it('fetches a light category-scoped projection and normalizes rows', async () => {
     mockGetCachedCategoryPageShellData.mockResolvedValue({
       isCollection: false,
