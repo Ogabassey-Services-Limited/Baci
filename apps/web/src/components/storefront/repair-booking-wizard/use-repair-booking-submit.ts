@@ -84,6 +84,10 @@ export function useRepairBookingSubmit({
           setPickupResumeToken(result.resumeToken);
         }
 
+        if (result.code === 'resume_invalid') {
+          setPickupResumeToken(null);
+        }
+
         if (result.code === 'payment_initialization_failed') {
           const ticketSuffix =
             typeof result.ticketNumber === 'number'

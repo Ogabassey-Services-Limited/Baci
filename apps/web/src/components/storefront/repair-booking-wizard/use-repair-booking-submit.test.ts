@@ -78,4 +78,83 @@ describe('useRepairBookingSubmit', () => {
       variant: 'destructive',
     });
   });
+
+  describe('bugfix: stuck retries after resume_invalid', () => {
+    it('clears the saved resume token so the next click starts payment again', async () => {
+      mocks.startCustomerRepairPickupPayment
+        .mockResolvedValueOnce({
+          success: true,
+          ticketNumber: 7,
+          resumeToken: 'resume-token-1',
+          payment: {
+            amount: 8250,
+            authorizationUrl: 'https://pay.example/1',
+          },
+        })
+        .mockResolvedValueOnce({
+          success: false,
+          code: 'resume_invalid',
+          error: 'This payment link expired. Start payment again.',
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          ticketNumber: 7,
+          resumeToken: 'resume-token-2',
+          payment: {
+            amount: 8250,
+            authorizationUrl: 'https://pay.example/2',
+          },
+        });
+
+      const onPickupPaymentReady = vi.fn();
+      const { result } = renderHook(() =>
+        useRepairBookingSubmit({
+          applyShippingQuote: vi.fn(),
+          merchantId: 'merchant-1',
+          merchantSlug: 'shop',
+          onPickupPaymentReady,
+          onSuccess: vi.fn(),
+          setCurrentStep: vi.fn(),
+          shippingQuote: { price: 8250 } as never,
+          toast: vi.fn(),
+        })
+      );
+
+      const pickupPayload = { serviceType: 'pickup' } as never;
+
+      await act(async () => {
+        await result.current.onSubmit(pickupPayload);
+      });
+      expect(mocks.startCustomerRepairPickupPayment).toHaveBeenLastCalledWith(
+        pickupPayload,
+        8250,
+        'merchant-1',
+        'shop',
+        null
+      );
+
+      await act(async () => {
+        await result.current.onSubmit(pickupPayload);
+      });
+      expect(mocks.startCustomerRepairPickupPayment).toHaveBeenLastCalledWith(
+        pickupPayload,
+        8250,
+        'merchant-1',
+        'shop',
+        'resume-token-1'
+      );
+
+      await act(async () => {
+        await result.current.onSubmit(pickupPayload);
+      });
+      expect(mocks.startCustomerRepairPickupPayment).toHaveBeenLastCalledWith(
+        pickupPayload,
+        8250,
+        'merchant-1',
+        'shop',
+        null
+      );
+      expect(onPickupPaymentReady).toHaveBeenCalledTimes(2);
+    });
+  });
 });
