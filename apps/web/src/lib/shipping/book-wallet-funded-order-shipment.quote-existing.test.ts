@@ -15,7 +15,12 @@ import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 describe('wallet-funded shipment orchestration — quote and existing shipment', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('releases the lock when quote preparation fails before reservation', async () => {
     const release = vi.fn().mockResolvedValue(undefined);

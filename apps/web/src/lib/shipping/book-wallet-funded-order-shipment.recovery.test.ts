@@ -25,7 +25,12 @@ function reservedChargeQuery() {
 }
 
 describe('wallet-funded shipment orchestration — process-death recovery', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('rotates a recovered reservation token before quote refresh and refunds when reconfirmation is required', async () => {
     const events: string[] = [];

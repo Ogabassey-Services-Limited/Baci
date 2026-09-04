@@ -97,6 +97,23 @@ describe('quote source orchestration', () => {
     expect(getCarrierQuotes).toHaveBeenCalledWith(quoteRequest, []);
   });
 
+  it('keeps the default carriers for merchantless requests without an allowlist', async () => {
+    const getCarrierQuotes = vi.fn().mockResolvedValue(carrierResponse);
+    const merchantlessRequest = { ...quoteRequest, merchantId: undefined };
+
+    await orchestrateQuoteSources({
+      ...baseInput,
+      quoteRequest: merchantlessRequest,
+      merchantRateResult: { quotes: [] },
+      getCarrierQuotes,
+    });
+
+    expect(getCarrierQuotes).toHaveBeenCalledWith(merchantlessRequest, [
+      'GIGL',
+      'TOPSHIP',
+    ]);
+  });
+
   it('returns the merchant-only unavailable response on a body-only load failure', async () => {
     const getCarrierQuotes = vi.fn();
 

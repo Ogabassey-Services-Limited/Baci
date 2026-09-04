@@ -218,7 +218,7 @@ export function ShipmentFlowSheet({
                 <ShipmentFlowMethodStep
                   canUseProvider={canUseProvider}
                   giglPanel={
-                    canUseProvider || !giglShipping ? undefined : (
+                    !giglShipping ? undefined : (
                       <ShipmentFlowGiglPanel
                         addressDraft={giglShipping.addressDraft}
                         error={giglShipping.error}

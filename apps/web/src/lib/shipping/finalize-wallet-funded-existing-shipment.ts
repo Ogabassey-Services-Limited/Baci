@@ -6,6 +6,7 @@ import {
   recoverMerchantShippingChargeForPersistedShipment,
 } from './merchant-shipping-charge';
 import { shouldReleaseBookingLock } from './order-shipment-booking-lock-errors';
+import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
 type ReleaseLock = () => Promise<void>;
@@ -48,7 +49,22 @@ export async function finalizeWalletFundedExistingShipment(
     return existingShipment;
   }
   if (chargeStatus === 'reserved') {
-    await beginMerchantShippingChargeSubmission(supabase, chargeId, token);
+    const submissionStatus = await beginMerchantShippingChargeSubmission(
+      supabase,
+      chargeId,
+      token
+    );
+    if (submissionStatus !== 'provider_submitting') {
+      throw new OrderShipmentBookingError(
+        submissionStatus === 'refunded'
+          ? 'This shipping charge was refunded. Get a new quote before booking again.'
+          : 'Unable to begin shipment submission.',
+        409,
+        submissionStatus === 'refunded'
+          ? 'MERCHANT_WALLET_CHARGE_REFUNDED'
+          : 'MERCHANT_WALLET_SUBMISSION_FAILED'
+      );
+    }
   }
   await completeMerchantShippingCharge(
     supabase,

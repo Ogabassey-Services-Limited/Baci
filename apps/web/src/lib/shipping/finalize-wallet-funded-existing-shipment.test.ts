@@ -14,7 +14,12 @@ import { supabaseFixture } from './book-wallet-funded-order-shipment.test-suppor
 import * as charge from './merchant-shipping-charge';
 
 describe('finalizeWalletFundedExistingShipment', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('completes the wallet charge before returning a reusable shipment', async () => {
     const existing = {

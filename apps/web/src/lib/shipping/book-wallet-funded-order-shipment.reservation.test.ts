@@ -14,7 +14,12 @@ import { supabaseFixture } from './book-wallet-funded-order-shipment.test-suppor
 import * as charge from './merchant-shipping-charge';
 
 describe('wallet-funded shipment orchestration — reservation', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('reserves before booking and completes after persistence', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
@@ -66,7 +71,7 @@ describe('wallet-funded shipment orchestration — reservation', () => {
     vi.mocked(charge.beginMerchantShippingChargeSubmission).mockImplementation(
       async () => {
         events.push('begin');
-        return null;
+        return 'provider_submitting';
       }
     );
     const prepareQuote = vi.fn(async () => {

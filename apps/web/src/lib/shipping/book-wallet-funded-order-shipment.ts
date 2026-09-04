@@ -187,11 +187,22 @@ export async function bookWalletFundedOrderShipment(
   }
   let providerSubmissionStarted = false;
   try {
-    await beginMerchantShippingChargeSubmission(
+    const submissionStatus = await beginMerchantShippingChargeSubmission(
       supabase,
       charge.chargeId,
       token
     );
+    if (submissionStatus !== 'provider_submitting') {
+      throw new OrderShipmentBookingError(
+        submissionStatus === 'refunded'
+          ? 'This shipping charge was refunded. Get a new quote before booking again.'
+          : 'Unable to begin shipment submission.',
+        409,
+        submissionStatus === 'refunded'
+          ? 'MERCHANT_WALLET_CHARGE_REFUNDED'
+          : 'MERCHANT_WALLET_SUBMISSION_FAILED'
+      );
+    }
     providerSubmissionStarted = true;
     const shipment = await book(preparedQuoteId);
     await completeMerchantShippingCharge(

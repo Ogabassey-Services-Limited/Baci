@@ -15,7 +15,12 @@ import { supabaseFixture } from './book-wallet-funded-order-shipment.test-suppor
 import * as charge from './merchant-shipping-charge';
 
 describe('wallet-funded shipment orchestration — charge state', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('returns an existing booked shipment without beginning another provider attempt', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({

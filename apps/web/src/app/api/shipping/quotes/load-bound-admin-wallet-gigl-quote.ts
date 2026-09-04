@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type { ShippingQuote } from '@/lib/shipping/types';
-import type { Database } from '@/types/supabase';
 import {
   calculateAdminWalletFunding,
   toAdminPublicQuote,
@@ -32,7 +31,7 @@ export function shouldReuseBoundAdminWalletGiglQuote(
 }
 
 export async function loadBoundAdminWalletGiglQuoteResponse(
-  supabase: SupabaseClient<Database>,
+  supabase: SupabaseClient,
   merchantId: string,
   quoteId: string
 ): Promise<NextResponse | null> {
@@ -55,6 +54,26 @@ export async function loadBoundAdminWalletGiglQuoteResponse(
     String(boundQuote.provider).toUpperCase() !== 'GIGL' ||
     Number(boundQuote.price) <= 0
   ) {
+    return null;
+  }
+
+  const { data: latestCharge, error: chargeError } = await supabase
+    .from('merchant_shipping_charges')
+    .select('status')
+    .eq('merchant_id', merchantId)
+    .eq('shipping_quote_id', quoteId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (chargeError) {
+    return NextResponse.json(
+      { error: 'Failed to load bound quote charge' },
+      { status: 500 }
+    );
+  }
+  // A refunded charge keeps the order bound to the old quote, but booking that
+  // quote again returns MERCHANT_WALLET_CHARGE_REFUNDED. Force a new quote.
+  if (latestCharge?.status === 'refunded') {
     return null;
   }
 

@@ -182,12 +182,25 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
       <ShipmentFlowSheet
         {...base}
         canUseProvider
-        giglShipping={gigl(false)}
+        giglShipping={undefined}
         providerLabel="Topship"
       />
     );
     expect(screen.getByText('Use Topship')).toBeInTheDocument();
     expect(screen.queryByText('Ship with GIG')).not.toBeInTheDocument();
+  });
+
+  it('keeps the GIGL funding panel visible for a bound underfunded wallet quote', () => {
+    render(
+      <ShipmentFlowSheet
+        {...base}
+        canUseProvider
+        giglShipping={gigl(false)}
+        providerLabel="GIG Logistics"
+      />
+    );
+    expect(screen.getByText('Ship with GIG')).toBeInTheDocument();
+    expect(screen.queryByText('Use GIG Logistics')).not.toBeInTheDocument();
   });
 
   it('blocks the stale-quote tap and requires a new tap after refresh', async () => {

@@ -92,9 +92,12 @@ export async function orchestrateQuoteSources({
     return merchantOnly();
   }
 
-  // A missing allowlist (load failure or older RPC projection) must never
-  // silently widen to every carrier. An explicit [] is the fail-closed value.
-  const allowedProviderCodes = enabledProviderCodes ?? [];
+  // A missing allowlist for a merchant-scoped request must never silently
+  // widen to every carrier. Merchantless public/default requests keep the
+  // canonical GIGL+Topship carriers. An explicit [] stays fail-closed.
+  const allowedProviderCodes =
+    enabledProviderCodes ??
+    (quoteRequest.merchantId ? [] : (['GIGL', 'TOPSHIP'] as const));
   const carrierResponse = await getCarrierQuotes(
     quoteRequest,
     allowedProviderCodes

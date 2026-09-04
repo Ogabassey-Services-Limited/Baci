@@ -15,7 +15,12 @@ import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 describe('wallet-funded shipment orchestration — submission failures', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('refunds and releases the lock when submission cannot begin before provider booking', async () => {
     const release = vi.fn().mockResolvedValue(undefined);
@@ -59,6 +64,44 @@ describe('wallet-funded shipment orchestration — submission failures', () => {
     expect(
       charge.markMerchantShippingChargeForReconciliation
     ).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it('does not call GIGL when begin submission returns refunded without an RPC error', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({
+      charge: {
+        chargeId: 'c-refunded',
+        chargedAmount: 100,
+        balanceAfter: 0,
+        status: 'reserved',
+      },
+      token: 'r'.repeat(64),
+    });
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'refunded'
+    );
+    const book = vi.fn();
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        book,
+        release
+      )
+    ).rejects.toMatchObject({ code: 'MERCHANT_WALLET_CHARGE_REFUNDED' });
+
+    expect(book).not.toHaveBeenCalled();
+    expect(charge.refundMerchantShippingCharge).toHaveBeenCalledWith(
+      expect.anything(),
+      'c-refunded',
+      'r'.repeat(64),
+      'MERCHANT_WALLET_CHARGE_REFUNDED'
+    );
     expect(release).toHaveBeenCalledOnce();
   });
 

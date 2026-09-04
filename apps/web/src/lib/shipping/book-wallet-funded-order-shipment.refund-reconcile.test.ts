@@ -15,7 +15,12 @@ import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 describe('wallet-funded shipment orchestration — refund and reconcile', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('persists provider reference when local shipment save fails after provider booking', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockResolvedValue({

@@ -15,7 +15,12 @@ import * as charge from './merchant-shipping-charge';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 
 describe('wallet-funded shipment orchestration — checkout', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(charge.beginMerchantShippingChargeSubmission).mockResolvedValue(
+      'provider_submitting'
+    );
+  });
 
   it('does not invoke GIGL when reservation reports insufficient funds', async () => {
     vi.mocked(charge.reserveMerchantShippingCharge).mockRejectedValue(
