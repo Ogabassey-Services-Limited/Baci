@@ -154,7 +154,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, tracking_number, shipment_id'
+        'id, order_number, shipping_status, payment_status, payment_method, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -412,6 +412,11 @@ export async function PATCH(
                       existing.quoteId || existingOrder.selected_quote_id || '',
                   }
                 : null;
+            },
+            {
+              shipping_provider: existingOrder.shipping_provider,
+              payment_status: existingOrder.payment_status,
+              payment_method: existingOrder.payment_method,
             }
           );
           updates.shipping_provider = booking.provider;

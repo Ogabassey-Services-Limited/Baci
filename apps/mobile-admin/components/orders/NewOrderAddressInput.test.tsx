@@ -140,6 +140,106 @@ describe('NewOrderAddressInput', () => {
     expect(setDeliveryInfo).toHaveBeenCalled();
   });
 
+  it('preserves city and state when the fallback address changes', () => {
+    const setDeliveryInfo = vi.fn();
+    render(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: 'Old address',
+            city: 'Lagos',
+            name: '',
+            phone: '',
+            state: 'Lagos State',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey={undefined}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Enter delivery address'), {
+      target: { value: '12 Marina' },
+    });
+
+    const updater = setDeliveryInfo.mock.calls[0][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+
+    expect(
+      updater({
+        address: 'Old address',
+        city: 'Lagos',
+        name: '',
+        phone: '',
+        state: 'Lagos State',
+      })
+    ).toEqual({
+      address: '12 Marina',
+      city: 'Lagos',
+      name: '',
+      phone: '',
+      state: 'Lagos State',
+      latitude: undefined,
+      longitude: undefined,
+    });
+  });
+
+  it('updates city and state through dedicated fallback inputs', () => {
+    const setDeliveryInfo = vi.fn();
+    render(
+      <NewOrderAddressInput
+        controller={makeController({ setDeliveryInfo })}
+        googleMapsApiKey={undefined}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('City'), {
+      target: { value: 'Abuja' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('State'), {
+      target: { value: 'FCT' },
+    });
+
+    const cityUpdater = setDeliveryInfo.mock.calls[0][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+    const stateUpdater = setDeliveryInfo.mock.calls[1][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+
+    expect(
+      cityUpdater({
+        address: '',
+        city: '',
+        name: '',
+        phone: '',
+        state: '',
+      })
+    ).toEqual({
+      address: '',
+      city: 'Abuja',
+      name: '',
+      phone: '',
+      state: '',
+    });
+    expect(
+      stateUpdater({
+        address: '',
+        city: 'Abuja',
+        name: '',
+        phone: '',
+        state: '',
+      })
+    ).toEqual({
+      address: '',
+      city: 'Abuja',
+      name: '',
+      phone: '',
+      state: 'FCT',
+    });
+  });
+
   it('clears stale city and state when a selected place omits those components', () => {
     const setDeliveryInfo = vi.fn();
 

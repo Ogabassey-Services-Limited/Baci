@@ -1,11 +1,11 @@
-export type KlumpSettlementOrderEconomics = {
+export type OrderGiglSettlementEconomics = {
   shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
   shipping_platform_retained_amount?: number | string | null;
   shipping_provider?: string | null;
 };
 
-export function resolveKlumpSettlementRpc(
-  order: KlumpSettlementOrderEconomics | null
+export function resolveOrderGiglSettlementRpc(
+  order: OrderGiglSettlementEconomics | null
 ) {
   const hasEconomicsSnapshot = order?.shipping_funding_source != null;
   const useGiglSettlementRpc =

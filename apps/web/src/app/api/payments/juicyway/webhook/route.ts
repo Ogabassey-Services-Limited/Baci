@@ -23,6 +23,7 @@ import { calculateJuicywayPlatformFee } from '@/lib/payments/juicyway-platform-f
 import { shouldRequireJuicywaySettlementMetadata } from '@/lib/payments/juicyway-settlement-metadata-compatibility';
 import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
+import { resolveOrderGiglSettlementRpc } from '@/lib/payments/resolve-order-gigl-settlement-rpc';
 import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -102,8 +103,30 @@ async function recordJuicywaySettlement(
     }
 
     const adminSupabase = createAdminClient();
+    let orderEconomics = null;
+    if (transaction.order_id) {
+      const { data: order, error: orderLoadError } = await adminSupabase
+        .from('orders')
+        .select(
+          'shipping_provider, shipping_funding_source, shipping_platform_retained_amount'
+        )
+        .eq('id', transaction.order_id)
+        .maybeSingle();
+      if (orderLoadError) {
+        logger.warn({
+          message:
+            'Failed to load order economics for Juicyway settlement recording',
+          error: orderLoadError,
+          orderId: transaction.order_id,
+          reference,
+        });
+        return false;
+      }
+      orderEconomics = order;
+    }
+    const settlement = resolveOrderGiglSettlementRpc(orderEconomics);
     const { error: settlementError } = await adminSupabase.rpc(
-      'record_merchant_settlement',
+      settlement.settlementRpc,
       {
         p_merchant_id: transaction.merchant_id,
         p_source_type: 'order',
@@ -116,7 +139,15 @@ async function recordJuicywaySettlement(
         p_description: 'Order payment via Juicyway',
         // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
         // in metadata for downstream reconciliation queries.
-        p_metadata: { juicyway_reference: reference },
+        p_metadata: {
+          juicyway_reference: reference,
+          ...(settlement.hasEconomicsSnapshot
+            ? {
+                commerce_platform_fee: platformFee,
+                retained_shipping_amount: settlement.retainedShippingAmount,
+              }
+            : {}),
+        },
       }
     );
 

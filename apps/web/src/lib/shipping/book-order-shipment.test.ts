@@ -538,7 +538,12 @@ describe('bookOrderShipment', () => {
 
     const supabase = createMockSupabase({
       order: {
-        data: { ...validOrder, shipping_provider: 'GIGL' },
+        data: {
+          ...validOrder,
+          shipping_provider: 'GIGL',
+          payment_status: 'paid',
+          payment_method: 'paystack',
+        },
         error: null,
       },
       quote: { data: { ...validQuote, provider: 'GIGL' }, error: null },
@@ -679,5 +684,31 @@ describe('bookOrderShipment', () => {
       })
     );
     consoleErrorSpy.mockRestore();
+  });
+
+  describe('bugfix: GIGL customer checkout requires prepaid shipping', () => {
+    it('rejects unpaid pay-on-delivery GIGL bookings before quote lookup', async () => {
+      const supabase = createMockSupabase({
+        order: {
+          data: {
+            ...validOrder,
+            shipping_provider: 'GIGL',
+            shipping_funding_source: 'customer_checkout',
+            payment_status: 'unpaid',
+            payment_method: 'pay_on_delivery',
+          },
+          error: null,
+        },
+      });
+
+      await expect(
+        bookOrderShipment(supabase, 'merchant-1', 'order-1')
+      ).rejects.toMatchObject({
+        code: 'GIGL_REQUIRES_PREPAID_OR_WALLET',
+        status: 400,
+      });
+      expect(supabase.from).not.toHaveBeenCalledWith('shipping_quotes');
+      expect(shippingService.bookShipment).not.toHaveBeenCalled();
+    });
   });
 });

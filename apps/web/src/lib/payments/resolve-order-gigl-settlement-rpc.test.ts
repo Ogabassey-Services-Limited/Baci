@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resolveKlumpSettlementRpc } from './resolve-klump-settlement-rpc';
+import { resolveOrderGiglSettlementRpc } from './resolve-order-gigl-settlement-rpc';
 
-describe('resolveKlumpSettlementRpc', () => {
+describe('resolveOrderGiglSettlementRpc', () => {
   it('routes customer-checkout GIGL orders through the GIGL retention RPC', () => {
     expect(
-      resolveKlumpSettlementRpc({
+      resolveOrderGiglSettlementRpc({
         shipping_funding_source: 'customer_checkout',
         shipping_platform_retained_amount: 1500,
         shipping_provider: 'GIGL',
@@ -19,7 +19,7 @@ describe('resolveKlumpSettlementRpc', () => {
 
   it('keeps non-GIGL orders on the legacy settlement RPC', () => {
     expect(
-      resolveKlumpSettlementRpc({
+      resolveOrderGiglSettlementRpc({
         shipping_funding_source: null,
         shipping_platform_retained_amount: 0,
         shipping_provider: 'TOPSHIP',

@@ -46,6 +46,7 @@ import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gatew
 import { isMerchantInvoicePartialBalanceReview } from '@/lib/payments/is-merchant-invoice-partial-balance-review';
 import { processMerchantInvoicePartialPayment } from '@/lib/payments/process-merchant-invoice-partial-payment';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
+import { resolveOrderGiglSettlementRpc } from '@/lib/payments/resolve-order-gigl-settlement-rpc';
 import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
@@ -2775,8 +2776,20 @@ export async function POST(request: NextRequest) {
           const platformFee =
             Number(transaction.platform_fee) ||
             calculatePlatformFee(grossAmount * 100).platformFee / 100;
+          let orderEconomics = null;
+          if (transaction.order_id) {
+            const { data: order } = await supabase
+              .from('orders')
+              .select(
+                'shipping_provider, shipping_funding_source, shipping_platform_retained_amount'
+              )
+              .eq('id', transaction.order_id)
+              .maybeSingle();
+            orderEconomics = order;
+          }
+          const settlement = resolveOrderGiglSettlementRpc(orderEconomics);
           const { error: fallbackSettlementError } = await supabase.rpc(
-            'record_merchant_settlement',
+            settlement.settlementRpc,
             {
               p_merchant_id: transaction.merchant_id,
               p_source_type: 'order',
@@ -2791,6 +2804,13 @@ export async function POST(request: NextRequest) {
                 [`${gateway}_reference`]: reference,
                 verified_gateway_fee: gatewayFee,
                 order_update_failed: true,
+                ...(settlement.hasEconomicsSnapshot
+                  ? {
+                      commerce_platform_fee: platformFee,
+                      retained_shipping_amount:
+                        settlement.retainedShippingAmount,
+                    }
+                  : {}),
               },
             }
           );

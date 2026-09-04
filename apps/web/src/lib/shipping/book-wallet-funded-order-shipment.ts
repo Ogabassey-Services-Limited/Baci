@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertGiglCustomerCheckoutPrepaid } from './assert-gigl-customer-checkout-prepaid';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
   cleanupPreSubmissionReservation,
@@ -23,6 +24,9 @@ type ReleaseLock = () => Promise<void>;
 type PrepareQuote = () => Promise<string>;
 type BookShipment = (quoteId?: string) => Promise<BookOrderShipmentResult>;
 type ReadExistingShipment = () => Promise<BookOrderShipmentResult | null>;
+type GiglBookingPaymentContext = Parameters<
+  typeof assertGiglCustomerCheckoutPrepaid
+>[0];
 type ChargeReservation = Awaited<
   ReturnType<typeof reserveMerchantShippingCharge>
 >;
@@ -254,9 +258,16 @@ export function bookWalletOrCustomerCheckout(
   book: BookShipment,
   releaseLock?: ReleaseLock,
   prepareQuote?: PrepareQuote,
-  readExistingShipment?: ReadExistingShipment
+  readExistingShipment?: ReadExistingShipment,
+  orderPayment?: GiglBookingPaymentContext
 ) {
-  if (fundingSource !== 'merchant_wallet') return book(quoteId);
+  if (fundingSource !== 'merchant_wallet') {
+    assertGiglCustomerCheckoutPrepaid({
+      shipping_funding_source: fundingSource,
+      ...orderPayment,
+    });
+    return book(quoteId);
+  }
   if (!merchantId || !orderId || !quoteId) {
     throw new OrderShipmentBookingError(
       'Wallet-funded booking requires the order booking path.',

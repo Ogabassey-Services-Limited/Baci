@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrderCreateInput } from '@/schemas/orders';
 import { parseStoredQuoteRequest } from './order-shipment-booking-utils';
-import { isGiglInternationalProviderRate } from './providers/gigl.international-payload';
 import type { ShippingProviderCode } from './types';
 
 export type OrderShippingAddressForQuote = NonNullable<
@@ -47,7 +46,7 @@ type CheckoutQuoteLookupResponse = {
 
 export class OrderQuoteDestinationMismatchError extends Error {
   constructor(
-    message = 'The saved international shipping quote no longer matches this delivery address. Please get a new quote before checkout.',
+    message = 'The saved shipping quote no longer matches this delivery address. Please get a new quote before checkout.',
     readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
     readonly status = 400
   ) {
@@ -89,7 +88,7 @@ function matchesQuoteDestination(
 
 function throwQuoteMismatch(code: string, status = 400): never {
   throw new OrderQuoteDestinationMismatchError(
-    'The saved international shipping quote no longer matches this checkout. Please get a new quote before checkout.',
+    'The saved shipping quote no longer matches this checkout. Please get a new quote before checkout.',
     code,
     status
   );
@@ -247,7 +246,7 @@ export async function enrichShippingAddressWithQuoteDestination(
   );
   if (quoteError) {
     throw new OrderQuoteDestinationMismatchError(
-      'Unable to validate the saved international shipping quote. Please get a new quote before checkout.',
+      'Unable to validate the saved shipping quote. Please get a new quote before checkout.',
       'INTERNATIONAL_QUOTE_LOOKUP_FAILED',
       500
     );
@@ -260,11 +259,8 @@ export async function enrichShippingAddressWithQuoteDestination(
     throwQuoteMismatch('INTERNATIONAL_QUOTE_ORDER_MISMATCH');
   }
 
-  const isGiglInternationalQuote = isGiglInternationalProviderRate(
-    quote?.provider,
-    quote?.provider_rate_id
-  );
-  if (!quote || !isGiglInternationalQuote) {
+  const isGiglQuote = quote?.provider === 'GIGL';
+  if (!quote || !isGiglQuote) {
     return shippingAddress;
   }
 

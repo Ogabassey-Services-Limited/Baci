@@ -44,6 +44,29 @@ describe('wallet-funded shipment orchestration — checkout', () => {
     expect(book).not.toHaveBeenCalled();
   });
 
+  it('rejects customer-checkout GIGL pay-on-delivery bookings before provider dispatch', () => {
+    expect(() =>
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'customer_checkout',
+        vi.fn(),
+        undefined,
+        undefined,
+        undefined,
+        {
+          shipping_provider: 'GIGL',
+          payment_status: 'unpaid',
+          payment_method: 'pay_on_delivery',
+        }
+      )
+    ).toThrow(
+      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
+    );
+  });
+
   it('never calls wallet RPCs for customer checkout', async () => {
     const book = vi.fn().mockResolvedValue({ shipmentId: 's1' });
     await bookWalletOrCustomerCheckout(
@@ -52,7 +75,15 @@ describe('wallet-funded shipment orchestration — checkout', () => {
       'o1',
       'q1',
       'customer_checkout',
-      book
+      book,
+      undefined,
+      undefined,
+      undefined,
+      {
+        shipping_provider: 'TOPSHIP',
+        payment_status: 'paid',
+        payment_method: 'paystack',
+      }
     );
     expect(book).toHaveBeenCalledOnce();
     expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();

@@ -6187,8 +6187,15 @@ describe('POST /api/payments/webhook', () => {
         }
 
         // finalizeOrderGatewayPayment fails at the atomic RPC step below,
-        // before ever reading/writing `orders` — no `.from('orders')` mock
-        // needed.
+        // before ever reading/writing `orders` for completion — the fallback
+        // path still loads order economics for GIGL settlement routing.
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          } as never;
+        }
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
@@ -6243,6 +6250,125 @@ describe('POST /api/payments/webhook', () => {
           p_metadata: expect.objectContaining({
             korapay_reference: 'REF-FB-1',
             order_update_failed: true,
+          }),
+        })
+      );
+    });
+
+    it('routes completion-failure fallback settlements through the GIGL wrapper for GIGL orders', async () => {
+      const body = {
+        reference: 'REF-FB-GIGL',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-FB-GIGL',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      let transactionCallCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-fb-gigl',
+                  merchant_id: 'merchant-fb-gigl',
+                  order_id: 'order-fb-gigl',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-FB-GIGL',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'txn-fb-gigl' },
+              error: null,
+            }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                shipping_funding_source: 'customer_checkout',
+                shipping_platform_retained_amount: 250,
+                shipping_provider: 'GIGL',
+              },
+              error: null,
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        if (name === 'complete_order_gateway_payment') {
+          const result = {
+            data: { error_code: 'ORDER_NOT_FOUND' },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+        const result = { data: null, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement_gigl_v1',
+        expect.objectContaining({
+          p_gateway_reference: 'BAC-FB-GIGL',
+          p_source_id: 'order-fb-gigl',
+          p_metadata: expect.objectContaining({
+            commerce_platform_fee: expect.any(Number),
+            order_update_failed: true,
+            retained_shipping_amount: 250,
           }),
         })
       );

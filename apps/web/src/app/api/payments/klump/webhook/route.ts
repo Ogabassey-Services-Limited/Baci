@@ -30,7 +30,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { resolveKlumpSettlementRpc } from '@/lib/payments/resolve-klump-settlement-rpc';
+import { resolveOrderGiglSettlementRpc } from '@/lib/payments/resolve-order-gigl-settlement-rpc';
 import { calculatePlatformFee } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { referenceSchema } from '@/schemas/payments';
@@ -445,7 +445,7 @@ export async function POST(request: NextRequest) {
     transaction.platform_fee,
     grossAmount
   );
-  const settlement = resolveKlumpSettlementRpc(order);
+  const settlement = resolveOrderGiglSettlementRpc(order);
 
   const { error: settlementError } = await supabase.rpc(
     settlement.settlementRpc,

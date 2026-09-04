@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { StepExecutor } from '@/lib/payments/apply-paid-order-side-effects';
 import { calculateJuicywayPlatformFee } from '@/lib/payments/juicyway-platform-fee';
+import { loadGiglSettlementRetainedAmount } from '@/lib/payments/load-gigl-settlement-retained-amount';
 import type {
   PaidOrderSideEffectTransaction,
   ServiceRoleClient,
@@ -211,6 +212,12 @@ export function buildSettlementExecutor(args: {
       p_source_type: 'order',
     });
     if (error) throwSettlementRpcError(error);
+    const reportedRetainedShippingAmount = useGiglSettlementRpc
+      ? await loadGiglSettlementRetainedAmount(
+          validatedArgs.supabase,
+          validatedArgs.externalGatewayReference
+        )
+      : retainedShippingAmount;
     return {
       gateway_fee: normalizedGatewayFee,
       gross_amount: normalizedGrossAmount,
@@ -218,7 +225,7 @@ export function buildSettlementExecutor(args: {
       ...(hasEconomicsSnapshot
         ? {
             commerce_platform_fee: platformFee,
-            retained_shipping_amount: retainedShippingAmount,
+            retained_shipping_amount: reportedRetainedShippingAmount,
           }
         : {}),
     };

@@ -9,6 +9,8 @@ export type BookOrderRecord = {
   selected_quote_id: string | null;
   shipping_provider: string | null;
   shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
   shipping_provider_cost?: number | string | null;
   shipping_platform_margin?: number | string | null;
   shipping_pricing_version?: string | null;

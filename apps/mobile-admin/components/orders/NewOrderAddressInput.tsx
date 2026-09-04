@@ -161,11 +161,6 @@ export function NewOrderAddressInput({
               setDeliveryInfo((previous) => ({
                 ...previous,
                 address: text,
-                city: '',
-                state: '',
-                country: '',
-                countryCode: '',
-                postalCode: '',
                 latitude: undefined,
                 longitude: undefined,
               }))
@@ -183,6 +178,68 @@ export function NewOrderAddressInput({
             ]}
             value={deliveryInfo.address}
           />
+          <View style={[styles.rowBetween, { gap: 12, marginTop: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.label,
+                  { color: colors.textSecondary, marginBottom: 4 },
+                ]}
+              >
+                City
+              </Text>
+              <TextInput
+                onChangeText={(text) =>
+                  setDeliveryInfo((previous) => ({
+                    ...previous,
+                    city: text,
+                  }))
+                }
+                placeholder="City"
+                placeholderTextColor={colors.textMuted}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    color: colors.text,
+                  },
+                ]}
+                value={deliveryInfo.city}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.label,
+                  { color: colors.textSecondary, marginBottom: 4 },
+                ]}
+              >
+                State
+              </Text>
+              <TextInput
+                onChangeText={(text) =>
+                  setDeliveryInfo((previous) => ({
+                    ...previous,
+                    state: text,
+                  }))
+                }
+                placeholder="State"
+                placeholderTextColor={colors.textMuted}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    color: colors.text,
+                  },
+                ]}
+                value={deliveryInfo.state}
+              />
+            </View>
+          </View>
           <Text style={[styles.listSubValue, { color: colors.warning }]}>
             Address suggestions are unavailable because Google Maps is not
             configured.

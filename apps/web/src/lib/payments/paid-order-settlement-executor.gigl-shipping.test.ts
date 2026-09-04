@@ -28,9 +28,28 @@ const context: StepContext = {
   },
 };
 
-function setup() {
+function setup(actualRetainedShippingAmount = 11_000) {
   const rpc = vi.fn(async () => ({ data: null, error: null }));
-  return { rpc, supabase: { rpc } as unknown as ServiceRoleClient };
+  const maybeSingle = vi.fn(async () => ({
+    data: {
+      metadata: { retained_shipping_amount: actualRetainedShippingAmount },
+    },
+    error: null,
+  }));
+  const eq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ eq }));
+  const from = vi.fn((table: string) => {
+    if (table === 'merchant_settlements') {
+      return { select };
+    }
+    return { select: vi.fn(() => ({ eq: vi.fn() })) };
+  });
+
+  return {
+    from,
+    rpc,
+    supabase: { from, rpc } as unknown as ServiceRoleClient,
+  };
 }
 
 describe('GIGL shipping settlement retention', () => {
@@ -149,23 +168,22 @@ describe('GIGL shipping settlement retention', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('keeps the full GIGL retained snapshot for metadata while the RPC recomputes debit', async () => {
-    const { rpc, supabase } = setup();
+  it('returns the authoritative retained amount recorded by the GIGL wrapper', async () => {
+    const { rpc, supabase } = setup(9_500);
     const result = await buildSettlementExecutor({
       externalGatewayReference: 'REF',
       settlementGateway: 'paystack',
       supabase,
-      transaction: { ...transaction, amount: 11_000, platform_fee: 1_000 },
+      transaction: { ...transaction, platform_fee: 1_000 },
       orderShippingProvider: 'GIGL',
       orderShippingFundingSource: 'customer_checkout',
       orderShippingRetainedAmount: 11_000,
     })(context);
 
-    expect(result?.retained_shipping_amount).toBe(11_000);
+    expect(result?.retained_shipping_amount).toBe(9_500);
     expect(rpc).toHaveBeenCalledWith(
       'record_merchant_settlement_gigl_v1',
       expect.objectContaining({
-        p_platform_fee: 1_000,
         p_metadata: expect.objectContaining({
           retained_shipping_amount: 11_000,
         }),

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
 import { resolveAdminGiglBookingContext } from '@/lib/shipping/admin-gigl-booking-context';
+import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { attachBookingQuoteMetadata } from '@/lib/shipping/attach-booking-quote-metadata';
 import type { BookOrderRecord } from '@/lib/shipping/book-order-shipment-types';
@@ -39,7 +40,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, shipping_provider_cost, shipping_platform_margin, shipping_pricing_version, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, payment_method, payment_status, shipping_provider_cost, shipping_platform_margin, shipping_pricing_version, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -78,6 +79,7 @@ export async function bookOrderShipment(
       'INVALID_SHIPPING_PROVIDER'
     );
   }
+  assertGiglCustomerCheckoutPrepaid(typedOrder);
   const orderItems = typedOrder.order_items ?? [];
   if (orderItems.length === 0) {
     throw new OrderShipmentBookingError(
