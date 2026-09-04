@@ -21,6 +21,7 @@ describe('order PATCH merchant wallet booking', () => {
       'bookingEconomics?.shipping_platform_retained_amount'
     );
     expect(source).toContain('isFundedCheckoutGiglAddressLocked');
+    expect(source).toContain('settled retention only');
     expect(source).not.toContain(
       'existingOrder.shipping_platform_retained_amount'
     );

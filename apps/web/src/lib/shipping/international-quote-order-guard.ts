@@ -123,26 +123,35 @@ function amountsMatch(
   );
 }
 
+function hasPackageDimensions(item: {
+  length?: number | string | null;
+  width?: number | string | null;
+  height?: number | string | null;
+}): boolean {
+  return (
+    normalizeAmount(item.length) !== undefined &&
+    normalizeAmount(item.width) !== undefined &&
+    normalizeAmount(item.height) !== undefined
+  );
+}
+
 function dimensionsMatch(
   orderItem: OrderItemRecord,
   quoteItem: QuoteRequest['items'][number]
 ): boolean {
-  const quoteHasDimensions =
-    quoteItem.length !== undefined &&
-    quoteItem.width !== undefined &&
-    quoteItem.height !== undefined;
-  if (!quoteHasDimensions) return true;
+  const orderHasDimensions = hasPackageDimensions(orderItem);
+  const quoteHasDimensions = hasPackageDimensions(quoteItem);
 
-  const orderHasDimensions =
-    orderItem.length !== undefined &&
-    orderItem.width !== undefined &&
-    orderItem.height !== undefined;
-  if (!orderHasDimensions) return true;
+  // Both absent is fine (legacy quotes/items). Presence on only one side means
+  // the attested rate was calculated without the current package size (or the
+  // reverse) and must force a fresh quote.
+  if (!orderHasDimensions && !quoteHasDimensions) return true;
+  if (!orderHasDimensions || !quoteHasDimensions) return false;
 
   return (
-    amountsMatch(orderItem.length!, quoteItem.length!) &&
-    amountsMatch(orderItem.width!, quoteItem.width!) &&
-    amountsMatch(orderItem.height!, quoteItem.height!)
+    amountsMatch(orderItem.length, quoteItem.length as number) &&
+    amountsMatch(orderItem.width, quoteItem.width as number) &&
+    amountsMatch(orderItem.height, quoteItem.height as number)
   );
 }
 

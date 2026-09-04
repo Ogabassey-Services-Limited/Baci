@@ -43,7 +43,16 @@ const matchingOrder = {
     countryCode: 'CA',
     postalCode: 'M5V 3L9',
   },
-  order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
+  order_items: [
+    {
+      name: 'Phone',
+      quantity: 1,
+      price: 100_000,
+      length: 10,
+      width: 8,
+      height: 6,
+    },
+  ],
 };
 
 describe('assertInternationalQuoteMatchesOrder', () => {
@@ -109,7 +118,14 @@ describe('assertInternationalQuoteMatchesOrder', () => {
         ...matchingOrder,
         order_items: [
           { name: 'Laptop', quantity: 2, price: 250_000 },
-          { name: 'Phone', quantity: 1, price: 100_000 },
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 100_000,
+            length: 10,
+            width: 8,
+            height: 6,
+          },
         ],
       })
     ).not.toThrow();
@@ -119,7 +135,16 @@ describe('assertInternationalQuoteMatchesOrder', () => {
     expect(() =>
       assertInternationalQuoteMatchesOrder(quoteRequest, {
         ...matchingOrder,
-        order_items: [{ name: 'Phone', quantity: 1, price: 80_000 }],
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 80_000,
+            length: 10,
+            width: 8,
+            height: 6,
+          },
+        ],
       })
     ).toThrow('no longer matches this order');
   });
@@ -128,8 +153,39 @@ describe('assertInternationalQuoteMatchesOrder', () => {
     expect(() =>
       assertInternationalQuoteMatchesOrder(quoteRequest, {
         ...matchingOrder,
-        order_items: [{ name: 'Phone', quantity: 2, price: 100_000 }],
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 2,
+            price: 100_000,
+            length: 10,
+            width: 8,
+            height: 6,
+          },
+        ],
       })
+    ).toThrow('no longer matches this order');
+  });
+
+  it('bugfix: rejects quotes that omit newly added package dimensions', () => {
+    const quoteWithoutDimensions: QuoteRequest = {
+      ...quoteRequest,
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1.2,
+          value: 100_000,
+          hsCode: '851712',
+        },
+      ],
+    };
+
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(
+        quoteWithoutDimensions,
+        matchingOrder
+      )
     ).toThrow('no longer matches this order');
   });
 });

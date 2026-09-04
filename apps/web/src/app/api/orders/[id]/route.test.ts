@@ -56,6 +56,10 @@ vi.mock('@/lib/shipping/shipping-quote-booking-economics', () => ({
   getShippingQuoteBookingEconomics: vi.fn(),
 }));
 
+vi.mock('@/lib/shipping/load-order-gigl-settled-retained-amount', () => ({
+  loadOrderGiglSettledRetainedAmount: vi.fn(),
+}));
+
 vi.mock('@/lib/shipping/order-shipment-booking-lock', () => ({
   claimOrderShipmentBooking: vi.fn(),
   clearOrderShipmentBookingLock: vi.fn(),
@@ -111,6 +115,7 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
+import { loadOrderGiglSettledRetainedAmount } from '@/lib/shipping/load-order-gigl-settled-retained-amount';
 import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
@@ -700,16 +705,7 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(getShippingQuoteBookingEconomics).mockResolvedValue({
-      provider_cost: 5000,
-      platform_margin: 2500,
-      platform_margin_bps: 5000,
-      pricing_version: 'v1',
-      shipping_provider_cost: 5000,
-      shipping_platform_margin: 2500,
-      shipping_pricing_version: 'v1',
-      shipping_platform_retained_amount: 2500,
-    });
+    vi.mocked(loadOrderGiglSettledRetainedAmount).mockResolvedValue(2500);
 
     const response = await PATCH(
       createPatchRequest({
@@ -729,11 +725,10 @@ describe('PATCH /api/orders/[id]', () => {
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
     expect(bookOrderShipment).not.toHaveBeenCalled();
-    expect(getShippingQuoteBookingEconomics).toHaveBeenCalledWith(
+    expect(loadOrderGiglSettledRetainedAmount).toHaveBeenCalledWith(
       expect.anything(),
       'merchant-1',
-      'order-1',
-      'quote-1'
+      'order-1'
     );
   });
 
