@@ -5,7 +5,9 @@ import {
 } from '@/ai/generate-text-with-chain';
 import { getTextProviderChain } from '@/ai/text-provider-chain';
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
+import type { StorefrontAgentUiEvent } from '@/schemas/storefront-agent-ui-contract';
 import { createAiSdkAgenticChatTools } from './chat-tool-runtime';
+import { createChatPresentationEventCollector } from './create-chat-presentation-event-collector';
 import { CUSTOMER_CHAT_TIMEOUT_MS } from './route-helpers';
 
 const GEMINI_PROVIDER_PREFIX = 'google:';
@@ -15,6 +17,12 @@ const TEXT_ONLY_FALLBACK_SYSTEM_PROMPT =
   'You do not have access to live inventory, current prices, checkout actions, orders, or payment status in this recovery mode. ' +
   'Never claim that you searched stock, added an item, generated a bank account, confirmed payment, or cancelled an order. ' +
   'For current availability, pricing, checkout, or payments, direct the customer to the storefront or WhatsApp support.';
+const PRESENTATION_ONLY_FALLBACK_TEXT =
+  'I found these live catalog options for you.';
+
+interface AgenticChatProviderResult extends ChainTextResult {
+  events?: StorefrontAgentUiEvent[];
+}
 
 /**
  * Runs the native-tool Gemini fallback for customer chat.
@@ -35,11 +43,19 @@ export async function runChatProviderChain({
   abortSignal: AbortSignal;
   messages: ModelMessage[];
   sessionId: string;
-}): Promise<ChainTextResult> {
+}): Promise<AgenticChatProviderResult> {
   let sideEffectExecuted = false;
+  let activeProviderName: string | null = null;
+  let presentationProviderName: string | null = null;
+  const presentationCollector = createChatPresentationEventCollector();
   const tools = createAiSdkAgenticChatTools(sessionId, {
     onSideEffect: () => {
       sideEffectExecuted = true;
+    },
+    onToolResult: (toolName, toolResult, context) => {
+      if (presentationCollector.capture(toolName, toolResult, context)) {
+        presentationProviderName = activeProviderName;
+      }
     },
   });
 
@@ -67,6 +83,26 @@ export async function runChatProviderChain({
       })
     );
   };
+  const onProviderAttempt = (providerName: string) => {
+    activeProviderName = providerName;
+  };
+  const withPresentationEvents = (
+    providerResult: ChainTextResult
+  ): AgenticChatProviderResult => {
+    const events = presentationCollector.getEvents();
+    return events.length > 0 ? { ...providerResult, events } : providerResult;
+  };
+  const getPresentationOnlyResult = (): AgenticChatProviderResult | null => {
+    const events = presentationCollector.getEvents();
+    if (events.length === 0 || sideEffectExecuted) return null;
+
+    return {
+      events,
+      providerName:
+        presentationProviderName ?? activeProviderName ?? 'agentic:tool-result',
+      text: PRESENTATION_ONLY_FALLBACK_TEXT,
+    };
+  };
 
   let result: ChainTextResult | undefined;
   let geminiError: unknown;
@@ -76,6 +112,7 @@ export async function runChatProviderChain({
       chain: geminiChain,
       messages,
       onProviderError,
+      onProviderAttempt,
       overallTimeoutMs: remainingTimeoutMs(),
       perProviderTimeoutMs: GEMINI_PROVIDER_TIMEOUT_MS,
       shouldStopWalk: () => sideEffectExecuted,
@@ -95,14 +132,20 @@ export async function runChatProviderChain({
         surface: 'agentic_chat',
       })
     );
-    return result;
+    return withPresentationEvents(result);
   }
 
   // Never replay a commerce action on a provider that has not passed the
   // agentic-tool smoke test. The route's static fallback remains the safe
   // response when a side effect already happened and the tool-capable model
   // could not produce its final text.
-  if (sideEffectExecuted || toollessFallbackChain.length === 0) {
+  if (sideEffectExecuted) {
+    throw geminiError ?? new Error('Gemini chat provider chain failed');
+  }
+
+  if (toollessFallbackChain.length === 0) {
+    const presentationOnlyResult = getPresentationOnlyResult();
+    if (presentationOnlyResult) return presentationOnlyResult;
     throw geminiError ?? new Error('Gemini chat provider chain failed');
   }
 
@@ -117,6 +160,7 @@ export async function runChatProviderChain({
       chain: toollessFallbackChain,
       messages,
       onProviderError,
+      onProviderAttempt,
       overallTimeoutMs: fallbackTimeoutMs,
       perProviderTimeoutMs: GEMINI_PROVIDER_TIMEOUT_MS,
       system: TEXT_ONLY_FALLBACK_SYSTEM_PROMPT,
@@ -130,8 +174,11 @@ export async function runChatProviderChain({
         surface: 'agentic_chat',
       })
     );
-    return fallbackResult;
+    return withPresentationEvents(fallbackResult);
   } catch (fallbackError) {
+    const presentationOnlyResult = getPresentationOnlyResult();
+    if (presentationOnlyResult) return presentationOnlyResult;
+
     // Preserve the original Gemini-chain error when the recovery chain is
     // unavailable; it contains the actionable quota/configuration reason and
     // avoids widening the route's logged provider-error surface.

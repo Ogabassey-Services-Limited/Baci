@@ -30,18 +30,28 @@ function provider(name: string): TextProvider {
 }
 
 let markSideEffect: ((toolName: string) => void) | undefined;
+let reportToolResult: ((toolName: string, result: unknown) => void) | undefined;
 
 describe('runChatProviderChain', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetProviderCooldowns();
     markSideEffect = undefined;
+    reportToolResult = undefined;
     mocks.createTools.mockImplementation(
       (
         _sessionId: string,
-        options: { onSideEffect?: (toolName: string) => void } = {}
+        options: {
+          onSideEffect?: (toolName: string) => void;
+          onToolResult?: (
+            toolName: string,
+            result: unknown,
+            context?: { quantity?: number }
+          ) => void;
+        } = {}
       ) => {
         markSideEffect = options.onSideEffect;
+        reportToolResult = options.onToolResult;
         return {};
       }
     );
@@ -144,5 +154,86 @@ describe('runChatProviderChain', () => {
       'provider chain walk stopped after google:gemini-2.5-flash failed'
     );
     expect(vi.mocked(generateText)).toHaveBeenCalledOnce();
+  });
+
+  it('returns validated product events collected from a successful tool call', async () => {
+    vi.mocked(generateText).mockImplementation((() => {
+      reportToolResult?.('searchProducts', {
+        products: [
+          {
+            brand: 'Apple',
+            category: 'Smartphones',
+            description: 'Current catalog product',
+            has_variants: false,
+            id: 'product-1',
+            image_url: 'https://cdn.example.com/iphone.jpg',
+            manage_stock: true,
+            name: 'iPhone 16',
+            price: 1_200_000,
+            slug: 'iphone-16',
+            status: 'active',
+            stock: 3,
+          },
+        ],
+        total: 1,
+      });
+      return Promise.resolve({ text: 'I found one phone.' });
+    }) as unknown as typeof generateText);
+
+    const result = await runChatProviderChain({
+      abortSignal: new AbortController().signal,
+      messages: [{ content: 'Show me phones', role: 'user' }],
+      sessionId: 'session-1',
+    });
+
+    expect(result).toEqual({
+      events: [
+        expect.objectContaining({
+          intent: 'discover',
+          products: [
+            expect.objectContaining({
+              id: 'product-1',
+              name: 'iPhone 16',
+            }),
+          ],
+          type: 'present_products',
+        }),
+      ],
+      providerName: 'google:gemini-2.5-flash',
+      text: 'I found one phone.',
+    });
+  });
+
+  it('uses successful tool UI when the provider returns no final text', async () => {
+    mocks.getTextProviderChain.mockReturnValue([
+      provider('google:gemini-2.5-flash'),
+    ]);
+    vi.mocked(generateText).mockImplementation((() => {
+      reportToolResult?.('getProductDetails', {
+        brand: 'Apple',
+        category: 'Smartphones',
+        description: null,
+        has_variants: false,
+        id: 'product-1',
+        image_url: null,
+        manage_stock: false,
+        name: 'iPhone 16',
+        price: 1_200_000,
+        slug: 'iphone-16',
+        status: 'active',
+        stock: null,
+      });
+      return Promise.resolve({ text: '   ' });
+    }) as unknown as typeof generateText);
+
+    const result = await runChatProviderChain({
+      abortSignal: new AbortController().signal,
+      messages: [{ content: 'Tell me about this phone', role: 'user' }],
+      sessionId: 'session-1',
+    });
+
+    expect(result.text).toBe('I found these live catalog options for you.');
+    expect(result.events).toHaveLength(1);
+    expect(result.providerName).toBe('google:gemini-2.5-flash');
   });
 });
