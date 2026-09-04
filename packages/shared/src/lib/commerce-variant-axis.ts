@@ -63,18 +63,33 @@ export function canonicalizeCommerceVariantAxis(axis: string): string | null {
 }
 
 function normalizeGraphicsOption(value: string) {
-  const model = value.match(/\b((?:RTX|GTX)\s*\d{3,4}(?:\s*(?:Ti|Super))?)\b/i);
-  const memory = value.match(/\b(\d+)\s*GB\b/i);
-  if (!(model && memory)) {
+  const modelMatch = value.match(
+    /\b((?:RTX|GTX)\s*\d{3,4}(?:\s*(?:Ti|Super))?)\b/i
+  );
+  const memoryMatch = value.match(/\b(\d+)\s*GB\b/i);
+  if (!(modelMatch && memoryMatch && modelMatch[1] && memoryMatch[1])) {
     return value;
   }
 
-  const normalizedModel = model[1]
-    ?.replace(/\s+/g, ' ')
+  const normalizedModel = modelMatch[1]
+    .replace(/\s+/g, ' ')
     .toUpperCase()
     .replace(/TI\b/, 'Ti')
     .replace(/SUPER\b/, 'Super');
-  return `NVIDIA GeForce ${normalizedModel} ${memory[1]}GB`;
+  const normalizedMemory = `${memoryMatch[1]}GB`;
+
+  // Keep SKU-defining leftovers (Laptop, wattage, …) so distinct graphics
+  // configs do not collapse after model/VRAM canonicalization.
+  const remainder = value
+    .replace(modelMatch[0], ' ')
+    .replace(memoryMatch[0], ' ')
+    .replace(/\b(?:NVIDIA|GeForce|Graphics|GPU)\b/gi, ' ')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  const base = `NVIDIA GeForce ${normalizedModel} ${normalizedMemory}`;
+  return remainder ? `${base} ${remainder}` : base;
 }
 
 function normalizeCapacityToken(value: string) {
