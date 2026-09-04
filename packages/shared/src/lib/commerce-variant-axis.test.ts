@@ -43,6 +43,8 @@ describe('commerce variant axis contract', () => {
     expect(canonicalizeCommerceVariantAxis('RAM Options')).toBe('ram');
     expect(canonicalizeCommerceVariantAxis('Operating System')).toBeNull();
     expect(canonicalizeCommerceVariantAxis('Color Hex')).toBeNull();
+    expect(canonicalizeCommerceVariantAxis('colorhex')).toBeNull();
+    expect(canonicalizeCommerceVariantAxis('colourhex')).toBeNull();
     expect(canonicalizeCommerceVariantAxis('material')).toBe('material');
     expect(canonicalizeCommerceVariantAxis('flavor')).toBe('flavor');
     expect(canonicalizeCommerceVariantAxis('Warranty')).toBe('warranty');
