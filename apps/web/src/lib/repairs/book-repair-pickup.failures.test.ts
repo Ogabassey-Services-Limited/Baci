@@ -207,10 +207,12 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
 
   it('fails when linking the shipment to the repair errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const operations: string[] = [];
     const supabase = makeSupabase(
       happyResponses({
         'repairs.update': { data: null, error: { message: 'link boom' } },
-      })
+      }),
+      operations
     );
 
     try {
@@ -220,6 +222,7 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
         reason: 'booking_failed',
         canRetryManually: true,
       });
+      expect(operations).toContain('shipments.delete');
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
@@ -228,8 +231,10 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
 
   it('fails when the claimed booking cannot be linked', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const operations: string[] = [];
     const supabase = makeSupabase(
-      happyResponses({ 'repairs.update': { data: [], error: null } })
+      happyResponses({ 'repairs.update': { data: [], error: null } }),
+      operations
     );
 
     try {
@@ -239,6 +244,7 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
         reason: 'booking_failed',
         canRetryManually: true,
       });
+      expect(operations).toContain('shipments.delete');
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();

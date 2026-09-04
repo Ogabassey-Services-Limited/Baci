@@ -95,7 +95,7 @@ const FAILURE_COPY: Record<
   quote_increased: {
     message:
       'The current GIG Logistics pickup rate is higher than the amount paid. Please review the new rate before booking.',
-    canRetryManually: false,
+    canRetryManually: true,
   },
   booking_failed: {
     message:

@@ -150,6 +150,22 @@ describe('bookRepairPickup', () => {
     expect(mocks.bookShipment).toHaveBeenCalledOnce();
   });
 
+  it('retries a pickup that is awaiting merchant review after payment', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: { ...repairRow, pickup_payment_status: 'review' },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
+    expect(mocks.bookShipment).toHaveBeenCalledOnce();
+  });
+
   it('refuses to book a pickup for a terminal (completed) repair', async () => {
     const supabase = makeSupabase(
       happyResponses({

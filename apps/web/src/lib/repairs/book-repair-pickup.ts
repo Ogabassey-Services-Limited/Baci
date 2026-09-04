@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { abandonUnlinkedRepairPickupShipment } from '@/lib/repairs/abandon-unlinked-repair-pickup-shipment';
 import { claimRepairPickupBooking } from '@/lib/repairs/claim-repair-pickup-booking';
 import { finalizeRepairPickupBooking } from '@/lib/repairs/finalize-repair-pickup-booking';
 import {
@@ -64,8 +65,9 @@ export async function bookRepairPickup(
   }
 
   const paidPickupFee = Number(repair.pickup_fee);
+  const pickupPaymentStatus = repair.pickup_payment_status ?? '';
   if (
-    !['paid', 'retrying'].includes(repair.pickup_payment_status ?? '') ||
+    !['paid', 'retrying', 'review'].includes(pickupPaymentStatus) ||
     !Number.isFinite(paidPickupFee) ||
     paidPickupFee <= 0
   ) {
@@ -209,6 +211,11 @@ export async function bookRepairPickup(
 
   if (linkError) {
     console.error('Repair pickup booked but link failed:', linkError);
+    await abandonUnlinkedRepairPickupShipment(
+      supabase,
+      merchantId,
+      shipment.id
+    );
     await releaseRepairPickupBookingClaim(
       supabase,
       merchantId,
@@ -224,6 +231,11 @@ export async function bookRepairPickup(
   if (!linkedRepair) {
     console.error(
       'Repair pickup reservation could not be linked to the claimed repair'
+    );
+    await abandonUnlinkedRepairPickupShipment(
+      supabase,
+      merchantId,
+      shipment.id
     );
     await releaseRepairPickupBookingClaim(
       supabase,
