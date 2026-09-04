@@ -9,6 +9,7 @@ import {
 import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
+import { createRepairPickupReceiverClient } from '@/lib/repairs/repair-pickup-receiver-client';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -27,12 +28,13 @@ const createReference = customAlphabet(
 );
 
 async function findResumablePickupRepair(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   merchantId: string,
   input: RepairBookingInput
 ): Promise<{ success: true; id: string; ticketNumber: number } | null> {
   // Storefront/anon cannot SELECT repairs (RLS). Reclaim unpaid pickups through
-  // the SECURITY DEFINER RPC so retries do not create duplicate tickets.
+  // the merchant-bound receiver capability so retries do not create duplicates
+  // and ordinary JWTs cannot enumerate repair identifiers.
+  const supabase = createRepairPickupReceiverClient(merchantId);
   const { data, error } = await supabase.rpc('find_resumable_repair_pickup', {
     p_merchant_id: merchantId,
     p_customer_email: input.customerEmail,
@@ -226,7 +228,7 @@ export async function startRepairPickupPayment({
   }
 
   const repair =
-    (await findResumablePickupRepair(supabase, merchant.id, parsed.data)) ??
+    (await findResumablePickupRepair(merchant.id, parsed.data)) ??
     (await createRepairBooking(parsed.data, merchant.id));
   if (!repair.success) return repair;
 

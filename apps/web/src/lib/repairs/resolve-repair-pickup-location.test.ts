@@ -18,6 +18,14 @@ describe('resolveRepairPickupLocation', () => {
     expect(result).toMatchObject({ city: 'Port Harcourt', state: 'Rivers' });
   });
 
+  it('bugfix: uses the state label as city when the preceding segment is street-only', () => {
+    const result = resolveRepairPickupLocation(
+      '12 Allen Avenue, Lagos, Nigeria'
+    );
+
+    expect(result).toMatchObject({ city: 'Lagos', state: 'Lagos' });
+  });
+
   it('preserves the shared fallback for an unknown locality', () => {
     const result = resolveRepairPickupLocation('12 Unknown Road, New Town');
 

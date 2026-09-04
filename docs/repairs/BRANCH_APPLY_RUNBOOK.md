@@ -1,8 +1,11 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
-This feature ships **16 append-only migrations** and **4 SQL verification scripts** that were
-**never applied** anywhere (per the repo workflow: migrations are applied to a Supabase branch,
-not run locally). Follow this order exactly, verify each gate, then flip the flag.
+This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
+pickup follow-on** set (13+ September migrations, including security hardenings).
+Operators must apply both catalogs in order. SQL verification scripts live under
+`supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
+for the original July catalog. Follow this order exactly, verify each gate, then
+flip the flag.
 
 ## 1. Apply migrations (strict order — later ones depend on earlier)
 
@@ -17,7 +20,7 @@ not run locally). Follow this order exactly, verify each gate, then flip the fla
 | 7 | `20260711100007_repair_pickup_quotes.sql` | private `repair_pickup_quotes` (merchant-only RLS, **no anon**); **`shipments.order_id` → nullable** | 3 |
 | 8 | `20260711100008_repair_status_lookup_rpc.sql` | `get_repair_status()` enumeration-safe public lookup | 3, 7 |
 | 9 | `20260711100009_repairs_rpc_hardening.sql` | CREATE OR REPLACE of the booking RPC: normalizes the per-email rate-cap count (whitespace-variant bypass) + pins the public wrapper's `search_path` | 4 |
-| 10 | `20260711100010_add_repairs_catalog_enabled_to_cached_merchant_rpc.sql` | CREATE OR REPLACE of `resolve_storefront_cached_merchant`: adds the `'repairs_catalog_enabled'` pair to the public `feature_settings` jsonb so the storefront merchant-shell path (`getCachedMerchant`/`getCachedMerchantByDomain`) surfaces the flag; re-asserts the service_role-only grant | 1 (the column) **and** main's `20260707211507` (the base RPC it replaces — this migration must apply after `main` is merged) |
+| 10 | `20260711100010_add_repairs_catalog_enabled_to_cached_merchant_rpc.sql` | CREATE OR REPLACE of `resolve_storefront_cached_merchant`: adds the `'repairs_catalog_enabled'` pair to the public `feature_settings` jsonb so the storefront merchant-shell path (`getCachedMerchant`/`getCachedMerchantByDomain`) surfaces the flag; re-asserts the service-role-only grant | 1 (the column) **and** main's `20260707211507` (the base RPC it replaces — this migration must apply after `main` is merged) |
 | 11 | `20260711100011_require_published_store_in_repairs_gate.sql` | CREATE OR REPLACE `repairs_catalog_publicly_enabled` to also require `m.is_published` — draft (unpublished) stores' repair catalogue was anon-readable pre-publish (Codex P2) | 2 |
 | 12 | `20260711100012_throttle_repair_status_rpc.sql` | CREATE OR REPLACE `get_repair_status` (sql STABLE → plpgsql): DB-side 60/hr cap per (merchant, email) via existing `check_rate_limit`/`rate_limit_log`, closing the direct-`/rest/v1/rpc` ticket-sweep bypass of the route limiter; throttled calls return empty (identical to not-found); fail-open if the limiter errors (Codex P2, twice-flagged — supersedes the earlier §7 accept-as-is note) | 8 |
 | 13 | `20260711100013_repair_booking_rpc_input_validation.sql` | CREATE OR REPLACE `private.create_repair_booking`: the SECURITY DEFINER fn validates + normalizes customer/device fields itself (anon can call the wrapper directly via REST, bypassing the app-layer Zod), rejecting malformed input | 4, 9 |
@@ -30,7 +33,27 @@ Use `mcp__supabase__apply_migration` (or the branch's SQL editor) file-by-file i
 hand-build the prod-like precondition state first (the `merchants`, `merchant_feature_settings`,
 `role_permissions`, `shipments`, `products`, `product_key_specs` tables must exist).
 
-## 2. Run the SQL verification scripts (after all 16 apply)
+### 1b. Paid GIGL pickup follow-on (apply after the July catalog)
+
+Customer-funded GIGL doorstep pickup needs these September migrations in order.
+Do **not** skip them when enabling paid pickup on a branch that already has the
+July catalog:
+
+1. `20260901220400_atomic_rejected_repair_pickup_release.sql` — atomic release of rejected pickup reservations
+2. `20260902054000_paid_repair_pickup_fulfillment.sql` — paid pickup payment + fulfillment columns/RPCs
+3. `20260902054100_index_repair_pickup_transactions.sql` — indexes for pickup payment transactions
+4. `20260903080000_repair_pickup_receiver_projection.sql` — repair-center destination projection RPC
+5. `20260903090000_repair_pickup_terminal_payment_capture.sql` — terminal payment capture hardening
+6. `20260903095000_repair_pickup_receiver_server_only.sql` — revoke storefront-facing receiver access
+7. `20260903100000_repair_pickup_receiver_storefront_grants.sql` — role/grant scaffolding for the receiver capability
+8. `20260903101500_secure_repair_pickup_receiver_capability.sql` — JWT merchant-bound capability gate for `get_repair_pickup_receiver`
+9. `20260903120000_exclude_repair_pickup_from_merchant_sales.sql` — exclude pickup fee captures from merchant sales totals
+10. `20260903130000_validate_repair_pickup_receiver_phone.sql` — require a usable repair-center phone on the projection
+11. `20260904090000_find_resumable_repair_pickup.sql` — unpaid pickup reclaim RPC (initial)
+12. `20260904110000_secure_find_resumable_repair_pickup.sql` — lock reclaim behind the same receiver capability; exclude terminal statuses
+13. `20260904110100_exclude_repair_pickup_refunds_from_reconciliation.sql` — exclude pickup refunds from admin reconciliation metrics/lanes
+
+## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
 Run each against the branch (`psql -f` or SQL editor); every assertion must pass:
 
@@ -38,6 +61,14 @@ Run each against the branch (`psql -f` or SQL editor); every assertion must pass
 - `supabase/tests/repair_booking_rpc.sql` — wrapper INVOKER + anon/authenticated EXECUTE; private fn DEFINER + empty search_path; anon has **no** direct DML on `repairs`; old public INSERT policy gone.
 - `supabase/tests/repairs_role_permissions.sql` — per-role seed present (admin full, accountant read-only, blog_manager none); baseline owner-only policies dropped; staff policies use the helper.
 - `supabase/tests/repair_pickup_quotes_rls.sql` — merchant-only RLS; no anon grants; `shipments.order_id` is nullable.
+
+### 2b. Paid GIGL pickup verification (after §1b)
+
+Run these after the September paid-pickup migrations:
+
+- `supabase/migrations/tests/repair_pickup_payment_confirmation.sql` — paid pickup confirmation / fulfillment invariants
+- `supabase/migrations/tests/repair_pickup_receiver_projection.sql` — receiver projection is capability-gated and phone-complete
+- `supabase/migrations/tests/find_resumable_repair_pickup.sql` — resumable unpaid pickup reclaim requires matching JWT claims; anon/authenticated cannot execute
 
 ### Manual smoke checks (do these on the branch too)
 - **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).

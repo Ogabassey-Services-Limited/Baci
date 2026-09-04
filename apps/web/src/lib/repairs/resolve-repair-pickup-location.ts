@@ -64,9 +64,12 @@ export function resolveRepairPickupLocation(address: string): {
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const state = canonicalState(parts[index]);
     if (state) {
+      const preceding = parts[index - 1];
+      const city =
+        preceding && stateForCity(preceding) ? preceding : displayState(state);
       return {
         address: fallback.address,
-        city: parts[index - 1] || parts[index],
+        city,
         state: displayState(state),
       };
     }

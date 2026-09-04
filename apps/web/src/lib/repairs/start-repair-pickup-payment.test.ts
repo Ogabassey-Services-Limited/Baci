@@ -5,6 +5,7 @@ import { startRepairPickupPayment } from './start-repair-pickup-payment';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createRepairBooking: vi.fn(),
+  createRepairPickupReceiverClient: vi.fn(),
   ensureActionRateLimit: vi.fn(),
   getRepairCenterAddress: vi.fn(),
   initializeTransaction: vi.fn(),
@@ -34,6 +35,9 @@ vi.mock('@/lib/repairs/quote-repair-pickup', () => ({
 }));
 vi.mock('@/lib/repairs/repair-center-address', () => ({
   getRepairCenterAddress: mocks.getRepairCenterAddress,
+}));
+vi.mock('@/lib/repairs/repair-pickup-receiver-client', () => ({
+  createRepairPickupReceiverClient: mocks.createRepairPickupReceiverClient,
 }));
 vi.mock('@/lib/paystack', () => ({
   initializeTransaction: mocks.initializeTransaction,
@@ -80,7 +84,10 @@ describe('startRepairPickupPayment', () => {
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     mocks.ensureActionRateLimit.mockResolvedValue(true);
     mocks.rpc.mockResolvedValue({ data: null, error: null });
-    mocks.createClient.mockResolvedValue(_createSupabaseMock());
+    mocks.createClient.mockResolvedValue({});
+    mocks.createRepairPickupReceiverClient.mockReturnValue(
+      _createSupabaseMock()
+    );
     mocks.resolveWalletTopUpMerchant.mockResolvedValue({
       id: merchantId,
       is_published: true,
@@ -250,6 +257,9 @@ describe('startRepairPickupPayment', () => {
       merchantIdentifier: 'ogabassey',
     });
 
+    expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
+      merchantId
+    );
     expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
       p_merchant_id: merchantId,
       p_customer_email: input.customerEmail,
