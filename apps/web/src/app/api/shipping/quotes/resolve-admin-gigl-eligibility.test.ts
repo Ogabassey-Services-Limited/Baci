@@ -98,4 +98,17 @@ describe('resolveAdminGiglEligibility', () => {
       body: { code: 'GIGL_PROVIDER_DISABLED' },
     });
   });
+
+  it('returns 500 when the feature-settings lookup fails', async () => {
+    await expect(
+      resolveAdminGiglEligibility(
+        client({ settingsError: { message: 'timeout' } }),
+        'merchant-1'
+      )
+    ).resolves.toEqual({
+      ok: false,
+      status: 500,
+      body: { error: 'Failed to resolve merchant eligibility' },
+    });
+  });
 });

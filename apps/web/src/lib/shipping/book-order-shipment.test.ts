@@ -116,14 +116,30 @@ function createMockSupabase(overrides?: {
   shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
 
   const chain: MockChain = {
-    rpc: vi.fn().mockImplementation((fn: string) =>
-      fn === 'get_shipping_quote_booking_metadata'
-        ? Promise.resolve({
-            data: validQuote.provider_metadata,
-            error: null,
-          })
-        : Promise.resolve({ data: [], error: null })
-    ),
+    rpc: vi.fn().mockImplementation((fn: string) => {
+      if (fn === 'get_shipping_quote_booking_metadata') {
+        return Promise.resolve({
+          data: validQuote.provider_metadata,
+          error: null,
+        });
+      }
+      if (fn === 'get_shipping_quote_booking_economics') {
+        return Promise.resolve({
+          data: {
+            provider_cost: 1000,
+            platform_margin: 100,
+            platform_margin_bps: 400,
+            pricing_version: 'gigl_platform_margin_v1',
+            shipping_provider_cost: 1000,
+            shipping_platform_margin: 100,
+            shipping_pricing_version: 'gigl_platform_margin_v1',
+            shipping_platform_retained_amount: 2500,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: [], error: null });
+    }),
     from: vi.fn((table: string) => {
       if (table === 'orders') {
         return {

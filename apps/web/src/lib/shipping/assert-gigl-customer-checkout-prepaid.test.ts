@@ -39,8 +39,51 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         shipping_funding_source: 'customer_checkout',
         payment_status: 'paid',
         payment_method: 'paystack',
+        shipping_platform_retained_amount: 2500,
       })
     ).not.toThrow();
+  });
+
+  it('rejects customer-checkout GIGL bookings paid with Credit Direct', () => {
+    expect(() =>
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: 'customer_checkout',
+        payment_status: 'paid',
+        payment_method: 'credit_direct',
+        shipping_platform_retained_amount: 0,
+      })
+    ).toThrow(
+      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
+    );
+  });
+
+  it('rejects manually paid customer-checkout GIGL bookings without retained shipping', () => {
+    expect(() =>
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: 'customer_checkout',
+        payment_status: 'paid',
+        payment_method: 'manual',
+        shipping_platform_retained_amount: 0,
+      })
+    ).toThrow(
+      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
+    );
+  });
+
+  it('rejects paid gateway checkouts that never retained GIGL shipping', () => {
+    expect(() =>
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: 'customer_checkout',
+        payment_status: 'paid',
+        payment_method: 'paystack',
+        shipping_platform_retained_amount: 0,
+      })
+    ).toThrow(
+      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
+    );
   });
 
   it('rejects customer-checkout GIGL bookings when payment is unpaid', () => {

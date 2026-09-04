@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { isShippingProviderCode } from '@/lib/shipping/order-shipment-booking-utils';
 import type { OrderShipmentQuoteRecord } from '@/lib/shipping/refresh-order-shipment-quote';
+import {
+  applyShippingQuoteBookingEconomicsToOrder,
+  applyShippingQuoteBookingEconomicsToQuote,
+  getShippingQuoteBookingEconomics,
+} from '@/lib/shipping/shipping-quote-booking-economics';
 import { getShippingQuoteBookingMetadata } from '@/lib/shipping/shipping-quote-booking-metadata';
 import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
 import {
@@ -27,6 +32,7 @@ type DirectBookingOrder = {
   shipping_fee: number | null;
   payment_method: string | null;
   payment_status: string | null;
+  shipping_platform_retained_amount?: number | string | null;
   shipping_address: unknown;
   order_items: Array<{
     name: string;
@@ -112,7 +118,7 @@ export async function loadDirectBookingContext(
   const { data: quote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days, provider_cost, platform_margin, platform_margin_bps, pricing_version'
+      'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days'
     )
     .eq('id', data.quoteId)
     .eq('merchant_id', merchantId)
@@ -134,8 +140,22 @@ export async function loadDirectBookingContext(
     data.orderId,
     quote.id
   );
+  const bookingEconomics = await getShippingQuoteBookingEconomics(
+    supabase,
+    merchantId,
+    data.orderId,
+    quote.id
+  );
+  const quoteWithEconomics = applyShippingQuoteBookingEconomicsToQuote(
+    quote,
+    bookingEconomics
+  );
+  const orderWithEconomics = applyShippingQuoteBookingEconomicsToOrder(
+    order,
+    bookingEconomics
+  );
   const bookingQuote: OrderShipmentQuoteRecord = {
-    ...quote,
+    ...quoteWithEconomics,
     provider_metadata: bookingMetadata,
   };
 
@@ -185,16 +205,18 @@ export async function loadDirectBookingContext(
   }
 
   assertGiglCustomerCheckoutPrepaid({
-    payment_method: order.payment_method,
-    payment_status: order.payment_status,
-    shipping_funding_source: order.shipping_funding_source,
-    shipping_provider: order.shipping_provider ?? quote.provider,
+    payment_method: orderWithEconomics.payment_method,
+    payment_status: orderWithEconomics.payment_status,
+    shipping_funding_source: orderWithEconomics.shipping_funding_source,
+    shipping_platform_retained_amount:
+      orderWithEconomics.shipping_platform_retained_amount,
+    shipping_provider: orderWithEconomics.shipping_provider ?? quote.provider,
   });
 
   return {
     ok: true,
     context: {
-      order,
+      order: orderWithEconomics,
       quote: {
         ...quote,
         provider_metadata: null,

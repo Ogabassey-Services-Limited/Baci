@@ -73,7 +73,14 @@ export async function resolveAdminGiglEligibility(
     .select('shipping_providers')
     .eq('merchant_id', merchantId)
     .maybeSingle();
-  if (settingsError || !includesGigl(resolveShippingProviders(settings))) {
+  if (settingsError) {
+    return {
+      ok: false,
+      status: 500,
+      body: { error: 'Failed to resolve merchant eligibility' },
+    };
+  }
+  if (!includesGigl(resolveShippingProviders(settings))) {
     return {
       ok: false,
       status: 422,

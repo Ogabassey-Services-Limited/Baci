@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  giglBookingEconomicsProjection,
   giglQuoteEconomicsFields,
   prepaidGiglCustomerCheckoutOrderFields,
 } from './route.test-fixtures';
@@ -151,10 +152,17 @@ function buildSupabaseMock(
             data: options.bookingMetadata ?? null,
             error: null,
           })
-        : Promise.resolve({
-            data: [{ claimed: true, shipment_id: null, tracking_number: null }],
-            error: null,
-          })
+        : functionName === 'get_shipping_quote_booking_economics'
+          ? Promise.resolve({
+              data: giglBookingEconomicsProjection,
+              error: null,
+            })
+          : Promise.resolve({
+              data: [
+                { claimed: true, shipment_id: null, tracking_number: null },
+              ],
+              error: null,
+            })
     ),
     auth: {
       getUser: vi.fn().mockResolvedValue({

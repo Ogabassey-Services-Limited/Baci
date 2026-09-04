@@ -5,10 +5,13 @@ const shippingHook = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/orders/useOrderGiglShipping', () => ({
   useOrderGiglShipping: shippingHook,
 }));
-vi.mock('@/lib/order-shipment', () => ({
-  canUseSelectedShippingProvider: vi.fn(() => false),
-  getOrderGiglInitialAddress: vi.fn(() => ({ address: '1 Allen' })),
-}));
+vi.mock('@/lib/order-shipment', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/order-shipment')>();
+  return {
+    ...actual,
+    getOrderGiglInitialAddress: vi.fn(() => ({ address: '1 Allen' })),
+  };
+});
 
 import { useOrderDetailsGiglShipping } from './useOrderDetailsGiglShipping';
 
@@ -147,6 +150,66 @@ describe('useOrderDetailsGiglShipping', () => {
       expect.objectContaining({ enabled: true, preview: true })
     );
     rerender({ pendingShipmentMode: 'provider' });
+    expect(shippingHook).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true, preview: false })
+    );
+  });
+
+  it('returns undefined when a saved non-wallet provider quote is bookable', () => {
+    shippingHook.mockReturnValue({ quote: null, wallet: { canBook: false } });
+    const { result } = renderHook(() =>
+      useOrderDetailsGiglShipping({
+        giglEligible: true,
+        merchant: { user_id: 'owner-1' } as never,
+        order: {
+          id: 'order-1',
+          selected_quote_id: 'quote-topship',
+          shipping_provider: 'TOPSHIP',
+          shipping_funding_source: 'customer_checkout',
+        } as never,
+        pendingShipmentMode: 'provider',
+        providerLabel: 'Topship',
+        shipmentFlowStep: 'method',
+        showShipmentFlow: true,
+        userId: 'owner-1',
+      })
+    );
+
+    expect(result.current.providerBookingAvailable).toBe(true);
+    expect(result.current.giglShipping).toBeUndefined();
+    expect(shippingHook).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
+  it('keeps the wallet flow for a saved merchant-wallet GIGL quote', () => {
+    shippingHook.mockReturnValue({
+      quote: { id: 'q1' },
+      wallet: { canBook: true },
+    });
+    const { result } = renderHook(() =>
+      useOrderDetailsGiglShipping({
+        giglEligible: true,
+        merchant: { user_id: 'owner-1' } as never,
+        order: {
+          id: 'order-1',
+          selected_quote_id: 'quote-gigl',
+          shipping_provider: 'GIGL',
+          shipping_funding_source: 'merchant_wallet',
+        } as never,
+        pendingShipmentMode: 'provider',
+        providerLabel: 'GIG Logistics',
+        shipmentFlowStep: 'method',
+        showShipmentFlow: true,
+        userId: 'owner-1',
+      })
+    );
+
+    expect(result.current.providerBookingAvailable).toBe(true);
+    expect(result.current.giglShipping).toEqual({
+      quote: { id: 'q1' },
+      wallet: { canBook: true },
+    });
     expect(shippingHook).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: true, preview: false })
     );

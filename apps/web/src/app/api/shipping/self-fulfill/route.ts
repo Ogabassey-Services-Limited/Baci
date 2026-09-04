@@ -113,41 +113,36 @@ export async function POST(request: NextRequest) {
       fulfilledBy: user.id,
     };
 
-    const { error: releaseError } = await supabase.rpc(
-      'release_reserved_merchant_shipping_charges_for_order',
-      { p_order_id: data.orderId }
+    const { error: fulfillError } = await supabase.rpc(
+      'self_fulfill_order_with_wallet_release',
+      {
+        p_order_id: data.orderId,
+        p_self_fulfillment_data: selfFulfillmentData,
+        p_carrier_name: data.carrierName || 'Self-Delivery',
+        p_tracking_number: data.trackingNumber ?? null,
+      }
     );
-    if (releaseError) {
-      console.error('Error releasing reserved shipping charges:', releaseError);
+    if (fulfillError) {
+      console.error('Error self-fulfilling order:', fulfillError);
+      const status =
+        fulfillError.code === '55P03' ||
+        fulfillError.message?.includes('active_merchant_shipping_charge') ||
+        fulfillError.message?.includes('active_shipment_booking_lock')
+          ? 409
+          : fulfillError.code === 'P0001' &&
+              fulfillError.message?.includes('order_already_shipped')
+            ? 400
+            : 500;
       return NextResponse.json(
-        { error: 'Failed to release reserved shipping charge' },
-        { status: 409 }
-      );
-    }
-
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        shipping_status: 'shipped',
-        fulfillment_type: 'self',
-        self_fulfillment_data: selfFulfillmentData,
-        tracking_number: data.trackingNumber,
-        shipping_provider: data.carrierName || 'Self-Delivery',
-        selected_quote_id: null,
-        shipping_funding_source: null,
-        shipping_provider_cost: null,
-        shipping_platform_margin: null,
-        shipping_pricing_version: null,
-        shipping_platform_retained_amount: 0,
-      })
-      .eq('id', data.orderId)
-      .eq('merchant_id', merchantId);
-
-    if (updateError) {
-      console.error('Error updating order:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update order' },
-        { status: 500 }
+        {
+          error:
+            status === 409
+              ? 'Order has an active shipping booking'
+              : status === 400
+                ? 'Order has already been shipped'
+                : 'Failed to update order',
+        },
+        { status }
       );
     }
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { persistMerchantWalletAssignmentEvent } from './persist-merchant-wallet-assignment-event';
+import { persistMerchantWalletAssignmentReview } from './persist-merchant-wallet-assignment-review';
 
 export async function handlePaystackMerchantWalletAssignmentSuccess(
   supabase: SupabaseClient,
@@ -25,6 +26,7 @@ export async function handlePaystackMerchantWalletAssignmentSuccess(
   if (assignment.kind === 'ignored') {
     return NextResponse.json({ message: 'Event ignored' });
   }
+  await persistMerchantWalletAssignmentReview(supabase, payload);
   return NextResponse.json(
     {
       error: 'Paystack assignment accepted for review',

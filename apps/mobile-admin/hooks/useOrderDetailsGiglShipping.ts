@@ -37,19 +37,20 @@ export function useOrderDetailsGiglShipping({
     order,
     userId,
   });
+  const walletFlowApplicable =
+    isMerchantOwner &&
+    giglEligible &&
+    (!providerBookingAvailable || isSavedMerchantWalletGiglOrder);
   const giglShippingState = useOrderGiglShipping({
     enabled:
-      isMerchantOwner &&
-      giglEligible &&
-      showShipmentFlow &&
-      shipmentFlowStep === 'method' &&
-      (!providerBookingAvailable || isSavedMerchantWalletGiglOrder),
+      walletFlowApplicable && showShipmentFlow && shipmentFlowStep === 'method',
     initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
     orderId: order?.id ?? '',
     preview: pendingShipmentMode !== 'provider',
   });
-  const giglShipping =
-    isMerchantOwner && giglEligible ? giglShippingState : undefined;
+  // Saved non-wallet provider quotes must hide the wallet panel entirely so
+  // Book uses canUseProvider instead of a disabled wallet hook state.
+  const giglShipping = walletFlowApplicable ? giglShippingState : undefined;
 
   return {
     effectiveProviderLabel:

@@ -188,6 +188,25 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
     );
     expect(screen.getByText('Use Topship')).toBeInTheDocument();
     expect(screen.queryByText('Ship with GIG')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Book with Topship' })
+    ).toBeEnabled();
+  });
+
+  it('enables Book from canUseProvider when the wallet panel is hidden', () => {
+    render(
+      <ShipmentFlowSheet
+        {...base}
+        canUseProvider
+        giglShipping={undefined}
+        providerLabel="GIG Logistics"
+      />
+    );
+    expect(screen.getByText('Use GIG Logistics')).toBeInTheDocument();
+    expect(screen.queryByText('Ship with GIG')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Book with GIG Logistics' })
+    ).toBeEnabled();
   });
 
   it('keeps the GIGL funding panel visible for a bound underfunded wallet quote', () => {

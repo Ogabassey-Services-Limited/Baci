@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
 import { resolveAdminGiglBookingContext } from '@/lib/shipping/admin-gigl-booking-context';
-import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
+import {
+  assertGiglCustomerCheckoutPrepaid,
+  isPayOnDeliveryPaymentMethod,
+} from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { attachBookingQuoteMetadata } from '@/lib/shipping/attach-booking-quote-metadata';
 import type { BookOrderRecord } from '@/lib/shipping/book-order-shipment-types';
@@ -23,14 +26,22 @@ import {
   toDomesticBookingItems,
   toQuoteComparableOrderItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { persistBookedOrderShipment } from '@/lib/shipping/persist-booked-order-shipment';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import {
   type OrderShipmentQuoteRecord,
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
+import {
+  applyShippingQuoteBookingEconomicsToOrder,
+  applyShippingQuoteBookingEconomicsToQuote,
+  getShippingQuoteBookingEconomics,
+} from '@/lib/shipping/shipping-quote-booking-economics';
 import type { ShippingAddress } from '@/lib/shipping/types';
+
 export type BookOrderShipmentResult = ReusableOrderShipmentResult;
+
 export async function bookOrderShipment(
   supabase: SupabaseClient,
   merchantId: string,
@@ -40,7 +51,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, payment_method, payment_status, shipping_provider_cost, shipping_platform_margin, shipping_pricing_version, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_funding_source, payment_method, payment_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -72,14 +83,24 @@ export async function bookOrderShipment(
       'MISSING_SHIPPING_QUOTE'
     );
   }
-  if (!isShippingProviderCode(typedOrder.shipping_provider)) {
+  const shippingProvider = typedOrder.shipping_provider;
+  if (!isShippingProviderCode(shippingProvider)) {
     throw new OrderShipmentBookingError(
       'This order is not configured for provider-backed shipping.',
       400,
       'INVALID_SHIPPING_PROVIDER'
     );
   }
-  assertGiglCustomerCheckoutPrepaid(typedOrder);
+  // Fail closed on unpaid/POD before any quote lookup. Retention markers for
+  // paid customer-checkout bookings are attached after the economics RPC.
+  if (
+    typedOrder.shipping_provider === 'GIGL' &&
+    typedOrder.shipping_funding_source !== 'merchant_wallet' &&
+    ((typedOrder.payment_status ?? '').trim().toLowerCase() !== 'paid' ||
+      isPayOnDeliveryPaymentMethod(typedOrder.payment_method))
+  ) {
+    assertGiglCustomerCheckoutPrepaid(typedOrder);
+  }
   const orderItems = typedOrder.order_items ?? [];
   if (orderItems.length === 0) {
     throw new OrderShipmentBookingError(
@@ -91,13 +112,12 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_cost, platform_margin, platform_margin_bps, pricing_version'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request'
     )
     .eq('id', selectedQuoteId)
     .eq('merchant_id', merchantId)
     .single();
   const typedStoredQuote = storedQuote as OrderShipmentQuoteRecord | null;
-
   if (quoteError || !typedStoredQuote) {
     throw new OrderShipmentBookingError(
       'The saved shipping quote could not be found.',
@@ -105,15 +125,30 @@ export async function bookOrderShipment(
       'QUOTE_NOT_FOUND'
     );
   }
-  const bookingQuote = await attachBookingQuoteMetadata(
+
+  const bookingEconomics = await getShippingQuoteBookingEconomics(
     supabase,
     merchantId,
     typedOrder.id,
-    typedStoredQuote
+    selectedQuoteId
+  );
+  const orderWithEconomics = applyShippingQuoteBookingEconomicsToOrder(
+    typedOrder,
+    bookingEconomics
+  );
+  assertGiglCustomerCheckoutPrepaid(orderWithEconomics);
+  const bookingQuote = await attachBookingQuoteMetadata(
+    supabase,
+    merchantId,
+    orderWithEconomics.id,
+    applyShippingQuoteBookingEconomicsToQuote(
+      typedStoredQuote,
+      bookingEconomics
+    )
   );
 
   const isGiglInternationalQuote = isGiglInternationalProviderRate(
-    typedOrder.shipping_provider,
+    shippingProvider,
     typedStoredQuote.provider_rate_id
   );
   const storedQuoteRequest = parseStoredQuoteRequest(
@@ -157,37 +192,40 @@ export async function bookOrderShipment(
   const resolvedQuote = await refreshOrderShipmentQuote(
     supabase,
     bookingQuote,
-    typedOrder.shipping_provider,
+    shippingProvider,
     merchantSender,
     {
-      orderId: typedOrder.id,
-      ...(typedOrder.shipping_funding_source === 'merchant_wallet'
+      orderId: orderWithEconomics.id,
+      ...(orderWithEconomics.shipping_funding_source === 'merchant_wallet'
         ? { allowRefresh: false }
-        : { expectedShippingFee: typedOrder.shipping_fee }),
+        : { expectedShippingFee: orderWithEconomics.shipping_fee }),
     }
   );
-  if (typedOrder.shipping_funding_source !== 'merchant_wallet') {
-    assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
+  if (orderWithEconomics.shipping_funding_source !== 'merchant_wallet') {
+    assertQuotePriceMatchesOrderFee(
+      resolvedQuote,
+      orderWithEconomics.shipping_fee
+    );
   }
   const resolvedQuoteRequest = parseStoredQuoteRequest(
     resolvedQuote.quote_request
   );
   const effectiveQuoteRequest = resolvedQuoteRequest ?? storedQuoteRequest;
   const bookingContext = resolveAdminGiglBookingContext(
-    typedOrder.shipping_provider,
-    typedOrder,
+    shippingProvider,
+    orderWithEconomics,
     effectiveQuoteRequest
   );
   if (isInternationalQuote && effectiveQuoteRequest) {
-    assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
+    assertInternationalQuoteMatchesOrder(
+      effectiveQuoteRequest,
+      orderWithEconomics
+    );
   } else if (effectiveQuoteRequest) {
-    // Domestic quotes are destination-bound too. Revalidate the current order
-    // receiver against the quote's attested request before wallet charging or
-    // provider dispatch.
-    assertQuoteReceiverMatchesOrder(effectiveQuoteRequest, typedOrder);
+    assertQuoteReceiverMatchesOrder(effectiveQuoteRequest, orderWithEconomics);
     assertQuoteItemsMatchOrder(
       effectiveQuoteRequest,
-      toQuoteComparableOrderItems(typedOrder.order_items, {
+      toQuoteComparableOrderItems(orderWithEconomics.order_items, {
         defaultWeight: bookingContext.defaultWeight,
       })
     );
@@ -219,71 +257,27 @@ export async function bookOrderShipment(
           effectiveQuoteRequest.items
         )
       : toDomesticBookingItems(orderItems, effectiveQuoteRequest?.items);
-  const bookingRequest = buildOrderShipmentBookingRequest({
-    items,
-    orderId: typedOrder.id,
-    quote: resolvedQuote,
-    receiver,
-    sender,
-  });
   const result = await shippingService.bookShipment(
-    typedOrder.shipping_provider,
-    bookingRequest
-  );
-  const { data: shipment, error: shipmentError } = await supabase
-    .from('shipments')
-    .insert({
-      order_id: typedOrder.id,
-      merchant_id: merchantId,
-      provider: result.provider,
-      provider_shipment_id: result.providerShipmentId,
-      shipping_quote_id: resolvedQuote.id,
-      tracking_number: result.trackingNumber,
-      carrier_name: result.carrierName,
-      status: result.status,
-      sender_address: sender,
-      receiver_address: receiver,
+    shippingProvider,
+    buildOrderShipmentBookingRequest({
       items,
-      price: Number(resolvedQuote.price),
-      currency: resolvedQuote.currency,
-      estimated_delivery_days: resolvedQuote.estimated_days,
-      is_station_pickup: result.isStationPickup ?? false,
-      station_name: result.pickupStationName ?? null,
-      station_address: result.pickupStationAddress ?? null,
-      pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
-      label_url: result.labelUrl,
-      provider_response: result.rawResponse,
+      orderId: orderWithEconomics.id,
+      quote: resolvedQuote,
+      receiver,
+      sender,
     })
-    .select('id')
-    .single();
-  const typedShipment = shipment as { id: string } | null;
-
-  if (shipmentError || !typedShipment) {
-    throw new OrderShipmentBookingError(
-      `Shipment booked with ${result.provider} but could not be saved locally. Tracking: ${result.trackingNumber}`,
-      500,
-      'SHIPMENT_SAVE_FAILED',
-      result.providerShipmentId || result.trackingNumber
-    );
-  }
-
-  const { error: quoteUpdateError } = await supabase
-    .from('shipping_quotes')
-    .update({ used: true })
-    .eq('id', resolvedQuote.id)
-    .eq('merchant_id', merchantId);
-
-  if (quoteUpdateError) {
-    console.error('Shipment booked but quote could not be marked as used', {
-      error: quoteUpdateError,
-      orderId,
-      provider: result.provider,
-      quoteId: resolvedQuote.id,
-      trackingNumber: result.trackingNumber,
-    });
-  }
+  );
+  const { shipmentId } = await persistBookedOrderShipment(supabase, {
+    merchantId,
+    orderId: orderWithEconomics.id,
+    quote: resolvedQuote,
+    result,
+    sender,
+    receiver,
+    items,
+  });
   return {
-    shipmentId: typedShipment.id,
+    shipmentId,
     provider: result.provider,
     providerShipmentId: result.providerShipmentId,
     trackingNumber: result.trackingNumber,

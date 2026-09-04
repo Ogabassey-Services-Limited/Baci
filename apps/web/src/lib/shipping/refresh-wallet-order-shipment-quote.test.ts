@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   refreshOrderShipmentQuote: vi.fn(),
   resolveBookingMerchantSender: vi.fn(),
   getShippingQuoteBookingMetadata: vi.fn(),
+  getShippingQuoteBookingEconomics: vi.fn(),
 }));
 
 vi.mock('./refresh-order-shipment-quote', () => ({
@@ -16,6 +17,13 @@ vi.mock('./resolve-booking-merchant-sender', () => ({
 }));
 vi.mock('./shipping-quote-booking-metadata', () => ({
   getShippingQuoteBookingMetadata: mocks.getShippingQuoteBookingMetadata,
+}));
+vi.mock('./shipping-quote-booking-economics', () => ({
+  getShippingQuoteBookingEconomics: mocks.getShippingQuoteBookingEconomics,
+  applyShippingQuoteBookingEconomicsToQuote: (
+    quote: Record<string, unknown>,
+    economics: Record<string, unknown> | null
+  ) => (economics ? { ...quote, ...economics } : quote),
 }));
 
 import { refreshWalletOrderShipmentQuote } from './refresh-wallet-order-shipment-quote';
@@ -123,6 +131,9 @@ describe('refreshWalletOrderShipmentQuote', () => {
     vi.clearAllMocks();
     mocks.getShippingQuoteBookingMetadata.mockResolvedValue({
       pricingTier: 'Premium',
+    });
+    mocks.getShippingQuoteBookingEconomics.mockResolvedValue({
+      pricing_version: 'gigl_platform_margin_v1',
     });
     mocks.resolveBookingMerchantSender.mockResolvedValue({
       ok: true,

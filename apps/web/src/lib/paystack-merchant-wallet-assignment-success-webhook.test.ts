@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const persistAssignment = vi.hoisted(() => vi.fn());
+const persistReview = vi.hoisted(() => vi.fn());
 vi.mock('./persist-merchant-wallet-assignment-event', () => ({
   persistMerchantWalletAssignmentEvent: persistAssignment,
+}));
+vi.mock('./persist-merchant-wallet-assignment-review', () => ({
+  persistMerchantWalletAssignmentReview: persistReview,
 }));
 
 const { handlePaystackMerchantWalletAssignmentSuccess } = await import(
@@ -32,13 +36,20 @@ describe('Paystack merchant-wallet assignment success webhook', () => {
     ],
   ] as const)('returns the %s outcome safely', async (outcome, status, body) => {
     persistAssignment.mockResolvedValueOnce(outcome);
+    persistReview.mockResolvedValueOnce(undefined);
 
+    const payload = { event: 'dedicatedaccount.assign.success' };
     const response = await handlePaystackMerchantWalletAssignmentSuccess(
       {} as never,
-      { event: 'dedicatedaccount.assign.success' }
+      payload
     );
 
     expect(response.status).toBe(status);
     expect(await response.json()).toEqual(body);
+    if (outcome.kind === 'review') {
+      expect(persistReview).toHaveBeenCalledWith({}, payload);
+    } else {
+      expect(persistReview).not.toHaveBeenCalled();
+    }
   });
 });

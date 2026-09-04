@@ -129,6 +129,20 @@ function buildSupabaseMock() {
           error: null,
         };
       }
+      if (fn === 'get_shipping_quote_booking_economics') {
+        return {
+          data: {
+            provider_cost: 3600,
+            platform_margin: 900,
+            platform_margin_bps: 2000,
+            pricing_version: 'gigl_platform_margin_v1',
+            shipping_provider_cost: 3600,
+            shipping_platform_margin: 900,
+            shipping_pricing_version: 'gigl_platform_margin_v1',
+          },
+          error: null,
+        };
+      }
       return {
         data: [{ claimed: true, shipment_id: null, tracking_number: null }],
         error: null,

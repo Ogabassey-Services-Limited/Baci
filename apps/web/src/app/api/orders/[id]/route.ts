@@ -27,6 +27,7 @@ import {
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { refreshWalletOrderShipmentQuote } from '@/lib/shipping/refresh-wallet-order-shipment-quote';
+import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
 import { orderUpdateSchema } from '@/schemas/orders';
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
@@ -376,11 +377,20 @@ export async function PATCH(
         shipmentBookingLockToken = bookingClaim.lockToken;
 
         try {
+          const selectedQuoteId = existingOrder.selected_quote_id ?? '';
+          const bookingEconomics = selectedQuoteId
+            ? await getShippingQuoteBookingEconomics(
+                supabase,
+                merchantId,
+                id,
+                selectedQuoteId
+              )
+            : null;
           const booking = await bookWalletOrCustomerCheckout(
             supabase,
             merchantId,
             id,
-            existingOrder.selected_quote_id ?? '',
+            selectedQuoteId,
             existingOrder.shipping_funding_source,
             (quoteId) => bookOrderShipment(supabase, merchantId, id, quoteId),
             shipmentBookingLockToken
@@ -397,7 +407,7 @@ export async function PATCH(
                 supabase,
                 merchantId,
                 id,
-                existingOrder.selected_quote_id ?? ''
+                selectedQuoteId
               ),
             async () => {
               const existing = await findReusableOrderShipment(
@@ -408,8 +418,7 @@ export async function PATCH(
               return existing
                 ? {
                     ...existing,
-                    quoteId:
-                      existing.quoteId || existingOrder.selected_quote_id || '',
+                    quoteId: existing.quoteId || selectedQuoteId,
                   }
                 : null;
             },
@@ -417,6 +426,9 @@ export async function PATCH(
               shipping_provider: existingOrder.shipping_provider,
               payment_status: payment_status ?? existingOrder.payment_status,
               payment_method: existingOrder.payment_method,
+              shipping_funding_source: existingOrder.shipping_funding_source,
+              shipping_platform_retained_amount:
+                bookingEconomics?.shipping_platform_retained_amount ?? null,
             }
           );
           updates.shipping_provider = booking.provider;

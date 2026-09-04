@@ -96,7 +96,11 @@ export async function postAdminOrderGiglQuote(
     const reused = await loadBoundAdminWalletGiglQuoteResponse(
       auth.supabase,
       access.merchantId,
-      boundQuoteId
+      boundQuoteId,
+      {
+        shipping_address: order.shipping_address,
+        order_items: order.order_items ?? [],
+      }
     );
     if (reused) return reused;
   }

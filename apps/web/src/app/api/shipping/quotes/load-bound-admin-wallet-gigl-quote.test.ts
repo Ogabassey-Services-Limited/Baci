@@ -172,4 +172,128 @@ describe('loadBoundAdminWalletGiglQuoteResponse', () => {
       p_merchant_id: 'merchant-1',
     });
   });
+
+  it('invalidates a bound quote when the order destination no longer matches', async () => {
+    const maybeSingle = vi.fn().mockResolvedValueOnce({
+      data: {
+        id: 'quote-1',
+        provider: 'GIGL',
+        service_tier: 'Express',
+        carrier_name: 'GIG Logistics',
+        price: 2500,
+        currency: 'NGN',
+        estimated_days: 1,
+        expires_at: '2026-09-04T12:00:00.000Z',
+        provider_rate_id: 'rate-1',
+        is_station_pickup: false,
+        quote_request: {
+          shipmentType: 'domestic',
+          receiver: {
+            name: 'Amina',
+            phone: '+2348000000000',
+            address: '12 Allen Avenue',
+            city: 'Ikeja',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          items: [{ name: 'Phone', quantity: 1, value: 100_000, weight: 1 }],
+          sender: {
+            name: 'Store',
+            phone: '+2348111111111',
+            address: '1 Broad St',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+        },
+      },
+      error: null,
+    });
+    const eq = vi.fn(() => ({ eq, maybeSingle }));
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({ eq })),
+    }));
+    const supabase = {
+      from,
+      rpc: vi.fn(),
+    } as unknown as Parameters<typeof loadBoundAdminWalletGiglQuoteResponse>[0];
+
+    await expect(
+      loadBoundAdminWalletGiglQuoteResponse(supabase, 'merchant-1', 'quote-1', {
+        shipping_address: {
+          address: '99 Different Street',
+          city: 'Abuja',
+          state: 'FCT',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
+      })
+    ).resolves.toBeNull();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a bound quote when order items no longer match', async () => {
+    const maybeSingle = vi.fn().mockResolvedValueOnce({
+      data: {
+        id: 'quote-1',
+        provider: 'GIGL',
+        service_tier: 'Express',
+        carrier_name: 'GIG Logistics',
+        price: 2500,
+        currency: 'NGN',
+        estimated_days: 1,
+        expires_at: '2026-09-04T12:00:00.000Z',
+        provider_rate_id: 'rate-1',
+        is_station_pickup: false,
+        quote_request: {
+          shipmentType: 'domestic',
+          receiver: {
+            name: 'Amina',
+            phone: '+2348000000000',
+            address: '12 Allen Avenue',
+            city: 'Ikeja',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          items: [{ name: 'Phone', quantity: 1, value: 100_000, weight: 1 }],
+          sender: {
+            name: 'Store',
+            phone: '+2348111111111',
+            address: '1 Broad St',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+        },
+      },
+      error: null,
+    });
+    const eq = vi.fn(() => ({ eq, maybeSingle }));
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({ eq })),
+    }));
+    const supabase = {
+      from,
+      rpc: vi.fn(),
+    } as unknown as Parameters<typeof loadBoundAdminWalletGiglQuoteResponse>[0];
+
+    await expect(
+      loadBoundAdminWalletGiglQuoteResponse(supabase, 'merchant-1', 'quote-1', {
+        shipping_address: {
+          address: '12 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        order_items: [{ name: 'Phone', quantity: 2, price: 100_000 }],
+      })
+    ).resolves.toBeNull();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
 });

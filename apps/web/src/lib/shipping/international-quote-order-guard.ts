@@ -1,4 +1,9 @@
-import { normalizeAddressForQuoteMatch } from './order-quote-destination-address';
+import {
+  matchesDomesticReceiverAddress,
+  matchesOptionalReceiverText,
+  matchesReceiverCountryFields,
+  normalizeReceiverMatchText,
+} from './international-quote-receiver-match';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 import type { QuoteRequest } from './types';
 
@@ -30,39 +35,14 @@ export type InternationalQuoteOrder = {
 };
 
 function normalizeText(value: string | null | undefined): string {
-  return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function hasComparableText(value: string | null | undefined): boolean {
-  return normalizeText(value).length > 0;
+  return normalizeReceiverMatchText(value);
 }
 
 function matchesOptionalText(
   orderValue: string | null | undefined,
   quoteValue: string | null | undefined
 ): boolean {
-  const hasOrderValue = hasComparableText(orderValue);
-  const hasQuoteValue = hasComparableText(quoteValue);
-  if (!hasOrderValue && !hasQuoteValue) return true;
-  if (!hasOrderValue || !hasQuoteValue) return false;
-  return normalizeText(orderValue) === normalizeText(quoteValue);
-}
-
-function matchesDomesticReceiverAddress(
-  orderAddress: OrderShippingAddress,
-  quoteAddress: QuoteRequest['receiver']
-): boolean {
-  const quoteStreet = normalizeText(quoteAddress.address);
-  const orderStreet = normalizeAddressForQuoteMatch(
-    orderAddress.address,
-    orderAddress.city,
-    orderAddress.state
-  );
-  if (orderStreet === quoteStreet) {
-    return true;
-  }
-  const normalizedOrderAddress = normalizeText(orderAddress.address);
-  return normalizedOrderAddress.startsWith(`${quoteStreet},`);
+  return matchesOptionalReceiverText(orderValue, quoteValue);
 }
 
 const COORDINATE_TOLERANCE = 1e-6;
@@ -210,6 +190,14 @@ export function assertQuoteReceiverMatchesOrder(
             normalizeText(orderAddress.address) ===
               normalizeText(quoteRequest.receiver.address)
         );
+  const countryMatches = Boolean(
+    orderAddress &&
+      matchesReceiverCountryFields(
+        orderAddress,
+        quoteRequest.receiver,
+        quoteRequest.shipmentType
+      )
+  );
   if (
     !orderAddress ||
     !addressMatches ||
@@ -217,14 +205,7 @@ export function assertQuoteReceiverMatchesOrder(
       normalizeText(quoteRequest.receiver.city) ||
     normalizeText(orderAddress.state) !==
       normalizeText(quoteRequest.receiver.state) ||
-    !matchesOptionalText(
-      orderAddress.country || 'Nigeria',
-      quoteRequest.receiver.country
-    ) ||
-    !matchesOptionalText(
-      orderAddress.countryCode || 'NG',
-      quoteRequest.receiver.countryCode
-    ) ||
+    !countryMatches ||
     !matchesOptionalText(
       orderAddress.postalCode ?? orderAddress.postal_code,
       quoteRequest.receiver.postalCode

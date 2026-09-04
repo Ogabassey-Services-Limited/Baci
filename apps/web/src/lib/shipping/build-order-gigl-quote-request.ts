@@ -70,6 +70,13 @@ function finiteCoordinate(
     : undefined;
 }
 
+function readNonEmptyString(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return fallback;
+}
+
 function readAddress(raw: unknown, order: OrderLike): ShippingAddress {
   const a =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
@@ -80,8 +87,8 @@ function readAddress(raw: unknown, order: OrderLike): ShippingAddress {
     address: String(a.address ?? a.street ?? ''),
     city: String(a.city ?? ''),
     state: String(a.state ?? ''),
-    country: String(a.country ?? 'Nigeria'),
-    countryCode: String(a.countryCode ?? a.country_code ?? 'NG'),
+    country: readNonEmptyString(a.country, 'Nigeria'),
+    countryCode: readNonEmptyString(a.countryCode ?? a.country_code, 'NG'),
     postalCode: typeof a.postalCode === 'string' ? a.postalCode : undefined,
     latitude: finiteCoordinate(a.latitude, -90, 90),
     longitude: finiteCoordinate(a.longitude, -180, 180),

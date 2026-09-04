@@ -160,6 +160,34 @@ describe('assertQuoteReceiverMatchesOrder', () => {
     ).not.toThrow();
   });
 
+  it('defaults blank quote and order country fields for domestic comparisons', () => {
+    const domesticQuote: QuoteRequest = {
+      ...quoteRequest,
+      shipmentType: 'domestic',
+      receiver: {
+        ...quoteRequest.receiver,
+        address: '12 Admiralty Way',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: '',
+        countryCode: '',
+        postalCode: undefined,
+      },
+    };
+
+    expect(() =>
+      assertQuoteReceiverMatchesOrder(domesticQuote, {
+        shipping_address: {
+          address: '12 Admiralty Way',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: '',
+          countryCode: '',
+        },
+      })
+    ).not.toThrow();
+  });
+
   describe('bugfix: composed domestic street still matches quote street', () => {
     it('accepts order address that appends city and state to the quote street', () => {
       const domesticQuote: QuoteRequest = {

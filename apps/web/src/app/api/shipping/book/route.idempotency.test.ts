@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  giglBookingEconomicsProjection,
   giglQuoteEconomicsFields,
   prepaidGiglCustomerCheckoutOrderFields,
 } from './route.test-fixtures';
@@ -91,6 +92,12 @@ function buildSupabaseMock(options: { respectRetainedLock?: boolean } = {}) {
     rpc: vi.fn().mockImplementation((name: string) => {
       if (name === 'get_shipping_quote_booking_metadata') {
         return Promise.resolve({ data: null, error: null });
+      }
+      if (name === 'get_shipping_quote_booking_economics') {
+        return Promise.resolve({
+          data: giglBookingEconomicsProjection,
+          error: null,
+        });
       }
       claimCount += 1;
       const blockedByRetainedLock = Boolean(

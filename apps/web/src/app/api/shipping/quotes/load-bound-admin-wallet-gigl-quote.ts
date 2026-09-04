@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import {
+  assertQuoteItemsMatchOrder,
+  type InternationalQuoteOrder,
+} from '@/lib/shipping/international-quote-order-guard';
+import {
+  matchesQuoteDestination,
+  type OrderShippingAddressForQuote,
+} from '@/lib/shipping/order-quote-destination-address';
+import { parseStoredQuoteRequest } from '@/lib/shipping/order-shipment-booking-utils';
 import type { ShippingQuote } from '@/lib/shipping/types';
 import {
   calculateAdminWalletFunding,
@@ -11,6 +20,11 @@ type BoundWalletOrder = {
   shipping_funding_source?: string | null;
   shipping_provider?: string | null;
 };
+
+export type BoundWalletOrderContext = Pick<
+  InternationalQuoteOrder,
+  'shipping_address' | 'order_items'
+>;
 
 const ACTIVE_BOUND_QUOTE_CHARGE_STATUSES = new Set([
   'reserved',
@@ -35,15 +49,58 @@ export function shouldReuseBoundAdminWalletGiglQuote(
     : null;
 }
 
+function toQuoteMatchAddress(
+  shippingAddress: BoundWalletOrderContext['shipping_address']
+): OrderShippingAddressForQuote | null {
+  if (
+    !shippingAddress?.address ||
+    !shippingAddress.city ||
+    !shippingAddress.state
+  ) {
+    return null;
+  }
+  return {
+    address: shippingAddress.address,
+    city: shippingAddress.city,
+    state: shippingAddress.state,
+    country: shippingAddress.country ?? undefined,
+    countryCode: shippingAddress.countryCode ?? undefined,
+    postalCode:
+      shippingAddress.postalCode ?? shippingAddress.postal_code ?? undefined,
+  };
+}
+
+function boundQuoteMatchesOrderContext(
+  quoteRequestRaw: unknown,
+  order: BoundWalletOrderContext
+): boolean {
+  const quoteRequest = parseStoredQuoteRequest(quoteRequestRaw);
+  if (!quoteRequest) return false;
+  const shippingAddress = toQuoteMatchAddress(order.shipping_address);
+  if (
+    !shippingAddress ||
+    !matchesQuoteDestination(shippingAddress, quoteRequest)
+  ) {
+    return false;
+  }
+  try {
+    assertQuoteItemsMatchOrder(quoteRequest, order.order_items ?? []);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function loadBoundAdminWalletGiglQuoteResponse(
   supabase: SupabaseClient,
   merchantId: string,
-  quoteId: string
+  quoteId: string,
+  order?: BoundWalletOrderContext
 ): Promise<NextResponse | null> {
   const { data: boundQuote, error: boundQuoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, provider, service_tier, carrier_name, price, currency, estimated_days, expires_at, provider_rate_id, is_station_pickup'
+      'id, provider, service_tier, carrier_name, price, currency, estimated_days, expires_at, provider_rate_id, is_station_pickup, quote_request'
     )
     .eq('id', quoteId)
     .eq('merchant_id', merchantId)
@@ -58,6 +115,12 @@ export async function loadBoundAdminWalletGiglQuoteResponse(
     !boundQuote ||
     String(boundQuote.provider).toUpperCase() !== 'GIGL' ||
     Number(boundQuote.price) <= 0
+  ) {
+    return null;
+  }
+  if (
+    order &&
+    !boundQuoteMatchesOrderContext(boundQuote.quote_request, order)
   ) {
     return null;
   }

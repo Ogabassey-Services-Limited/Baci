@@ -168,6 +168,24 @@ function createSupabase(
           error: null,
         };
       }
+      if (fn === 'get_shipping_quote_booking_economics') {
+        return {
+          data:
+            provider === 'GIGL'
+              ? {
+                  provider_cost: 1000,
+                  platform_margin: 100,
+                  platform_margin_bps: 400,
+                  pricing_version: 'gigl_platform_margin_v1',
+                  shipping_provider_cost: 1000,
+                  shipping_platform_margin: 100,
+                  shipping_pricing_version: 'gigl_platform_margin_v1',
+                  shipping_platform_retained_amount: 2500,
+                }
+              : null,
+          error: null,
+        };
+      }
       return { data: null, error: null };
     }),
   } as never;

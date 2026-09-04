@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assertGiglCustomerCheckoutPrepaid } from './assert-gigl-customer-checkout-prepaid';
+import { assertWalletExistingShipmentReusableOrRelease } from './assert-wallet-existing-shipment-reusable';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
   cleanupPreSubmissionReservation,
@@ -54,6 +55,13 @@ export async function bookWalletFundedOrderShipment(
       readExistingShipment,
       releaseLock
     );
+    if (pendingExistingShipment) {
+      await assertWalletExistingShipmentReusableOrRelease(
+        pendingExistingShipment,
+        quoteId,
+        releaseLock
+      );
+    }
   }
   let preparedQuoteId = quoteId;
   let reservation: ChargeReservation | undefined;

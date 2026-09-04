@@ -126,7 +126,7 @@ describe('Self-fulfill API routes', () => {
   });
 
   it('supports bearer-authenticated mobile staff requests', async () => {
-    const { supabase, updateEq, rpc } = createSupabaseMock();
+    const { supabase, rpc } = createSupabaseMock();
 
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -145,10 +145,16 @@ describe('Self-fulfill API routes', () => {
 
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith(
-      'release_reserved_merchant_shipping_charges_for_order',
-      { p_order_id: '11111111-1111-4111-8111-111111111111' }
+      'self_fulfill_order_with_wallet_release',
+      expect.objectContaining({
+        p_order_id: '11111111-1111-4111-8111-111111111111',
+        p_carrier_name: 'Dispatch Rider',
+        p_self_fulfillment_data: expect.objectContaining({
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '+2348035962150',
+        }),
+      })
     );
-    expect(updateEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     await vi.waitFor(() => {
       expect(notifyOrderStatusChange).toHaveBeenCalledWith(
         'customer-user-1',
@@ -164,7 +170,7 @@ describe('Self-fulfill API routes', () => {
   });
 
   it('marks an order self-fulfilled when dispatch phone is omitted', async () => {
-    const { supabase, updateOrder } = createSupabaseMock();
+    const { supabase, rpc } = createSupabaseMock();
 
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -181,21 +187,21 @@ describe('Self-fulfill API routes', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(updateOrder).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
+      'self_fulfill_order_with_wallet_release',
       expect.objectContaining({
-        fulfillment_type: 'self',
-        self_fulfillment_data: expect.objectContaining({
+        p_carrier_name: 'Dispatch Rider',
+        p_self_fulfillment_data: expect.objectContaining({
           carrierName: 'Dispatch Rider',
           dispatchPhone: null,
         }),
-        shipping_status: 'shipped',
       })
     );
     expect(payload.fulfillment.dispatchPhone).toBeNull();
   });
 
   it('marks an order self-fulfilled when dispatch phone is null', async () => {
-    const { supabase, updateOrder } = createSupabaseMock();
+    const { supabase, rpc } = createSupabaseMock();
 
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -212,19 +218,18 @@ describe('Self-fulfill API routes', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(updateOrder).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
+      'self_fulfill_order_with_wallet_release',
       expect.objectContaining({
-        fulfillment_type: 'self',
-        self_fulfillment_data: expect.objectContaining({
+        p_self_fulfillment_data: expect.objectContaining({
           dispatchPhone: null,
         }),
-        shipping_status: 'shipped',
       })
     );
   });
 
   it('clears an unbooked GIG wallet quote when the merchant switches to self fulfillment', async () => {
-    const { supabase, updateOrder } = createSupabaseMock();
+    const { supabase, rpc } = createSupabaseMock();
 
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -240,16 +245,80 @@ describe('Self-fulfill API routes', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(updateOrder).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
+      'self_fulfill_order_with_wallet_release',
       expect.objectContaining({
-        selected_quote_id: null,
-        shipping_funding_source: null,
-        shipping_platform_margin: null,
-        shipping_platform_retained_amount: 0,
-        shipping_pricing_version: null,
-        shipping_provider_cost: null,
+        p_order_id: '11111111-1111-4111-8111-111111111111',
       })
     );
+  });
+
+  it('returns 409 when self-fulfillment races an active wallet booking lock', async () => {
+    const { supabase, rpc } = createSupabaseMock();
+    vi.mocked(rpc).mockResolvedValue({
+      data: null,
+      error: {
+        code: '55P03',
+        message: 'active_shipment_booking_lock',
+      },
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        carrierName: 'Dispatch Rider',
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'Order has an active shipping booking',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'self_fulfill_order_with_wallet_release',
+      expect.objectContaining({
+        p_order_id: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+  });
+
+  it('serializes concurrent self-fulfill attempts through the atomic wallet-release RPC', async () => {
+    const { supabase, rpc } = createSupabaseMock();
+    vi.mocked(rpc)
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'order_already_shipped',
+        },
+      });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const body = {
+      orderId: '11111111-1111-4111-8111-111111111111',
+      carrierName: 'Dispatch Rider',
+    };
+    const [first, second] = await Promise.all([
+      POST(createRequest(body)),
+      POST(createRequest(body)),
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(400);
+    expect(await second.json()).toEqual({
+      error: 'Order has already been shipped',
+    });
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
   it('returns 401 when api auth fails', async () => {

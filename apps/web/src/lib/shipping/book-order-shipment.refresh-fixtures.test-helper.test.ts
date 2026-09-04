@@ -60,8 +60,9 @@ describe('book-order-shipment.refresh-fixtures.test-helper', () => {
     });
     expect(prepaidGiglCustomerCheckoutPayment).toEqual({
       payment_status: 'paid',
-      payment_method: 'card',
+      payment_method: 'paystack',
       shipping_funding_source: 'customer_checkout',
+      shipping_platform_retained_amount: 2500,
     });
   });
 

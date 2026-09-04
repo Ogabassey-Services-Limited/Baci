@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { expect, vi } from 'vitest';
 import {
+  giglBookingEconomicsProjection,
   giglQuoteEconomicsFields,
   prepaidGiglCustomerCheckoutOrderFields,
 } from './route.test-fixtures';
@@ -107,6 +108,9 @@ export function buildDomesticSenderSupabaseMock(
     rpc: vi.fn().mockImplementation((fn: string) => {
       if (fn === 'get_shipping_quote_booking_metadata') {
         return { data: null, error: null };
+      }
+      if (fn === 'get_shipping_quote_booking_economics') {
+        return { data: giglBookingEconomicsProjection, error: null };
       }
       if (fn === 'persist_refreshed_order_shipping_quote') {
         return { error: null };

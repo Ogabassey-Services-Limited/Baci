@@ -14,6 +14,7 @@ export type BookOrderRecord = {
   shipping_provider_cost?: number | string | null;
   shipping_platform_margin?: number | string | null;
   shipping_pricing_version?: string | null;
+  shipping_platform_retained_amount?: number | string | null;
   shipping_address: {
     address?: string | null;
     city?: string | null;

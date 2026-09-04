@@ -299,7 +299,7 @@ describe('NewOrderAddressInput', () => {
     });
   });
 
-  it('preserves city and state when onChangeText fires after place selection', () => {
+  it('preserves city and state when onChangeText fires after place selection', async () => {
     const setDeliveryInfo = vi.fn();
 
     render(
@@ -350,6 +350,7 @@ describe('NewOrderAddressInput', () => {
         geometry: { location: { lat: 6.6, lng: 3.3 } },
       }
     );
+    await Promise.resolve();
     textInputProps?.onChangeText?.('42 Marina, Ikeja, Lagos');
 
     expect(setDeliveryInfo).toHaveBeenCalledTimes(2);
@@ -387,6 +388,85 @@ describe('NewOrderAddressInput', () => {
       address: '42 Marina, Ikeja, Lagos',
       city: 'Ikeja',
       state: 'Lagos',
+    });
+  });
+
+  it('clears stale geocoding on the first keystroke that differs from the selection', async () => {
+    const setDeliveryInfo = vi.fn();
+
+    render(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: 'Old address',
+            city: 'Ikeja',
+            name: '',
+            phone: '',
+            state: 'Lagos',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    const onPress = googlePlacesState.lastProps?.onPress as
+      | ((
+          data: { description: string },
+          details?: {
+            address_components?: Array<{
+              long_name: string;
+              types: string[];
+            }>;
+            geometry?: { location?: { lat: number; lng: number } };
+          } | null
+        ) => void)
+      | undefined;
+    const textInputProps = googlePlacesState.lastProps?.textInputProps as
+      | { onChangeText?: (text: string) => void }
+      | undefined;
+
+    onPress?.(
+      { description: '42 Marina, Ikeja, Lagos' },
+      {
+        address_components: [
+          { long_name: 'Ikeja', types: ['locality'] },
+          { long_name: 'Lagos', types: ['administrative_area_level_1'] },
+        ],
+        geometry: { location: { lat: 6.6, lng: 3.3 } },
+      }
+    );
+    await Promise.resolve();
+    textInputProps?.onChangeText?.('42 Marina, Ikeja, Lago');
+
+    expect(setDeliveryInfo).toHaveBeenCalledTimes(2);
+    const editUpdater = setDeliveryInfo.mock.calls[1][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+    expect(
+      editUpdater({
+        address: '42 Marina, Ikeja, Lagos',
+        city: 'Ikeja',
+        name: '',
+        phone: '',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+        postalCode: '',
+        latitude: 6.6,
+        longitude: 3.3,
+      })
+    ).toEqual({
+      address: '42 Marina, Ikeja, Lago',
+      city: '',
+      name: '',
+      phone: '',
+      state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
     });
   });
 

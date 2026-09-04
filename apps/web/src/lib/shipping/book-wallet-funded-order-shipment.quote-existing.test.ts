@@ -120,7 +120,7 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
       providerShipmentId: 'p-existing',
       trackingNumber: 't-existing',
       carrierName: 'GIGL',
-      quoteId: 'q-existing',
+      quoteId: 'q1',
       estimatedDays: null,
       shipmentStatus: 'booked' as const,
     };
@@ -199,5 +199,67 @@ describe('wallet-funded shipment orchestration — quote and existing shipment',
       expect.any(Error)
     );
     errorSpy.mockRestore();
+  });
+
+  it('rejects wallet booking when an existing shipment uses a different quote', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const readExistingShipment = vi.fn().mockResolvedValue({
+      shipmentId: 's-existing',
+      provider: 'GIGL' as const,
+      providerShipmentId: 'p-existing',
+      trackingNumber: 't-existing',
+      carrierName: 'GIGL',
+      quoteId: 'q-existing',
+      estimatedDays: null,
+      shipmentStatus: 'booked' as const,
+    });
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        undefined,
+        readExistingShipment
+      )
+    ).rejects.toMatchObject({ code: 'EXISTING_SHIPMENT_QUOTE_MISMATCH' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
+  });
+
+  it('rejects wallet booking when an existing shipment uses a different provider', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const readExistingShipment = vi.fn().mockResolvedValue({
+      shipmentId: 's-existing',
+      provider: 'TOPSHIP' as const,
+      providerShipmentId: 'p-existing',
+      trackingNumber: 't-existing',
+      carrierName: 'Topship',
+      quoteId: 'q1',
+      estimatedDays: null,
+      shipmentStatus: 'booked' as const,
+    });
+
+    await expect(
+      bookWalletOrCustomerCheckout(
+        supabaseFixture,
+        'm1',
+        'o1',
+        'q1',
+        'merchant_wallet',
+        vi.fn(),
+        release,
+        undefined,
+        readExistingShipment
+      )
+    ).rejects.toMatchObject({ code: 'EXISTING_SHIPMENT_PROVIDER_MISMATCH' });
+
+    expect(release).toHaveBeenCalledOnce();
+    expect(charge.reserveMerchantShippingCharge).not.toHaveBeenCalled();
   });
 });

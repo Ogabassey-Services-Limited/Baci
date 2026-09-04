@@ -12,13 +12,26 @@ interface NewOrderAddressInputProps {
   googleMapsApiKey: string | undefined;
 }
 
+function clearGeocodedFields<T extends object>(previous: T): T {
+  return {
+    ...previous,
+    city: '',
+    state: '',
+    country: '',
+    countryCode: '',
+    postalCode: '',
+    latitude: undefined,
+    longitude: undefined,
+  };
+}
+
 export function NewOrderAddressInput({
   controller,
   googleMapsApiKey,
 }: NewOrderAddressInputProps) {
   const { colors, deliveryInfo, setDeliveryInfo } = controller;
   const hasGoogleMapsApiKey = Boolean(googleMapsApiKey);
-  const isApplyingPlaceSelectionRef = useRef(false);
+  const selectedDescriptionRef = useRef<string | null>(null);
 
   return (
     <View style={{ zIndex: 5 }}>
@@ -54,18 +67,11 @@ export function NewOrderAddressInput({
             );
           }}
           onPress={(data, details = null) => {
-            isApplyingPlaceSelectionRef.current = true;
+            selectedDescriptionRef.current = data.description;
             if (!details) {
               setDeliveryInfo((previous) => ({
-                ...previous,
+                ...clearGeocodedFields(previous),
                 address: data.description,
-                city: '',
-                state: '',
-                country: '',
-                countryCode: '',
-                postalCode: '',
-                latitude: undefined,
-                longitude: undefined,
               }));
               return;
             }
@@ -132,26 +138,20 @@ export function NewOrderAddressInput({
           }}
           textInputProps={{
             onChangeText: (text) => {
-              if (isApplyingPlaceSelectionRef.current) {
+              const selectedDescription = selectedDescriptionRef.current;
+              const preserveSelection =
+                selectedDescription !== null && text === selectedDescription;
+              if (preserveSelection) {
                 setDeliveryInfo((previous) => ({
                   ...previous,
                   address: text,
                 }));
-                queueMicrotask(() => {
-                  isApplyingPlaceSelectionRef.current = false;
-                });
                 return;
               }
+              selectedDescriptionRef.current = null;
               setDeliveryInfo((previous) => ({
-                ...previous,
+                ...clearGeocodedFields(previous),
                 address: text,
-                city: '',
-                state: '',
-                country: '',
-                countryCode: '',
-                postalCode: '',
-                latitude: undefined,
-                longitude: undefined,
               }));
             },
             placeholderTextColor: colors.textMuted,

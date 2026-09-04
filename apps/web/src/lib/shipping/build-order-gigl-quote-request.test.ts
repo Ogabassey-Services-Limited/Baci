@@ -234,4 +234,29 @@ describe('buildOrderGiglQuoteRequest', () => {
       status: 422,
     });
   });
+
+  it('defaults blank domestic country fields to Nigeria before quoting', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          ...base.shipping_address,
+          country: '',
+          countryCode: '',
+        },
+      },
+      sender
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      request: {
+        shipmentType: 'domestic',
+        receiver: {
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      },
+    });
+  });
 });

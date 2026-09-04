@@ -8,16 +8,30 @@ import {
 
 const {
   mockGetShippingQuoteBookingMetadata,
+  mockGetShippingQuoteBookingEconomics,
   mockResolveBookingQuoteRequestPayload,
   mockValidateBookingQuoteRequestPayload,
 } = vi.hoisted(() => ({
   mockGetShippingQuoteBookingMetadata: vi.fn(),
+  mockGetShippingQuoteBookingEconomics: vi.fn(),
   mockResolveBookingQuoteRequestPayload: vi.fn(),
   mockValidateBookingQuoteRequestPayload: vi.fn(),
 }));
 
 vi.mock('@/lib/shipping/shipping-quote-booking-metadata', () => ({
   getShippingQuoteBookingMetadata: mockGetShippingQuoteBookingMetadata,
+}));
+
+vi.mock('@/lib/shipping/shipping-quote-booking-economics', () => ({
+  getShippingQuoteBookingEconomics: mockGetShippingQuoteBookingEconomics,
+  applyShippingQuoteBookingEconomicsToQuote: (
+    quote: Record<string, unknown>,
+    economics: Record<string, unknown> | null
+  ) => (economics ? { ...quote, ...economics } : quote),
+  applyShippingQuoteBookingEconomicsToOrder: (
+    order: Record<string, unknown>,
+    economics: Record<string, unknown> | null
+  ) => (economics ? { ...order, ...economics } : order),
 }));
 
 vi.mock('./quote-request-payload', async (importOriginal) => {
@@ -103,6 +117,13 @@ describe('loadDirectBookingContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetShippingQuoteBookingMetadata.mockResolvedValue(null);
+    mockGetShippingQuoteBookingEconomics.mockResolvedValue({
+      ...giglQuoteEconomicsFields,
+      shipping_provider_cost: 3600,
+      shipping_platform_margin: 900,
+      shipping_pricing_version: 'gigl_platform_margin_v1',
+      shipping_platform_retained_amount: 4500,
+    });
     mockResolveBookingQuoteRequestPayload.mockReturnValue({
       items: bookingRequest.items,
       receiver: bookingRequest.receiver,

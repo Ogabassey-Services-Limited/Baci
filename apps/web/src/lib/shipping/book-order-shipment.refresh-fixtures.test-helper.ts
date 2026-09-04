@@ -26,8 +26,9 @@ export const correctedSender = {
 
 export const prepaidGiglCustomerCheckoutPayment = {
   payment_status: 'paid' as const,
-  payment_method: 'card',
+  payment_method: 'paystack',
   shipping_funding_source: 'customer_checkout' as const,
+  shipping_platform_retained_amount: 2500,
 };
 
 type StoredSender = typeof staleSender | typeof correctedSender;
@@ -165,6 +166,24 @@ export function createSupabase({
     rpc: vi.fn().mockImplementation((fn: string) => {
       if (fn === 'persist_refreshed_order_shipping_quote') {
         return { error: upsertError };
+      }
+      if (fn === 'get_shipping_quote_booking_economics') {
+        return {
+          data: {
+            provider_cost: quote.provider_cost,
+            platform_margin: quote.platform_margin,
+            platform_margin_bps: quote.platform_margin_bps,
+            pricing_version: quote.pricing_version,
+            shipping_provider_cost: quote.provider_cost,
+            shipping_platform_margin: quote.platform_margin,
+            shipping_pricing_version: quote.pricing_version,
+            shipping_platform_retained_amount:
+              order.shipping_funding_source === 'customer_checkout'
+                ? (order.shipping_platform_retained_amount ?? 2500)
+                : 0,
+          },
+          error: null,
+        };
       }
       return { data: null, error: null };
     }),

@@ -14,4 +14,14 @@ describe('order PATCH merchant wallet booking', () => {
   it('passes the requested payment status into prepaid GIGL booking', () => {
     expect(source).toContain('payment_status ?? existingOrder.payment_status');
   });
+
+  it('loads retained shipping via booking economics instead of revoked order columns', () => {
+    expect(source).toContain('getShippingQuoteBookingEconomics');
+    expect(source).toContain(
+      'bookingEconomics?.shipping_platform_retained_amount'
+    );
+    expect(source).not.toContain(
+      'existingOrder.shipping_platform_retained_amount'
+    );
+  });
 });

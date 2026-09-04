@@ -80,9 +80,11 @@ describe('wallet-funded shipment orchestration — checkout', () => {
       undefined,
       undefined,
       {
-        shipping_provider: 'TOPSHIP',
+        shipping_provider: 'GIGL',
         payment_status: 'paid',
         payment_method: 'paystack',
+        shipping_funding_source: 'customer_checkout',
+        shipping_platform_retained_amount: 2500,
       }
     );
     expect(book).toHaveBeenCalledOnce();

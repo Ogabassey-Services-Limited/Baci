@@ -14,6 +14,10 @@ import {
   refreshOrderShipmentQuote,
 } from './refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from './resolve-booking-merchant-sender';
+import {
+  applyShippingQuoteBookingEconomicsToQuote,
+  getShippingQuoteBookingEconomics,
+} from './shipping-quote-booking-economics';
 import { getShippingQuoteBookingMetadata } from './shipping-quote-booking-metadata';
 import type { ShippingAddress } from './types';
 
@@ -57,7 +61,7 @@ export async function refreshWalletOrderShipmentQuote(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_cost, platform_margin, platform_margin_bps, pricing_version'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request'
     )
     .eq('id', quoteId)
     .eq('merchant_id', merchantId)
@@ -93,10 +97,19 @@ export async function refreshWalletOrderShipmentQuote(
     orderId,
     quoteId
   );
-  const quote = {
-    ...storedQuote,
-    provider_metadata: metadata,
-  } as OrderShipmentQuoteRecord;
+  const bookingEconomics = await getShippingQuoteBookingEconomics(
+    supabase,
+    merchantId,
+    orderId,
+    quoteId
+  );
+  const quote = applyShippingQuoteBookingEconomicsToQuote(
+    {
+      ...storedQuote,
+      provider_metadata: metadata,
+    },
+    bookingEconomics
+  ) as OrderShipmentQuoteRecord;
   let sender: ShippingAddress | undefined;
   if (request.shipmentType === 'domestic') {
     const senderResult = await resolveBookingMerchantSender(
