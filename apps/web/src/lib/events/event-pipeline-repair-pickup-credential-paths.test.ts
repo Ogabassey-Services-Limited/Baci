@@ -18,6 +18,13 @@ describe('eventPipelineRepairPickupCredentialPaths', () => {
       'apps/web/src/env.ts',
     ]);
     expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
+      'apps/web/src/lib/repairs/bind-repair-pickup-pending-payment-reference.ts',
+      'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
+      'apps/web/src/lib/supabase/scoped-jwt.ts',
+      'apps/web/src/lib/agentic/jwt-signing-material.ts',
+      'apps/web/src/env.ts',
+    ]);
+    expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
       'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts',
       'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
       'apps/web/src/lib/supabase/scoped-jwt.ts',
@@ -25,6 +32,23 @@ describe('eventPipelineRepairPickupCredentialPaths', () => {
       'apps/web/src/env.ts',
     ]);
     expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
+      'apps/web/src/lib/repairs/start-repair-pickup-payment.ts',
+      'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts',
+      'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
+      'apps/web/src/lib/supabase/scoped-jwt.ts',
+      'apps/web/src/lib/agentic/jwt-signing-material.ts',
+      'apps/web/src/env.ts',
+    ]);
+    expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
+      'apps/web/src/lib/repairs/start-repair-pickup-payment.ts',
+      'apps/web/src/lib/repairs/bind-repair-pickup-pending-payment-reference.ts',
+      'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
+      'apps/web/src/lib/supabase/scoped-jwt.ts',
+      'apps/web/src/lib/agentic/jwt-signing-material.ts',
+      'apps/web/src/env.ts',
+    ]);
+    expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
+      'apps/web/src/app/actions/repair-pickup-payment.ts',
       'apps/web/src/lib/repairs/start-repair-pickup-payment.ts',
       'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts',
       'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
@@ -35,7 +59,7 @@ describe('eventPipelineRepairPickupCredentialPaths', () => {
     expect(eventPipelineRepairPickupCredentialPaths).toContainEqual([
       'apps/web/src/app/actions/repair-pickup-payment.ts',
       'apps/web/src/lib/repairs/start-repair-pickup-payment.ts',
-      'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts',
+      'apps/web/src/lib/repairs/bind-repair-pickup-pending-payment-reference.ts',
       'apps/web/src/lib/repairs/repair-pickup-receiver-client.ts',
       'apps/web/src/lib/supabase/scoped-jwt.ts',
       'apps/web/src/lib/agentic/jwt-signing-material.ts',

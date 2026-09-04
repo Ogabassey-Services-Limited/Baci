@@ -33,59 +33,137 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
     });
   });
 
-  it('ledgers an invalid signature claim using unsigned metadata ids', async () => {
-    const { client, rpc } = createRepairPickupPaymentSupabase();
-    rpc.mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
-    const metadata = createRepairPickupPaymentMetadata();
+  it('bugfix: invalid claim with unsigned victim ids does not ledger mismatch', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const victimMerchantId = '999e4567-e89b-12d3-a456-426614174000';
+    const victimRepairId = '888e4567-e89b-12d3-a456-426614174000';
+    const { client, from, rpc } = createRepairPickupPaymentSupabase();
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select, update: vi.fn() });
 
-    const result = await handleRepairPickupPayment({
-      gateway: 'paystack',
-      gatewayResponse: {
-        currency: 'NGN',
-        metadata: { ...metadata, pickup_claim_signature: 'invalid' },
-      },
-      reference: repairPickupPaymentTestReference,
-      supabase: client,
-      verifiedAmount: 8250,
-    });
+    try {
+      const result = await handleRepairPickupPayment({
+        gateway: 'paystack',
+        gatewayResponse: {
+          currency: 'NGN',
+          metadata: {
+            transaction_type: 'repair_pickup',
+            merchant_id: victimMerchantId,
+            repair_id: victimRepairId,
+            pickup_claim_signature: 'invalid',
+          },
+        },
+        reference: repairPickupPaymentTestReference,
+        supabase: client,
+        verifiedAmount: 8250,
+      });
 
-    expect(result).toMatchObject({ handled: true, status: 200 });
-    expect(rpc).toHaveBeenCalledWith(
-      'record_repair_pickup_payment_mismatch',
-      expect.objectContaining({
-        p_mismatch_reason: 'claim_missing_or_invalid',
-        p_merchant_id: repairPickupPaymentTestMerchantId,
-        p_repair_id: repairPickupPaymentTestRepairId,
-      })
-    );
-    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        handled: true,
+        status: 200,
+        body: { message: 'Repair pickup payment mismatch ignored (unbound)' },
+      });
+      expect(rpc).not.toHaveBeenCalled();
+      expect(eq).toHaveBeenCalledWith(
+        'pickup_payment_pending_reference',
+        repairPickupPaymentTestReference
+      );
+      expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
-  it('returns 503 when an invalid claim has no merchant id to ledger', async () => {
-    const { client, rpc } = createRepairPickupPaymentSupabase();
+  it('ledgers an invalid claim when a trusted pending reference binding exists', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { client, from, rpc } = createRepairPickupPaymentSupabase();
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: repairPickupPaymentTestRepairId,
+        merchant_id: repairPickupPaymentTestMerchantId,
+      },
+      error: null,
+    });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select, update: vi.fn() });
+    rpc.mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
 
-    const result = await handleRepairPickupPayment({
-      gateway: 'paystack',
-      gatewayResponse: {
-        currency: 'NGN',
-        metadata: {
-          transaction_type: 'repair_pickup',
-          pickup_claim_version: 1,
+    try {
+      const result = await handleRepairPickupPayment({
+        gateway: 'paystack',
+        gatewayResponse: {
+          currency: 'NGN',
+          metadata: {
+            transaction_type: 'repair_pickup',
+            merchant_id: '999e4567-e89b-12d3-a456-426614174000',
+            repair_id: '888e4567-e89b-12d3-a456-426614174000',
+            pickup_claim_signature: 'invalid',
+          },
         },
-      },
-      reference: repairPickupPaymentTestReference,
-      supabase: client,
-      verifiedAmount: 8250,
-    });
+        reference: repairPickupPaymentTestReference,
+        supabase: client,
+        verifiedAmount: 8250,
+      });
 
-    expect(result).toEqual({
-      handled: true,
-      status: 503,
-      body: {
-        message: 'Repair pickup payment mismatch will retry until durable',
-      },
+      expect(result).toEqual({
+        handled: true,
+        status: 200,
+        body: { message: 'Repair pickup payment requires review' },
+      });
+      expect(rpc).toHaveBeenCalledWith(
+        'record_repair_pickup_payment_mismatch',
+        expect.objectContaining({
+          p_mismatch_reason: 'claim_missing_or_invalid',
+          p_merchant_id: repairPickupPaymentTestMerchantId,
+          p_repair_id: repairPickupPaymentTestRepairId,
+        })
+      );
+      expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('returns 503 when pending-reference lookup fails for an invalid claim', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { client, from, rpc } = createRepairPickupPaymentSupabase();
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'offline' },
     });
-    expect(rpc).not.toHaveBeenCalled();
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select, update: vi.fn() });
+
+    try {
+      const result = await handleRepairPickupPayment({
+        gateway: 'paystack',
+        gatewayResponse: {
+          currency: 'NGN',
+          metadata: {
+            transaction_type: 'repair_pickup',
+            pickup_claim_version: 1,
+          },
+        },
+        reference: repairPickupPaymentTestReference,
+        supabase: client,
+        verifiedAmount: 8250,
+      });
+
+      expect(result).toEqual({
+        handled: true,
+        status: 503,
+        body: {
+          message: 'Repair pickup payment mismatch will retry until durable',
+        },
+      });
+      expect(rpc).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('bugfix: ledgers a second different capture instead of infinite 503', async () => {

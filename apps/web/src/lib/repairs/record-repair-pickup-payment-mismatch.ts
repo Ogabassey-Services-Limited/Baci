@@ -21,7 +21,7 @@ function getRecorded(value: unknown): boolean | null {
   return typeof recorded === 'boolean' ? recorded : null;
 }
 
-/** Best-effort merchant/repair ids from unsigned Paystack metadata. */
+/** Best-effort merchant/repair ids from unsigned Paystack metadata (tests / negative cases only). */
 export function readRepairPickupMismatchIdentity(metadata: unknown): {
   merchantId: string | null;
   repairId: string | null;

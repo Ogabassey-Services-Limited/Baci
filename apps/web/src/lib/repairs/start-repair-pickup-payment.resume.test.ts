@@ -62,6 +62,11 @@ describe('startRepairPickupPayment resume and validation', () => {
       merchantId,
       repairId: existingId,
     });
+    expect(mocks.bindRepairPickupPendingPaymentReference).toHaveBeenCalledWith({
+      merchantId,
+      repairId: existingId,
+      reference: expect.stringMatching(/^RPU-[A-Z0-9]{16}$/),
+    });
     expect(result).toMatchObject({
       success: true,
       id: existingId,

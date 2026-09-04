@@ -20,7 +20,8 @@ describe('bookRepairPickup', () => {
   });
 
   it('books a courier pickup and returns the tracking number', async () => {
-    const supabase = makeSupabase(happyResponses());
+    const inserts: Array<{ table: string; payload: unknown }> = [];
+    const supabase = makeSupabase(happyResponses(), [], inserts);
 
     const result = await bookRepairPickup(supabase, merchantId, repairId);
 
@@ -38,6 +39,34 @@ describe('bookRepairPickup', () => {
         quoteMetadata: { cost: 350_000 },
       })
     );
+    expect(inserts).toContainEqual({
+      table: 'shipments',
+      payload: expect.objectContaining({
+        order_id: null,
+        provider: 'GIGL',
+        tracking_number: null,
+      }),
+    });
+  });
+
+  it('bugfix: finalizes GIGL tracking on orderless pickups so monitors can activate', async () => {
+    const inserts: Array<{ table: string; payload: unknown }> = [];
+    const operations: string[] = [];
+    const supabase = makeSupabase(happyResponses(), operations, inserts);
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
+    expect(inserts).toContainEqual({
+      table: 'shipments',
+      payload: expect.objectContaining({
+        order_id: null,
+        merchant_id: merchantId,
+        provider: 'GIGL',
+      }),
+    });
+    expect(operations).toContain('shipments.update');
+    expect(operations).toContain('repairs.update');
   });
 
   it('returns not_found when the repair is missing', async () => {

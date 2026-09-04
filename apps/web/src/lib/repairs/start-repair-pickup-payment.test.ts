@@ -63,7 +63,19 @@ describe('startRepairPickupPayment', () => {
       merchantId,
       repairId,
     });
+    expect(mocks.bindRepairPickupPendingPaymentReference).toHaveBeenCalledWith({
+      merchantId,
+      repairId,
+      reference: expect.stringMatching(/^RPU-[A-Z0-9]{16}$/),
+    });
     const initPayload = mocks.initializeTransaction.mock.calls[0]?.[0];
+    expect(
+      mocks.bindRepairPickupPendingPaymentReference.mock.calls[0]?.[0]
+    ).toEqual(
+      expect.objectContaining({
+        reference: initPayload.reference,
+      })
+    );
     expect(initPayload.amount).toBe(825_000);
     expect(initPayload.email).toBe('ada@example.com');
     expect(initPayload.callback_url).toBe(
@@ -188,6 +200,33 @@ describe('startRepairPickupPayment', () => {
     });
     // Create already persists awaiting_payment atomically; mark is reinforcement.
     expect(mocks.createRepairBooking).toHaveBeenCalledWith(input, merchantId);
+    expect(
+      mocks.bindRepairPickupPendingPaymentReference
+    ).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not initialize Paystack when the pending reference cannot be bound', async () => {
+    mocks.bindRepairPickupPendingPaymentReference.mockResolvedValueOnce({
+      ok: false,
+      error:
+        'We could not prepare pickup payment for this request. Please try again shortly.',
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'payment_initialization_failed',
+      id: repairId,
+      ticketNumber: 42,
+    });
+    expect(mocks.bindRepairPickupPendingPaymentReference).toHaveBeenCalled();
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 

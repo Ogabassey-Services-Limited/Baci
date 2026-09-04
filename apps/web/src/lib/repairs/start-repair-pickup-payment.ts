@@ -1,6 +1,7 @@
 import { customAlphabet } from 'nanoid';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { initializeTransaction } from '@/lib/paystack';
+import { bindRepairPickupPendingPaymentReference } from '@/lib/repairs/bind-repair-pickup-pending-payment-reference';
 import { createRepairBooking } from '@/lib/repairs/create-repair-core';
 import { findResumablePickupRepair } from '@/lib/repairs/find-resumable-repair-pickup';
 import { markRepairPickupAwaitingPayment } from '@/lib/repairs/mark-repair-pickup-awaiting-payment';
@@ -230,6 +231,22 @@ export async function startRepairPickupPayment({
   }
 
   const reference = `RPU-${createReference()}`;
+  const bound = await bindRepairPickupPendingPaymentReference({
+    merchantId: merchant.id,
+    reference,
+    repairId: repair.id,
+  });
+  if (!bound.ok) {
+    return {
+      success: false,
+      code: 'payment_initialization_failed',
+      error: bound.error,
+      id: repair.id,
+      ticketNumber: repair.ticketNumber,
+      resumeToken: nextResumeToken,
+    };
+  }
+
   const metadata = repairPickupPaymentClaims.create(
     {
       amountKobo,

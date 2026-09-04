@@ -99,4 +99,19 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904180000_claim_repair_pickup_booking_terminal_guard.sql',
     sha256: 'c48611749d0b1c9e6b636e378a3c643ecdf9514d8b8f0ed1dcba87eb6d2c7ecd',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190000_bind_repair_pickup_pending_payment_reference.sql',
+    sha256: '871f12584e7e82d7764d018eb2bff7c4f4d79ccecdffdd9be8f6b36a620f51c0',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190050_clear_repair_pickup_pending_payment_reference.sql',
+    sha256: 'c6a11a223fd1d633b051c717e22c1c7a575fc2911d99731958bcf377e51669ae',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904190100_activate_gigl_monitor_for_repair_pickups.sql',
+    sha256: '2556bb2bb50b7a0c76eb9cf9518b6bded0f35ac449c92c98949d65d47d82ed55',
+  },
 ];

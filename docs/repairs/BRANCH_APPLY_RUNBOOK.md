@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (20 September migrations, including security hardenings).
+pickup follow-on** set (23 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -59,6 +59,9 @@ July catalog:
 18. `20260904160000_normalize_nigerian_repair_pickup_receiver_phone.sql` — accept Nigerian local `0XXXXXXXXXX` phones in the usable-phone gate (app schema already accepts them)
 19. `20260904170000_find_resumable_repair_pickup_return_details.sql` — return device/phone/address so resume reclaim can bind to saved pickup details
 20. `20260904180000_claim_repair_pickup_booking_terminal_guard.sql` — refuse claims on completed/cancelled/rejected repairs and return `terminal=true`
+21. `20260904190000_bind_repair_pickup_pending_payment_reference.sql` — pending Paystack `RPU-…` binding column + capability-gated bind RPC (before initializeTransaction)
+22. `20260904190050_clear_repair_pickup_pending_payment_reference.sql` — clear pending binding on confirm and mismatch ledger
+23. `20260904190100_activate_gigl_monitor_for_repair_pickups.sql` — enroll repair-linked orderless GIGL shipments in automated tracking monitors
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

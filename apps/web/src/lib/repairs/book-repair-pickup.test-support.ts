@@ -87,7 +87,8 @@ export type Responses = Record<string, { data: unknown; error: unknown }>;
 
 export function makeSupabase(
   responses: Responses,
-  operations: string[] = []
+  operations: string[] = [],
+  inserts: Array<{ table: string; payload: unknown }> = []
 ): SupabaseClient {
   return {
     rpc(name: string) {
@@ -105,8 +106,12 @@ export function makeSupabase(
         select() {
           return builder;
         },
-        insert() {
+        insert(payload?: unknown) {
           op = 'insert';
+          operations.push(`${table}.insert`);
+          if (payload !== undefined) {
+            inserts.push({ table, payload });
+          }
           return builder;
         },
         update() {

@@ -1,11 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
 import { isRepairPickupPaymentConflictError } from '@/lib/repairs/is-repair-pickup-payment-conflict-error';
+import { ledgerRepairPickupPaymentClaimMismatch } from '@/lib/repairs/ledger-repair-pickup-payment-claim-mismatch';
 import { notifyRepairPickupBookingAfterPayment } from '@/lib/repairs/notify-repair-pickup-booking';
-import {
-  readRepairPickupMismatchIdentity,
-  recordRepairPickupPaymentMismatch,
-} from '@/lib/repairs/record-repair-pickup-payment-mismatch';
+import { recordRepairPickupPaymentMismatch } from '@/lib/repairs/record-repair-pickup-payment-mismatch';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 
 type RepairPickupPaymentHandlingResult =
@@ -54,41 +52,27 @@ async function setPickupPaymentStatus(
   return true;
 }
 
-async function readPickupPaymentStatus(
+function readPickupPaymentStatus(
   supabase: SupabaseClient,
   claim: { merchantId: string; repairId: string }
 ): Promise<string | null> {
-  const { data, error } = await supabase
+  return supabase
     .from('repairs')
     .select('pickup_payment_status')
     .eq('id', claim.repairId)
     .eq('merchant_id', claim.merchantId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Repair pickup payment status lookup failed:', error);
-    return null;
-  }
-  const status =
-    data && typeof data === 'object'
-      ? (data as { pickup_payment_status?: unknown }).pickup_payment_status
-      : null;
-  return typeof status === 'string' ? status : null;
-}
-
-function mismatchReasonFor(input: {
-  claim: { amountKobo: number; currency: string; reference: string } | null;
-  currency: string;
-  reference: string;
-  verifiedAmount: number;
-}): string {
-  if (!input.claim) return 'claim_missing_or_invalid';
-  if (input.claim.reference !== input.reference) return 'reference_mismatch';
-  if (input.claim.amountKobo !== Math.round(input.verifiedAmount * 100)) {
-    return 'amount_mismatch';
-  }
-  if (input.claim.currency !== input.currency) return 'currency_mismatch';
-  return 'claim_mismatch';
+    .maybeSingle()
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('Repair pickup payment status lookup failed:', error);
+        return null;
+      }
+      const status =
+        data && typeof data === 'object'
+          ? (data as { pickup_payment_status?: unknown }).pickup_payment_status
+          : null;
+      return typeof status === 'string' ? status : null;
+    });
 }
 
 export async function handleRepairPickupPayment({
@@ -122,40 +106,14 @@ export async function handleRepairPickupPayment({
     claim.amountKobo !== Math.round(verifiedAmount * 100) ||
     claim.currency !== currency
   ) {
-    console.error('Repair pickup payment claim mismatch:', {
-      claimVerified: Boolean(claim),
-      reference,
-    });
-    const unsigned = readRepairPickupMismatchIdentity(metadata);
-    const recorded = await recordRepairPickupPaymentMismatch({
-      currency: currency || 'XXX',
+    return ledgerRepairPickupPaymentClaimMismatch({
+      claim,
+      currency,
       gatewayResponse,
-      merchantId: claim?.merchantId ?? unsigned.merchantId,
-      mismatchReason: mismatchReasonFor({
-        claim,
-        currency,
-        reference,
-        verifiedAmount,
-      }),
       reference,
-      repairId: claim?.repairId ?? unsigned.repairId,
       supabase,
       verifiedAmount,
     });
-    if (!recorded) {
-      return {
-        handled: true,
-        status: 503,
-        body: {
-          message: 'Repair pickup payment mismatch will retry until durable',
-        },
-      };
-    }
-    return {
-      handled: true,
-      status: 200,
-      body: { message: 'Repair pickup payment requires review' },
-    };
   }
 
   const { data, error } = await supabase.rpc('confirm_repair_pickup_payment', {

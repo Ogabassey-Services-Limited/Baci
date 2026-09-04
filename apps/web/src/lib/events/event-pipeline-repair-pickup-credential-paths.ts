@@ -14,6 +14,8 @@ const findResumable =
   'apps/web/src/lib/repairs/find-resumable-repair-pickup.ts';
 const markAwaiting =
   'apps/web/src/lib/repairs/mark-repair-pickup-awaiting-payment.ts';
+const bindPending =
+  'apps/web/src/lib/repairs/bind-repair-pickup-pending-payment-reference.ts';
 const handlePayment =
   'apps/web/src/lib/repairs/handle-repair-pickup-payment.ts';
 const dispatchPayment =
@@ -110,8 +112,11 @@ export const eventPipelineRepairPickupCredentialPaths = [
   [startPayment, ...centerReceiverJwtEnv],
   [startPayment, findResumable, ...receiverJwtEnv],
   [startPayment, markAwaiting, ...receiverJwtEnv],
+  [startPayment, bindPending, ...receiverJwtEnv],
   [findResumable, ...receiverJwtEnv],
   [markAwaiting, ...receiverJwtEnv],
+  [bindPending, ...receiverJwtEnv],
   [repairPickupPaymentAction, startPayment, findResumable, ...receiverJwtEnv],
   [repairPickupPaymentAction, startPayment, markAwaiting, ...receiverJwtEnv],
+  [repairPickupPaymentAction, startPayment, bindPending, ...receiverJwtEnv],
 ] as const;
