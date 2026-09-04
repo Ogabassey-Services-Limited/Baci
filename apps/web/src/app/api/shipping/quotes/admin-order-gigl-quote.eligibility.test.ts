@@ -86,9 +86,9 @@ describe('Admin GIGL merchant eligibility', () => {
   it('fails closed when provider settings cannot be loaded', async () => {
     setup({ featureError: { message: 'database unavailable' } });
     const response = await subject({ receiver });
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({
-      code: 'GIGL_PROVIDER_DISABLED',
+      error: 'Failed to resolve merchant eligibility',
     });
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });

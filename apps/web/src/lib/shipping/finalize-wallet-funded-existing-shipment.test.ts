@@ -49,7 +49,7 @@ describe('finalizeWalletFundedExistingShipment', () => {
         supabaseFixture,
         'm1',
         'o1',
-        'q1',
+        'q-existing',
         'merchant_wallet',
         book,
         undefined,
