@@ -172,7 +172,10 @@ describe('PATCH /api/repairs/settings', () => {
       select: {
         data: {
           merchant_id: 'm-1',
-          repair_settings: { contact_email: 'repairs@ogabassey.com' },
+          repair_settings: {
+            pickup_enabled: false,
+            contact_email: 'repairs@ogabassey.com',
+          },
         },
         error: null,
       },
@@ -185,10 +188,16 @@ describe('PATCH /api/repairs/settings', () => {
     expect(res.status).toBe(200);
     expect(admin.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        repair_settings: { contact_email: null },
+        repair_settings: {
+          pickup_enabled: false,
+          contact_email: null,
+        },
       })
     );
-    expect(body.repairSettings).toEqual({ contact_email: null });
+    expect(body.repairSettings).toEqual({
+      pickup_enabled: false,
+      contact_email: null,
+    });
   });
 
   it('inserts defaults when no settings row exists yet', async () => {
