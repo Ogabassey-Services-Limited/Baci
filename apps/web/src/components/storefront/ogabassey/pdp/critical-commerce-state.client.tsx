@@ -12,6 +12,7 @@ import {
   canonicalizeVariantAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { pruneSelectionsByVariantAvailability } from '@/components/storefront/ogabassey/variant-selection-pruning';
+import { recoverHiddenSelectionsFromUniqueVariant } from '@/components/storefront/ogabassey/recover-hidden-variant-selections';
 import { useCart } from '@/hooks/cart';
 import {
   buildVariantCartProduct,
@@ -212,18 +213,31 @@ export function OgabasseyPdpCriticalCommerceProvider({
       return;
     }
 
-    setSelectedVariantId(undefined);
-    setExplicitSelectedAxes((current) =>
-      current.includes(normalizedAxis) ? current : [...current, normalizedAxis]
-    );
-    setSelectedAttributes((current) => {
-      const next = { ...current, [normalizedAxis]: value.trim() };
-      return pruneSelectionsByVariantAvailability(
-        next,
+    const nextSelection = recoverHiddenSelectionsFromUniqueVariant(
+      pruneSelectionsByVariantAvailability(
+        {
+          ...selectedAttributes,
+          [normalizedAxis]: value.trim(),
+        },
         normalizedAxis,
         variants
-      );
+      ),
+      hiddenRequiredVariantAxes,
+      variants
+    );
+
+    setSelectedVariantId(undefined);
+    setExplicitSelectedAxes((current) => {
+      const nextAxes = new Set(current);
+      nextAxes.add(normalizedAxis);
+      for (const hiddenAxis of hiddenRequiredVariantAxes) {
+        if (nextSelection[hiddenAxis]?.trim()) {
+          nextAxes.add(hiddenAxis);
+        }
+      }
+      return [...nextAxes];
     });
+    setSelectedAttributes(nextSelection);
   }
 
   function handleAddToCart() {
