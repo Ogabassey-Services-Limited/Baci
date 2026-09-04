@@ -173,6 +173,126 @@ describe('loadBoundAdminWalletGiglQuoteResponse', () => {
     });
   });
 
+  it('allows booking resume when a reserved charge exists even if wallet balance is short', async () => {
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          id: 'quote-1',
+          provider: 'GIGL',
+          service_tier: 'Express',
+          carrier_name: 'GIG Logistics',
+          price: 2500,
+          currency: 'NGN',
+          estimated_days: 1,
+          expires_at: '2026-09-04T12:00:00.000Z',
+          provider_rate_id: 'rate-1',
+          is_station_pickup: false,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { status: 'reserved' },
+        error: null,
+      });
+    const limit = vi.fn(() => ({ maybeSingle }));
+    const order = vi.fn(() => ({ limit }));
+    const eq = vi.fn(() => ({ eq, order, maybeSingle }));
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({ eq })),
+    }));
+    const supabase = {
+      from,
+      rpc: vi.fn().mockResolvedValue({
+        data: [{ available_balance: 100 }],
+        error: null,
+      }),
+    } as unknown as Parameters<typeof loadBoundAdminWalletGiglQuoteResponse>[0];
+
+    const response = await loadBoundAdminWalletGiglQuoteResponse(
+      supabase,
+      'merchant-1',
+      'quote-1'
+    );
+
+    expect(response).not.toBeNull();
+    await expect(response?.json()).resolves.toMatchObject({
+      quote: { id: 'quote-1' },
+      availableBalance: 100,
+      shortfall: 0,
+      canBook: true,
+    });
+  });
+
+  it('invalidates a bound quote when nested product weight no longer matches', async () => {
+    const maybeSingle = vi.fn().mockResolvedValueOnce({
+      data: {
+        id: 'quote-1',
+        provider: 'GIGL',
+        service_tier: 'Express',
+        carrier_name: 'GIG Logistics',
+        price: 2500,
+        currency: 'NGN',
+        estimated_days: 1,
+        expires_at: '2026-09-04T12:00:00.000Z',
+        provider_rate_id: 'rate-1',
+        is_station_pickup: false,
+        quote_request: {
+          shipmentType: 'domestic',
+          receiver: {
+            name: 'Amina',
+            phone: '+2348000000000',
+            address: '12 Allen Avenue',
+            city: 'Ikeja',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          items: [{ name: 'Phone', quantity: 1, value: 100_000, weight: 1 }],
+          sender: {
+            name: 'Store',
+            phone: '+2348111111111',
+            address: '1 Broad St',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+        },
+      },
+      error: null,
+    });
+    const eq = vi.fn(() => ({ eq, maybeSingle }));
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({ eq })),
+    }));
+    const supabase = {
+      from,
+      rpc: vi.fn(),
+    } as unknown as Parameters<typeof loadBoundAdminWalletGiglQuoteResponse>[0];
+
+    await expect(
+      loadBoundAdminWalletGiglQuoteResponse(supabase, 'merchant-1', 'quote-1', {
+        shipping_address: {
+          address: '12 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 100_000,
+            product: { weight_value: 2.5, weight_unit: 'kg' },
+          },
+        ],
+      })
+    ).resolves.toBeNull();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('invalidates a bound quote when the order destination no longer matches', async () => {
     const maybeSingle = vi.fn().mockResolvedValueOnce({
       data: {

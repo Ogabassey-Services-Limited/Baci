@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertGiglCustomerCheckoutPrepaid,
+  hasGiglCheckoutShippingRetention,
   isPayOnDeliveryPaymentMethod,
 } from './assert-gigl-customer-checkout-prepaid';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
@@ -17,6 +18,35 @@ describe('isPayOnDeliveryPaymentMethod', () => {
 
   it('returns false for prepaid gateway methods', () => {
     expect(isPayOnDeliveryPaymentMethod('paystack')).toBe(false);
+  });
+});
+
+describe('hasGiglCheckoutShippingRetention', () => {
+  it('requires customer_checkout funding with a positive retained amount', () => {
+    expect(
+      hasGiglCheckoutShippingRetention({
+        shipping_funding_source: 'customer_checkout',
+        shipping_platform_retained_amount: 2500,
+      })
+    ).toBe(true);
+  });
+
+  it('does not treat Paystack/Korapay as retention proof when funding source is null', () => {
+    expect(
+      hasGiglCheckoutShippingRetention({
+        shipping_funding_source: null,
+        shipping_platform_retained_amount: 0,
+      })
+    ).toBe(false);
+  });
+
+  it('rejects customer_checkout without a positive retained amount', () => {
+    expect(
+      hasGiglCheckoutShippingRetention({
+        shipping_funding_source: 'customer_checkout',
+        shipping_platform_retained_amount: 0,
+      })
+    ).toBe(false);
   });
 });
 
@@ -42,6 +72,20 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         shipping_platform_retained_amount: 2500,
       })
     ).not.toThrow();
+  });
+
+  it('rejects paid gateway orders with null funding source even when retained amount is positive', () => {
+    expect(() =>
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: null,
+        payment_status: 'paid',
+        payment_method: 'paystack',
+        shipping_platform_retained_amount: 2500,
+      })
+    ).toThrow(
+      expect.objectContaining({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' })
+    );
   });
 
   it('rejects customer-checkout GIGL bookings paid with Credit Direct', () => {

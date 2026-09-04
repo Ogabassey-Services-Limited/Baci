@@ -8,7 +8,10 @@ import {
   matchesQuoteDestination,
   type OrderShippingAddressForQuote,
 } from '@/lib/shipping/order-quote-destination-address';
-import { parseStoredQuoteRequest } from '@/lib/shipping/order-shipment-booking-utils';
+import {
+  parseStoredQuoteRequest,
+  toQuoteComparableOrderItems,
+} from '@/lib/shipping/order-shipment-booking-utils';
 import type { ShippingQuote } from '@/lib/shipping/types';
 import {
   calculateAdminWalletFunding,
@@ -21,10 +24,12 @@ type BoundWalletOrder = {
   shipping_provider?: string | null;
 };
 
-export type BoundWalletOrderContext = Pick<
-  InternationalQuoteOrder,
-  'shipping_address' | 'order_items'
->;
+export type BoundWalletOrderContext = {
+  shipping_address: InternationalQuoteOrder['shipping_address'];
+  // Raw order_items may include nested product weight/dimensions that
+  // toQuoteComparableOrderItems flattens before item matching.
+  order_items: unknown;
+};
 
 const ACTIVE_BOUND_QUOTE_CHARGE_STATUSES = new Set([
   'reserved',
@@ -84,7 +89,10 @@ function boundQuoteMatchesOrderContext(
     return false;
   }
   try {
-    assertQuoteItemsMatchOrder(quoteRequest, order.order_items ?? []);
+    assertQuoteItemsMatchOrder(
+      quoteRequest,
+      toQuoteComparableOrderItems(order.order_items ?? [], { defaultWeight: 1 })
+    );
     return true;
   } catch {
     return false;
@@ -186,14 +194,17 @@ export async function loadBoundAdminWalletGiglQuoteResponse(
         : undefined,
     isStationPickup: Boolean(boundQuote.is_station_pickup),
   };
-  const { availableBalance, shortfall, canBook } = calculateAdminWalletFunding(
+  const funding = calculateAdminWalletFunding(
     shippingQuote.price,
     Number(walletRow?.available_balance ?? 0)
   );
+  // An active reserved/provider_submitting charge already holds funds for this
+  // quote — resume booking without requiring available balance again.
+  const canBook = hasActiveCharge || funding.canBook;
   return NextResponse.json({
     quote: toAdminPublicQuote(shippingQuote),
-    availableBalance,
-    shortfall,
+    availableBalance: funding.availableBalance,
+    shortfall: hasActiveCharge ? 0 : funding.shortfall,
     canBook,
   });
 }

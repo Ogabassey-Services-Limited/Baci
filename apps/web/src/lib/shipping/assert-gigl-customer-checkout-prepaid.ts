@@ -18,13 +18,6 @@ const GIGL_CHECKOUT_PAYMENT_METHODS_WITHOUT_RETENTION = new Set([
   'cash',
 ]);
 
-const GIGL_SETTLEMENT_GATEWAY_PAYMENT_METHODS = new Set([
-  'paystack',
-  'korapay',
-  'juicyway',
-  'klump',
-]);
-
 function normalizePaymentMethod(
   paymentMethod: string | null | undefined
 ): string {
@@ -55,27 +48,24 @@ export function isGiglCheckoutPaymentWithoutRetainedShipping(
   );
 }
 
+/**
+ * Authoritative prepaid shipping proof: customer_checkout funding with a
+ * positive retained amount. Never infer retention from Paystack/Korapay/etc.
+ * when shipping_funding_source is null — payment method alone is not proof
+ * GIGL shipping was retained at checkout.
+ */
 export function hasGiglCheckoutShippingRetention(
   order: Pick<
     GiglBookingPaymentContext,
-    | 'payment_method'
-    | 'shipping_funding_source'
-    | 'shipping_platform_retained_amount'
+    'shipping_funding_source' | 'shipping_platform_retained_amount'
   >
 ): boolean {
-  const retainedAmount = parseRetainedShippingAmount(
-    order.shipping_platform_retained_amount
-  );
-  if (retainedAmount > 0) {
-    return true;
-  }
-
-  if (order.shipping_funding_source != null) {
+  if (order.shipping_funding_source !== 'customer_checkout') {
     return false;
   }
 
-  return GIGL_SETTLEMENT_GATEWAY_PAYMENT_METHODS.has(
-    normalizePaymentMethod(order.payment_method)
+  return (
+    parseRetainedShippingAmount(order.shipping_platform_retained_amount) > 0
   );
 }
 
