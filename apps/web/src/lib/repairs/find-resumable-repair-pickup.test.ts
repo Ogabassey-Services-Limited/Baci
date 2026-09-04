@@ -65,6 +65,11 @@ describe('findResumablePickupRepair', () => {
       secret,
     });
 
+    expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
+      p_merchant_id: merchantId,
+      p_customer_email: input.customerEmail,
+      p_repair_id: repairId,
+    });
     expect(result).toEqual({
       kind: 'found',
       repair: { success: true, id: repairId, ticketNumber: 17 },

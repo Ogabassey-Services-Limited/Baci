@@ -54,6 +54,7 @@ July catalog:
 13. `20260904110100_exclude_repair_pickup_refunds_from_reconciliation.sql` — exclude pickup refunds from admin reconciliation metrics/lanes
 14. `20260904120000_record_repair_pickup_payment_mismatch.sql` — ledger claim mismatches and force review without booking
 15. `20260904130000_awaiting_repair_pickup_payment.sql` — allow `awaiting_payment` status + capability-gated mark RPC so unpaid new pickups are not bookable
+16. `20260904140000_find_resumable_repair_pickup_by_id.sql` — optional `p_repair_id` so resume reclaim pins the claim ticket (not a newer unpaid sibling)
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
@@ -70,7 +71,7 @@ Run these after the September paid-pickup migrations:
 
 - `supabase/migrations/tests/repair_pickup_payment_confirmation.sql` — paid pickup confirmation / fulfillment invariants
 - `supabase/migrations/tests/repair_pickup_receiver_projection.sql` — receiver projection is capability-gated and phone-complete
-- `supabase/migrations/tests/find_resumable_repair_pickup.sql` — resumable unpaid pickup reclaim requires matching JWT claims; anon/authenticated cannot execute
+- `supabase/migrations/tests/find_resumable_repair_pickup.sql` — resumable unpaid pickup reclaim requires matching JWT claims; `p_repair_id` pins the claim ticket; anon/authenticated cannot execute
 
 ### Manual smoke checks (do these on the branch too)
 - **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).

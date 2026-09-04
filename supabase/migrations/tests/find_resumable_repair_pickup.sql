@@ -1,6 +1,7 @@
 -- REGRESSION: unpaid pickup reclaim must go through the merchant-bound
 -- repair_pickup_receiver capability (SECURITY DEFINER). Ordinary JWTs must
--- not learn repair UUIDs/tickets from email + merchant alone.
+-- not learn repair UUIDs/tickets from email + merchant alone. When p_repair_id
+-- is provided, reclaim that specific unpaid ticket (not a newer sibling).
 
 BEGIN;
 
@@ -29,7 +30,8 @@ INSERT INTO public.repairs (
   status,
   created_at
 )
-VALUES (
+VALUES
+(
   '84a63d82-0000-4000-8000-000000000010',
   '84a63d82-0000-4000-8000-000000000001',
   'Ada Lovelace',
@@ -42,6 +44,20 @@ VALUES (
   '12 Station Road, Osogbo',
   'pending',
   now() - interval '30 minutes'
+),
+(
+  '84a63d82-0000-4000-8000-000000000011',
+  '84a63d82-0000-4000-8000-000000000001',
+  'Ada Lovelace',
+  'ada@example.com',
+  '+2348012345678',
+  'Smartphone',
+  'iPhone 15',
+  'Battery swollen',
+  'pickup',
+  '12 Station Road, Osogbo',
+  'pending',
+  now() - interval '10 minutes'
 );
 
 -- Persist expected ticket in session GUC before switching roles.
@@ -54,6 +70,14 @@ SELECT pg_catalog.set_config(
 FROM public.repairs AS repairs
 WHERE repairs.id = '84a63d82-0000-4000-8000-000000000010';
 
+SELECT pg_catalog.set_config(
+  'test.find_resumable_newer_ticket',
+  repairs.ticket_number::text,
+  true
+)
+FROM public.repairs AS repairs
+WHERE repairs.id = '84a63d82-0000-4000-8000-000000000011';
+
 SET LOCAL ROLE repair_pickup_receiver;
 
 DO $$
@@ -65,9 +89,14 @@ DECLARE
       current_setting('test.find_resumable_expected_ticket', true),
       ''
     )::integer;
+  newer_ticket integer :=
+    nullif(
+      current_setting('test.find_resumable_newer_ticket', true),
+      ''
+    )::integer;
 BEGIN
-  IF expected_ticket IS NULL THEN
-    RAISE EXCEPTION 'expected ticket was not captured before role switch';
+  IF expected_ticket IS NULL OR newer_ticket IS NULL THEN
+    RAISE EXCEPTION 'expected tickets were not captured before role switch';
   END IF;
 
   IF EXISTS (
@@ -98,11 +127,28 @@ BEGIN
     'Ada@Example.com'
   ) AS reclaim;
 
+  IF found_id IS DISTINCT FROM '84a63d82-0000-4000-8000-000000000011'::uuid
+    OR found_ticket IS DISTINCT FROM newer_ticket
+  THEN
+    RAISE EXCEPTION
+      'email-only reclaim must return newest unpaid pickup; got id=% ticket=%',
+      found_id,
+      found_ticket;
+  END IF;
+
+  SELECT reclaim.id, reclaim.ticket_number
+  INTO found_id, found_ticket
+  FROM public.find_resumable_repair_pickup(
+    '84a63d82-0000-4000-8000-000000000001',
+    'Ada@Example.com',
+    '84a63d82-0000-4000-8000-000000000010'
+  ) AS reclaim;
+
   IF found_id IS DISTINCT FROM '84a63d82-0000-4000-8000-000000000010'::uuid
     OR found_ticket IS DISTINCT FROM expected_ticket
   THEN
     RAISE EXCEPTION
-      'expected matching unpaid pickup; got id=% ticket=%',
+      'p_repair_id must pin the claimed unpaid pickup; got id=% ticket=%',
       found_id,
       found_ticket;
   END IF;
@@ -111,7 +157,8 @@ BEGIN
     SELECT 1
     FROM public.find_resumable_repair_pickup(
       '84a63d82-0000-4000-8000-000000000001',
-      'other@example.com'
+      'other@example.com',
+      '84a63d82-0000-4000-8000-000000000010'
     )
   ) THEN
     RAISE EXCEPTION 'mismatched email must not reclaim a pickup ticket';
@@ -132,7 +179,8 @@ BEGIN
     SELECT 1
     FROM public.find_resumable_repair_pickup(
       '84a63d82-0000-4000-8000-000000000001',
-      'Ada@Example.com'
+      'Ada@Example.com',
+      '84a63d82-0000-4000-8000-000000000010'
     )
   ) THEN
     RAISE EXCEPTION 'mismatched merchant capability must not reclaim a ticket';
@@ -146,22 +194,24 @@ DO $$
 BEGIN
   IF has_function_privilege(
     'anon',
-    'public.find_resumable_repair_pickup(uuid, text)',
+    'public.find_resumable_repair_pickup(uuid, text, uuid)',
     'EXECUTE'
   ) OR has_function_privilege(
     'authenticated',
-    'public.find_resumable_repair_pickup(uuid, text)',
+    'public.find_resumable_repair_pickup(uuid, text, uuid)',
     'EXECUTE'
   ) OR has_function_privilege(
     'service_role',
-    'public.find_resumable_repair_pickup(uuid, text)',
+    'public.find_resumable_repair_pickup(uuid, text, uuid)',
     'EXECUTE'
   ) OR NOT has_function_privilege(
     'repair_pickup_receiver',
-    'public.find_resumable_repair_pickup(uuid, text)',
+    'public.find_resumable_repair_pickup(uuid, text, uuid)',
     'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'resumable pickup grant is not limited to scoped role';
+  ) OR to_regprocedure(
+    'public.find_resumable_repair_pickup(uuid, text)'
+  ) IS NOT NULL THEN
+    RAISE EXCEPTION 'resumable pickup grant is not limited to scoped 3-arg role';
   END IF;
 END;
 $$;

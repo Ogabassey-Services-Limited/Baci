@@ -46,6 +46,7 @@ describe('startRepairPickupPayment resume and validation', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
       p_merchant_id: merchantId,
       p_customer_email: input.customerEmail,
+      p_repair_id: existingId,
     });
     expect(mocks.createRepairBooking).not.toHaveBeenCalled();
     expect(mocks.markRepairPickupAwaitingPayment).toHaveBeenCalledWith({

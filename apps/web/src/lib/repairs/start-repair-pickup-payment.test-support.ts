@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   initializeTransaction: vi.fn(),
   markRepairPickupAwaitingPayment: vi.fn(),
   quoteRepairPickup: vi.fn(),
+  resolveRepairsCatalogMerchant: vi.fn(),
   resolveWalletTopUpMerchant: vi.fn(),
   rpc: vi.fn(),
 }));
@@ -22,6 +23,9 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
   resolveWalletTopUpMerchant: mocks.resolveWalletTopUpMerchant,
+}));
+vi.mock('@/lib/repairs/repairs-catalog-access', () => ({
+  resolveRepairsCatalogMerchant: mocks.resolveRepairsCatalogMerchant,
 }));
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mocks.ensureActionRateLimit,
@@ -100,6 +104,10 @@ export function arrangeStartRepairPickupPayment() {
     id: startRepairPickupPaymentMerchantId,
     is_published: true,
     slug: 'ogabassey',
+  });
+  mocks.resolveRepairsCatalogMerchant.mockResolvedValue({
+    enabled: true,
+    merchantId: startRepairPickupPaymentMerchantId,
   });
   mocks.getRepairCenterAddress.mockResolvedValue(
     startRepairPickupPaymentCenter

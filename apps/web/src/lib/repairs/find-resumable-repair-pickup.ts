@@ -32,6 +32,7 @@ export async function findResumablePickupRepair(options: {
   const { data, error } = await supabase.rpc('find_resumable_repair_pickup', {
     p_merchant_id: options.merchantId,
     p_customer_email: options.input.customerEmail,
+    p_repair_id: claim.repairId,
   });
 
   if (error) {

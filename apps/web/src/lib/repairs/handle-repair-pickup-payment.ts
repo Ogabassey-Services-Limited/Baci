@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
+import { isRepairPickupPaymentConflictError } from '@/lib/repairs/is-repair-pickup-payment-conflict-error';
 import { notifyRepairPickupBookingAfterPayment } from '@/lib/repairs/notify-repair-pickup-booking';
 import {
   readRepairPickupMismatchIdentity,
@@ -142,6 +143,36 @@ export async function handleRepairPickupPayment({
     p_repair_id: claim.repairId,
   });
   if (error || getConfirmed(data) === null) {
+    if (isRepairPickupPaymentConflictError(error)) {
+      console.error('Repair pickup payment conflicting capture:', {
+        reference,
+        repairId: claim.repairId,
+      });
+      const recorded = await recordRepairPickupPaymentMismatch({
+        currency,
+        gatewayResponse,
+        merchantId: claim.merchantId,
+        mismatchReason: 'conflicting_capture',
+        reference,
+        repairId: claim.repairId,
+        supabase,
+        verifiedAmount,
+      });
+      if (!recorded) {
+        return {
+          handled: true,
+          status: 503,
+          body: {
+            message: 'Repair pickup payment mismatch will retry until durable',
+          },
+        };
+      }
+      return {
+        handled: true,
+        status: 200,
+        body: { message: 'Repair pickup payment requires review' },
+      };
+    }
     console.error('Repair pickup payment confirmation failed:', error);
     return {
       handled: true,

@@ -12,6 +12,7 @@ import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 import { repairPickupResumeClaims } from '@/lib/repairs/repair-pickup-resume-claim';
+import { resolveRepairsCatalogMerchant } from '@/lib/repairs/repairs-catalog-access';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createClient } from '@/lib/supabase/server';
 import { repairBookingSchema } from '@/lib/validations/repair';
@@ -122,6 +123,15 @@ export async function startRepairPickupPayment({
     merchant.id !== parsedMerchantId.data ||
     !merchant.slug
   ) {
+    return {
+      success: false,
+      code: 'not_found',
+      error: 'Store not found.',
+    };
+  }
+
+  const catalog = await resolveRepairsCatalogMerchant(merchant.slug);
+  if (!catalog?.enabled || catalog.merchantId !== merchant.id) {
     return {
       success: false,
       code: 'not_found',

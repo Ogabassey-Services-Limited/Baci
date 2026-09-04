@@ -74,4 +74,9 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904130000_awaiting_repair_pickup_payment.sql',
     sha256: '12cf44e6ddc3ba27f68d5e2ef42dc05d368a7d35c2107561308310b1e2092023',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904140000_find_resumable_repair_pickup_by_id.sql',
+    sha256: 'f2fee781e57f044c4d5559ae4a4e9246e2c954cafade04f62df5fe8cfd30b43b',
+  },
 ];

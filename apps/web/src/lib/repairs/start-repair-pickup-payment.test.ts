@@ -96,6 +96,29 @@ describe('startRepairPickupPayment', () => {
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 
+  it('fails closed when the repairs catalogue is disabled', async () => {
+    mocks.resolveRepairsCatalogMerchant.mockResolvedValueOnce({
+      enabled: false,
+      merchantId,
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: 'not_found',
+      error: 'Store not found.',
+    });
+    expect(mocks.quoteRepairPickup).not.toHaveBeenCalled();
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+  });
+
   it('does not create an orphan repair when Paystack is not configured', async () => {
     delete process.env.PAYSTACK_SECRET_KEY;
 

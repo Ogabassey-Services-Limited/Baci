@@ -8,6 +8,7 @@ import {
   repairPickupPaymentTestRepairId,
   repairPickupPaymentTestSecret,
 } from './handle-repair-pickup-payment.test-support';
+import { repairPickupPaymentClaims } from './repair-pickup-payment-claim';
 
 const mocks = vi.hoisted(() => ({ bookRepairPickup: vi.fn() }));
 
@@ -212,6 +213,102 @@ describe('handleRepairPickupPayment claim confirmation', () => {
     });
 
     expect(result).toMatchObject({ handled: true, status: 503 });
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: ledgers a second different capture instead of infinite 503', async () => {
+    const { client, rpc } = createRepairPickupPaymentSupabase();
+    rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '23505',
+          message: 'repair_pickup_payment_conflict',
+        },
+      })
+      .mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
+    const secondReference = 'RPU-SECOND-CAPTURE';
+    const secondMetadata = repairPickupPaymentClaims.create(
+      {
+        amountKobo: 825_000,
+        currency: 'NGN',
+        merchantId: repairPickupPaymentTestMerchantId,
+        reference: secondReference,
+        repairId: repairPickupPaymentTestRepairId,
+      },
+      repairPickupPaymentTestSecret
+    );
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: secondMetadata,
+      },
+      reference: secondReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 200,
+      body: { message: 'Repair pickup payment requires review' },
+    });
+    expect(rpc).toHaveBeenCalledWith('confirm_repair_pickup_payment', {
+      p_amount: 8250,
+      p_currency: 'NGN',
+      p_gateway_response: expect.objectContaining({
+        currency: 'NGN',
+      }),
+      p_merchant_id: repairPickupPaymentTestMerchantId,
+      p_reference: secondReference,
+      p_repair_id: repairPickupPaymentTestRepairId,
+    });
+    expect(rpc).toHaveBeenCalledWith('record_repair_pickup_payment_mismatch', {
+      p_amount: 8250,
+      p_currency: 'NGN',
+      p_gateway_response: expect.objectContaining({
+        currency: 'NGN',
+      }),
+      p_merchant_id: repairPickupPaymentTestMerchantId,
+      p_mismatch_reason: 'conflicting_capture',
+      p_reference: secondReference,
+      p_repair_id: repairPickupPaymentTestRepairId,
+    });
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('asks Paystack to retry when conflicting-capture ledger persistence fails', async () => {
+    const { client, rpc } = createRepairPickupPaymentSupabase();
+    rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '23505',
+          message: 'repair_pickup_payment_conflict',
+        },
+      })
+      .mockResolvedValueOnce({ data: null, error: { message: 'offline' } });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 503,
+      body: {
+        message: 'Repair pickup payment mismatch will retry until durable',
+      },
+    });
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
   });
 
