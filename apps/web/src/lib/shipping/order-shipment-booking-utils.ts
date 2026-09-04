@@ -158,7 +158,12 @@ export function quotedShipmentItemWeight(item: {
   const product = Array.isArray(related) ? related[0] : related;
   const value = Number(product?.weight_value);
   if (!Number.isFinite(value) || value <= 0) return undefined;
-  return product?.weight_unit?.toLowerCase() === 'g' ? value * 0.001 : value;
+  // Match buildOrderGiglQuoteRequest: only kg/g are supported. Unsupported
+  // units (lb/oz/…) fall through to the caller's 1 kg default so booking
+  // comparisons stay aligned with the quoted tariff.
+  const unit = String(product?.weight_unit ?? 'kg').toLowerCase();
+  if (unit !== 'kg' && unit !== 'g') return undefined;
+  return unit === 'g' ? value * 0.001 : value;
 }
 
 export function toQuoteComparableOrderItems(

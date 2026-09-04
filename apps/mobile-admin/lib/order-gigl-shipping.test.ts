@@ -194,6 +194,28 @@ describe('order GIG shipping API', () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' });
   });
 
+  it('posts consent again when the funding account is still pending', async () => {
+    const pending = {
+      accountName: 'BACI / Store',
+      accountNumber: '1234567890',
+      bankName: 'Wema Bank',
+      currency: 'NGN',
+      status: 'pending',
+    };
+    const active = { ...pending, status: 'active' as const };
+    fetchMock
+      .mockResolvedValueOnce(response({ account: pending }))
+      .mockResolvedValueOnce(response({ account: active, status: 'active' }));
+    await expect(getOrRequestMerchantWalletFundingAccount()).resolves.toEqual({
+      account: active,
+      status: 'active',
+    });
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      body: JSON.stringify({ consent: true }),
+      method: 'POST',
+    });
+  });
+
   it('loads wallet balance for bounded transfer polling', async () => {
     fetchMock.mockResolvedValue(
       response({ availableBalance: 12500, currency: 'NGN' })

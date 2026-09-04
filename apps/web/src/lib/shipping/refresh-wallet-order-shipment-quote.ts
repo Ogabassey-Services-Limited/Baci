@@ -84,7 +84,7 @@ export async function refreshWalletOrderShipmentQuote(
   assertQuoteReceiverMatchesOrder(request, order);
   assertQuoteItemsMatchOrder(
     request,
-    toQuoteComparableOrderItems(order.order_items)
+    toQuoteComparableOrderItems(order.order_items, { defaultWeight: 1 })
   );
 
   const metadata = await getShippingQuoteBookingMetadata(

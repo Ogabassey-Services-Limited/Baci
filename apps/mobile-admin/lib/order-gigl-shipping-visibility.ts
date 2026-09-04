@@ -25,8 +25,10 @@ export function getOrderGiglShippingVisibility({
       order.shipping_funding_source === 'merchant_wallet' &&
       order.selected_quote_id
   );
+  // Keep merchant-wallet GIGL bookings on the bound quote so recovery can
+  // reach the existing reservation instead of forcing a replacement quote.
   const providerBookingAvailable = order
-    ? canUseSelectedShippingProvider(order) && !isSavedMerchantWalletGiglOrder
+    ? canUseSelectedShippingProvider(order)
     : false;
 
   return {

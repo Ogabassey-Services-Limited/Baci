@@ -1,0 +1,102 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+import type { ShippingQuote } from '@/lib/shipping/types';
+import type { Database } from '@/types/supabase';
+import {
+  calculateAdminWalletFunding,
+  toAdminPublicQuote,
+} from './admin-order-gigl-quote.helpers';
+
+type BoundWalletOrder = {
+  selected_quote_id?: string | null;
+  shipping_funding_source?: string | null;
+  shipping_provider?: string | null;
+};
+
+export function shouldReuseBoundAdminWalletGiglQuote(
+  order: BoundWalletOrder,
+  isPreview: boolean
+): string | null {
+  if (isPreview) return null;
+  if (order.shipping_funding_source !== 'merchant_wallet') return null;
+  if (
+    String(order.shipping_provider ?? '')
+      .trim()
+      .toUpperCase() !== 'GIGL'
+  ) {
+    return null;
+  }
+  return typeof order.selected_quote_id === 'string'
+    ? order.selected_quote_id
+    : null;
+}
+
+export async function loadBoundAdminWalletGiglQuoteResponse(
+  supabase: SupabaseClient<Database>,
+  merchantId: string,
+  quoteId: string
+): Promise<NextResponse | null> {
+  const { data: boundQuote, error: boundQuoteError } = await supabase
+    .from('shipping_quotes')
+    .select(
+      'id, provider, service_tier, carrier_name, price, currency, estimated_days, expires_at, provider_rate_id, is_station_pickup'
+    )
+    .eq('id', quoteId)
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+  if (boundQuoteError) {
+    return NextResponse.json(
+      { error: 'Failed to load bound quote' },
+      { status: 500 }
+    );
+  }
+  if (
+    !boundQuote ||
+    String(boundQuote.provider).toUpperCase() !== 'GIGL' ||
+    Number(boundQuote.price) <= 0
+  ) {
+    return null;
+  }
+
+  const { data: wallet, error: walletError } = await supabase.rpc(
+    'get_wallet_summary',
+    { p_merchant_id: merchantId }
+  );
+  if (walletError) {
+    return NextResponse.json(
+      { error: 'Unable to load wallet' },
+      { status: 500 }
+    );
+  }
+  const walletRow = (Array.isArray(wallet) ? wallet[0] : wallet) as {
+    available_balance?: number | string | null;
+  } | null;
+  const shippingQuote: ShippingQuote = {
+    id: boundQuote.id,
+    provider: 'GIGL',
+    serviceTier: String(boundQuote.service_tier ?? ''),
+    carrierName: String(boundQuote.carrier_name ?? ''),
+    displayName: String(boundQuote.carrier_name ?? 'GIG Logistics'),
+    price: Number(boundQuote.price),
+    currency: 'NGN',
+    estimatedDays: Number(boundQuote.estimated_days ?? 0),
+    expiresAt: new Date(String(boundQuote.expires_at)),
+    pickupIncluded: true,
+    insuranceIncluded: true,
+    providerRateId:
+      typeof boundQuote.provider_rate_id === 'string'
+        ? boundQuote.provider_rate_id
+        : undefined,
+    isStationPickup: Boolean(boundQuote.is_station_pickup),
+  };
+  const { availableBalance, shortfall, canBook } = calculateAdminWalletFunding(
+    shippingQuote.price,
+    Number(walletRow?.available_balance ?? 0)
+  );
+  return NextResponse.json({
+    quote: toAdminPublicQuote(shippingQuote),
+    availableBalance,
+    shortfall,
+    canBook,
+  });
+}

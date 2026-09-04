@@ -3,6 +3,8 @@ import { parseShippingSettings } from '@/components/shipping/shipping-types';
 import { isGiglAdminShippingEligible } from '@/lib/order-gigl-eligibility';
 import { supabase } from '@/lib/supabase';
 
+const DEFAULT_SHIPPING_PROVIDERS = ['gigl', 'topship'] as const;
+
 interface MerchantEligibilityInput {
   country?: string | null;
   id?: string | null;
@@ -23,10 +25,25 @@ export function useGiglAdminShippingEligibility(
         .from('merchant_feature_settings')
         .select('merchant_id, shipping_providers, free_shipping_threshold')
         .eq('merchant_id', merchant.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         throw error;
+      }
+
+      if (!data) {
+        return {
+          merchant_id: merchant.id,
+          shipping_providers: [...DEFAULT_SHIPPING_PROVIDERS],
+          free_shipping_threshold: null,
+        };
+      }
+
+      if (data.shipping_providers == null) {
+        return parseShippingSettings({
+          ...data,
+          shipping_providers: [...DEFAULT_SHIPPING_PROVIDERS],
+        });
       }
 
       return parseShippingSettings(data);

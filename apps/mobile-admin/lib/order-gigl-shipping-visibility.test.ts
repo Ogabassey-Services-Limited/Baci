@@ -17,7 +17,7 @@ describe('getOrderGiglShippingVisibility', () => {
     ).toBe(false);
   });
 
-  it('keeps a saved merchant-wallet GIGL quote in the funding flow', () => {
+  it('keeps a saved merchant-wallet GIGL quote bookable against the bound quote', () => {
     const visibility = getOrderGiglShippingVisibility({
       order: {
         selected_quote_id: 'quote-1',
@@ -27,7 +27,7 @@ describe('getOrderGiglShippingVisibility', () => {
     });
 
     expect(visibility.isSavedMerchantWalletGiglOrder).toBe(true);
-    expect(visibility.providerBookingAvailable).toBe(false);
+    expect(visibility.providerBookingAvailable).toBe(true);
   });
 
   it('only enables direct provider booking for an unbooked selected quote', () => {

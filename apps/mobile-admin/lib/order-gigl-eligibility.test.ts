@@ -55,4 +55,26 @@ describe('isGiglAdminShippingEligible', () => {
       })
     ).toBe(false);
   });
+
+  it('inherits the default GIGL providers when settings providers are null', () => {
+    expect(
+      isGiglAdminShippingEligible({
+        country: 'NG',
+        payoutCurrency: 'NGN',
+        shippingProviders: null,
+        settingsReady: true,
+      })
+    ).toBe(true);
+  });
+
+  it('keeps an explicit empty provider list ineligible', () => {
+    expect(
+      isGiglAdminShippingEligible({
+        country: 'NG',
+        payoutCurrency: 'NGN',
+        shippingProviders: [],
+        settingsReady: true,
+      })
+    ).toBe(false);
+  });
 });

@@ -15,7 +15,7 @@ vi.mock('@/lib/supabase', () => ({
 function createShippingSettingsQuery() {
   const query = {
     eq: vi.fn(),
-    single: vi.fn().mockResolvedValue({
+    maybeSingle: vi.fn().mockResolvedValue({
       data: {
         merchant_id: 'merchant-1',
         shipping_providers: ['gigl'],

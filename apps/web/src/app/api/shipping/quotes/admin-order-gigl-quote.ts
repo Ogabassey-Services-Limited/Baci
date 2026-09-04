@@ -23,6 +23,10 @@ import {
   buildAdminOrderGiglProductLookup,
   mapAdminOrderGiglQuoteItems,
 } from './admin-order-gigl-quote-items';
+import {
+  loadBoundAdminWalletGiglQuoteResponse,
+  shouldReuseBoundAdminWalletGiglQuote,
+} from './load-bound-admin-wallet-gigl-quote';
 import { resolveAdminGiglEligibility } from './resolve-admin-gigl-eligibility';
 import { toShippingQuoteUpsert } from './shipping-quote-persistence';
 
@@ -45,7 +49,7 @@ type AdminInput = {
 };
 
 const orderSelect =
-  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, commodity_code))';
+  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipping_provider, shipping_funding_source, selected_quote_id, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, commodity_code))';
 
 export async function postAdminOrderGiglQuote(
   request: NextRequest,
@@ -146,6 +150,16 @@ export async function postAdminOrderGiglQuote(
       { error: 'Order must be processing before shipping' },
       { status: 409 }
     );
+  }
+
+  const boundQuoteId = shouldReuseBoundAdminWalletGiglQuote(order, isPreview);
+  if (boundQuoteId) {
+    const reused = await loadBoundAdminWalletGiglQuoteResponse(
+      auth.supabase,
+      access.merchantId,
+      boundQuoteId
+    );
+    if (reused) return reused;
   }
 
   const senderResult = await resolveBookingMerchantSender(

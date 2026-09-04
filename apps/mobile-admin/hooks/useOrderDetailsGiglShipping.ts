@@ -28,19 +28,22 @@ export function useOrderDetailsGiglShipping({
   showShipmentFlow,
   userId,
 }: UseOrderDetailsGiglShippingParams) {
-  const { isMerchantOwner, providerBookingAvailable } =
-    getOrderGiglShippingVisibility({
-      merchantOwnerId: merchant?.user_id,
-      order,
-      userId,
-    });
+  const {
+    isMerchantOwner,
+    isSavedMerchantWalletGiglOrder,
+    providerBookingAvailable,
+  } = getOrderGiglShippingVisibility({
+    merchantOwnerId: merchant?.user_id,
+    order,
+    userId,
+  });
   const giglShippingState = useOrderGiglShipping({
     enabled:
       isMerchantOwner &&
       giglEligible &&
       showShipmentFlow &&
       shipmentFlowStep === 'method' &&
-      !providerBookingAvailable,
+      (!providerBookingAvailable || isSavedMerchantWalletGiglOrder),
     initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
     orderId: order?.id ?? '',
     preview: pendingShipmentMode !== 'provider',

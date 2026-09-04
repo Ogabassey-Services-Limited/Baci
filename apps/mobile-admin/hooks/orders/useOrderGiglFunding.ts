@@ -1,6 +1,5 @@
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import {
-  getMerchantWalletFundingAccount,
   getOrRequestMerchantWalletFundingAccount,
   type MerchantWalletFundingAccount,
 } from '@/lib/order-gigl-shipping';
@@ -71,11 +70,13 @@ export function useOrderGiglFunding({
     setState('funding');
     setError(null);
     try {
-      const account = await getMerchantWalletFundingAccount();
+      const response = await getOrRequestMerchantWalletFundingAccount();
       if (!isCurrent()) return null;
-      setFundingAccount(account);
-      setState(account?.status === 'active' ? 'ready' : 'funding_pending');
-      return account;
+      setFundingAccount(response.account);
+      setState(
+        response.account?.status === 'active' ? 'ready' : 'funding_pending'
+      );
+      return response.account;
     } catch (fundingError: unknown) {
       if (!isCurrent()) return null;
       setError(

@@ -109,6 +109,14 @@ describe('quotedShipmentItemWeight', () => {
     ).toBe(0.5);
   });
 
+  it('ignores unsupported weight units so callers can apply the 1kg quote fallback', () => {
+    expect(
+      quotedShipmentItemWeight({
+        product: { weight_value: 2, weight_unit: 'lb' },
+      })
+    ).toBeUndefined();
+  });
+
   it('ignores missing product weights so callers can skip the comparison', () => {
     expect(quotedShipmentItemWeight({})).toBeUndefined();
   });

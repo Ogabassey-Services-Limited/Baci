@@ -73,4 +73,29 @@ describe('resolveAdminGiglEligibility', () => {
       body: { code: 'GIGL_MERCHANT_INELIGIBLE' },
     });
   });
+
+  it('applies the canonical provider default for missing settings or null providers', async () => {
+    await expect(
+      resolveAdminGiglEligibility(client({ settings: null }), 'merchant-1')
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      resolveAdminGiglEligibility(
+        client({ settings: { shipping_providers: null } }),
+        'merchant-1'
+      )
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it('keeps an explicit empty provider list disabled', async () => {
+    await expect(
+      resolveAdminGiglEligibility(
+        client({ settings: { shipping_providers: [] } }),
+        'merchant-1'
+      )
+    ).resolves.toMatchObject({
+      ok: false,
+      status: 422,
+      body: { code: 'GIGL_PROVIDER_DISABLED' },
+    });
+  });
 });

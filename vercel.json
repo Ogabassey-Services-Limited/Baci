@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/provision-wallet-funding-recovery-hmac",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {

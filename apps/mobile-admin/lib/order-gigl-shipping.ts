@@ -137,9 +137,12 @@ export async function getOrRequestMerchantWalletFundingAccount(
   signal?: AbortSignal
 ) {
   const account = await getMerchantWalletFundingAccount(signal);
-  return account
-    ? { account, status: account.status }
-    : requestMerchantWalletFundingAccount(signal);
+  if (account?.status === 'active') {
+    return { account, status: account.status as 'active' };
+  }
+  // Pending or missing accounts must go through POST so recovery can resume a
+  // stuck funding request after a lost assignment webhook.
+  return requestMerchantWalletFundingAccount(signal);
 }
 
 export async function requestMerchantWalletFundingAccount(

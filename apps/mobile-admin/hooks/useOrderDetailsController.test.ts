@@ -95,7 +95,20 @@ vi.mock('@/lib/order-shipment', () => ({
   getOrderGiglInitialAddress: vi.fn(() => ({})),
   updateShipmentFulfillmentDetails: vi.fn((previous) => previous),
   formatShippingProviderName: vi.fn(() => null),
-  canUseSelectedShippingProvider: vi.fn(() => false),
+  canUseSelectedShippingProvider: vi.fn(
+    (order: {
+      selected_quote_id?: string | null;
+      shipment_id?: string | null;
+      shipping_provider?: string | null;
+      tracking_number?: string | null;
+    }) =>
+      Boolean(
+        order.shipping_provider &&
+          order.selected_quote_id &&
+          !order.tracking_number &&
+          !order.shipment_id
+      )
+  ),
 }));
 
 vi.mock('@/hooks/createOrderDetailsContactActions', () => ({
@@ -418,7 +431,7 @@ describe('useOrderDetailsController', () => {
     expect(result.current.giglShipping).toBeUndefined();
   });
 
-  it('keeps saved merchant-wallet GIGL orders in the wallet funding flow', () => {
+  it('keeps saved merchant-wallet GIGL orders bookable while funding remains available', () => {
     merchantState.current = {
       id: 'merchant-1',
       user_id: 'owner-1',
@@ -441,7 +454,7 @@ describe('useOrderDetailsController', () => {
     const { result } = renderHook(() => useOrderDetailsController());
 
     expect(giglShippingState.calls.at(-1)).toMatchObject({ enabled: true });
-    expect(result.current.providerBookingAvailable).toBe(false);
+    expect(result.current.providerBookingAvailable).toBe(true);
     expect(result.current.giglShipping).toEqual({ quote: null, wallet: null });
   });
 });

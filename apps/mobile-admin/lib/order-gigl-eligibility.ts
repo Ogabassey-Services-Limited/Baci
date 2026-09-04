@@ -5,6 +5,8 @@ interface GiglAdminShippingEligibilityInput {
   shippingProviders?: readonly string[] | null;
 }
 
+const DEFAULT_SHIPPING_PROVIDERS = ['gigl', 'topship'] as const;
+
 export function isGiglAdminShippingEligible({
   country,
   payoutCurrency,
@@ -13,11 +15,14 @@ export function isGiglAdminShippingEligible({
 }: GiglAdminShippingEligibilityInput): boolean {
   if (!settingsReady) return false;
 
+  // Null/undefined providers inherit the storefront/admin default. Explicit
+  // empty arrays remain disabled.
+  const providers =
+    shippingProviders == null ? DEFAULT_SHIPPING_PROVIDERS : shippingProviders;
+
   return (
     (country?.trim().toUpperCase() || 'NG') === 'NG' &&
     (payoutCurrency?.trim().toUpperCase() || 'NGN') === 'NGN' &&
-    (shippingProviders ?? []).some(
-      (provider) => provider.trim().toLowerCase() === 'gigl'
-    )
+    providers.some((provider) => provider.trim().toLowerCase() === 'gigl')
   );
 }

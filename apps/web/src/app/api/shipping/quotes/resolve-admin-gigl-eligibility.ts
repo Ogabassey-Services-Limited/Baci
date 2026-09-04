@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import type { Database } from '@/types/supabase';
 
@@ -10,6 +11,9 @@ type AdminGiglEligibilityResult =
       body: { error: string; code?: string };
     };
 
+const DEFAULT_SHIPPING_PROVIDERS =
+  merchantFeatureSettingsDefaults.defaults.shipping_providers;
+
 function includesGigl(value: unknown) {
   return (
     Array.isArray(value) &&
@@ -18,6 +22,17 @@ function includesGigl(value: unknown) {
         typeof provider === 'string' && provider.trim().toLowerCase() === 'gigl'
     )
   );
+}
+
+function resolveShippingProviders(
+  settings: { shipping_providers?: unknown } | null
+): unknown {
+  // Missing settings rows and nullable shipping_providers inherit the
+  // canonical merchant default (gigl + topship). Explicit [] stays disabled.
+  if (!settings || settings.shipping_providers == null) {
+    return DEFAULT_SHIPPING_PROVIDERS;
+  }
+  return settings.shipping_providers;
 }
 
 export async function resolveAdminGiglEligibility(
@@ -58,11 +73,7 @@ export async function resolveAdminGiglEligibility(
     .select('shipping_providers')
     .eq('merchant_id', merchantId)
     .maybeSingle();
-  if (
-    settingsError ||
-    !settings ||
-    !includesGigl(settings.shipping_providers)
-  ) {
+  if (settingsError || !includesGigl(resolveShippingProviders(settings))) {
     return {
       ok: false,
       status: 422,

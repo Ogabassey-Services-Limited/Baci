@@ -3,12 +3,10 @@ import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({
-  getFundingAccount: vi.fn(),
   getOrRequestFundingAccount: vi.fn(),
 }));
 
 vi.mock('@/lib/order-gigl-shipping', () => ({
-  getMerchantWalletFundingAccount: api.getFundingAccount,
   getOrRequestMerchantWalletFundingAccount: api.getOrRequestFundingAccount,
 }));
 
