@@ -223,6 +223,7 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
         canRetryManually: true,
       });
       expect(operations).toContain('shipments.delete');
+      expect(operations).toContain('rpc.release_repair_pickup_booking_claim');
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
@@ -245,6 +246,35 @@ describe('bookRepairPickup persistence and concurrency failures', () => {
         canRetryManually: true,
       });
       expect(operations).toContain('shipments.delete');
+      expect(operations).toContain('rpc.release_repair_pickup_booking_claim');
+      expect(mocks.bookShipment).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('retains the booking claim when orphan shipment cleanup fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const operations: string[] = [];
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.update': { data: [], error: null },
+        'shipments.delete': { data: null, error: { message: 'delete boom' } },
+      }),
+      operations
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'shipment_save_failed',
+        canRetryManually: false,
+      });
+      expect(operations).toContain('shipments.delete');
+      expect(operations).not.toContain(
+        'rpc.release_repair_pickup_booking_claim'
+      );
       expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();

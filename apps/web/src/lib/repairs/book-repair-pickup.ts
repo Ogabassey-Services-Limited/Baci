@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { abandonUnlinkedRepairPickupShipment } from '@/lib/repairs/abandon-unlinked-repair-pickup-shipment';
 import { claimRepairPickupBooking } from '@/lib/repairs/claim-repair-pickup-booking';
 import { finalizeRepairPickupBooking } from '@/lib/repairs/finalize-repair-pickup-booking';
 import {
@@ -12,6 +11,7 @@ import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { reconcileLinkedRepairPickup } from '@/lib/repairs/reconcile-linked-repair-pickup';
 import { releaseRejectedRepairPickupReservation } from '@/lib/repairs/release-rejected-repair-pickup-reservation';
 import { releaseRepairPickupBookingClaim } from '@/lib/repairs/release-repair-pickup-booking-claim';
+import { releaseUnlinkedRepairPickupReservation } from '@/lib/repairs/release-unlinked-repair-pickup-reservation';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
 import type { RepairPickupRow } from '@/lib/repairs/repair-pickup-row';
@@ -211,18 +211,15 @@ export async function bookRepairPickup(
 
   if (linkError) {
     console.error('Repair pickup booked but link failed:', linkError);
-    await abandonUnlinkedRepairPickupShipment(
-      supabase,
-      merchantId,
-      shipment.id
+    return pickupFailure(
+      await releaseUnlinkedRepairPickupReservation(
+        supabase,
+        merchantId,
+        repairId,
+        shipment.id,
+        claim.lockToken
+      )
     );
-    await releaseRepairPickupBookingClaim(
-      supabase,
-      merchantId,
-      repairId,
-      claim.lockToken
-    );
-    return pickupFailure('booking_failed');
   }
 
   const linkedRepair = Array.isArray(linkedRepairData)
@@ -232,18 +229,15 @@ export async function bookRepairPickup(
     console.error(
       'Repair pickup reservation could not be linked to the claimed repair'
     );
-    await abandonUnlinkedRepairPickupShipment(
-      supabase,
-      merchantId,
-      shipment.id
+    return pickupFailure(
+      await releaseUnlinkedRepairPickupReservation(
+        supabase,
+        merchantId,
+        repairId,
+        shipment.id,
+        claim.lockToken
+      )
     );
-    await releaseRepairPickupBookingClaim(
-      supabase,
-      merchantId,
-      repairId,
-      claim.lockToken
-    );
-    return pickupFailure('booking_failed');
   }
 
   let booking: ShipmentBookingResult;
