@@ -18,10 +18,9 @@ function parseRetainedShippingAmount(
 
 /**
  * Customer wallet / savings / store-credit checkouts never create
- * merchant_settlements retention rows the way Paystack does. A completed
- * internal-credit transaction proves Baci already controls that paid portion;
- * reuse the already-projected checkout retention instead of re-selecting
- * revoked orders.shipping_platform_retained_amount.
+ * merchant_settlements retention rows the way Paystack does. Sum completed
+ * internal-credit transaction amounts as the portion Baci already controls;
+ * callers combine this with settlement retention and cap at the tariff.
  */
 export async function loadOrderGiglInternalCreditRetainedAmount(
   supabase: SupabaseClient,
@@ -35,9 +34,13 @@ export async function loadOrderGiglInternalCreditRetainedAmount(
     );
   }
 
+  if (projectedRetention.shipping_funding_source !== 'customer_checkout') {
+    return 0;
+  }
+
   const { data: transactions, error: transactionsError } = await supabase
     .from('transactions')
-    .select('gateway, status')
+    .select('gateway, status, amount')
     .eq('merchant_id', merchantId)
     .eq('order_id', orderId)
     .eq('status', 'completed')
@@ -50,24 +53,20 @@ export async function loadOrderGiglInternalCreditRetainedAmount(
   }
 
   const rows = Array.isArray(transactions) ? transactions : [];
-  const hasInternalCredit = rows.some((row) => {
-    if (!row || typeof row !== 'object') return false;
+  return rows.reduce((sum, row) => {
+    if (!row || typeof row !== 'object') return sum;
     const gateway =
       'gateway' in row && typeof row.gateway === 'string'
         ? row.gateway.trim().toLowerCase()
         : '';
-    return (INTERNAL_CREDIT_GATEWAYS as readonly string[]).includes(gateway);
-  });
-
-  if (!hasInternalCredit) {
-    return 0;
-  }
-
-  if (projectedRetention.shipping_funding_source !== 'customer_checkout') {
-    return 0;
-  }
-
-  return parseRetainedShippingAmount(
-    projectedRetention.shipping_platform_retained_amount
-  );
+    if (!(INTERNAL_CREDIT_GATEWAYS as readonly string[]).includes(gateway)) {
+      return sum;
+    }
+    const amount = parseRetainedShippingAmount(
+      'amount' in row
+        ? (row.amount as number | string | null | undefined)
+        : null
+    );
+    return sum + amount;
+  }, 0);
 }

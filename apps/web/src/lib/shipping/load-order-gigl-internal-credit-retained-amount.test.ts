@@ -1,28 +1,36 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadOrderGiglInternalCreditRetainedAmount } from './load-order-gigl-internal-credit-retained-amount';
 
-describe('loadOrderGiglInternalCreditRetainedAmount', () => {
-  it('returns projected retention when a completed wallet payment exists', async () => {
-    const from = vi.fn((table: string) => {
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
+function mockTransactions(
+  rows: Array<{ gateway: string; status: string; amount: number }>
+) {
+  return vi.fn((table: string) => {
+    if (table === 'transactions') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
             eq: vi.fn(() => ({
               eq: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                  in: vi.fn().mockResolvedValue({
-                    data: [{ gateway: 'wallet', status: 'completed' }],
-                    error: null,
-                  }),
-                })),
+                in: vi.fn().mockResolvedValue({
+                  data: rows,
+                  error: null,
+                }),
               })),
             })),
           })),
-        };
-      }
+        })),
+      };
+    }
 
-      throw new Error(`Unexpected table: ${table}`);
-    });
+    throw new Error(`Unexpected table: ${table}`);
+  });
+}
+
+describe('loadOrderGiglInternalCreditRetainedAmount', () => {
+  it('sums completed wallet payment amounts as retention evidence', async () => {
+    const from = mockTransactions([
+      { gateway: 'wallet', status: 'completed', amount: 2500 },
+    ]);
 
     await expect(
       loadOrderGiglInternalCreditRetainedAmount(
@@ -38,26 +46,9 @@ describe('loadOrderGiglInternalCreditRetainedAmount', () => {
   });
 
   it('bugfix: treats store_credit and savings payments as retention evidence', async () => {
-    const from = vi.fn((table: string) => {
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                  in: vi.fn().mockResolvedValue({
-                    data: [{ gateway: 'store_credit', status: 'completed' }],
-                    error: null,
-                  }),
-                })),
-              })),
-            })),
-          })),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
+    const from = mockTransactions([
+      { gateway: 'store_credit', status: 'completed', amount: 1800 },
+    ]);
 
     await expect(
       loadOrderGiglInternalCreditRetainedAmount(
@@ -72,27 +63,10 @@ describe('loadOrderGiglInternalCreditRetainedAmount', () => {
     ).resolves.toBe(1800);
   });
 
-  it('bugfix: reuses projected retention instead of selecting revoked order columns', async () => {
-    const from = vi.fn((table: string) => {
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                  in: vi.fn().mockResolvedValue({
-                    data: [{ gateway: 'wallet', status: 'completed' }],
-                    error: null,
-                  }),
-                })),
-              })),
-            })),
-          })),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
+  it('bugfix: caps evidence at credited amounts instead of the full stamped tariff', async () => {
+    const from = mockTransactions([
+      { gateway: 'wallet', status: 'completed', amount: 500 },
+    ]);
 
     await expect(
       loadOrderGiglInternalCreditRetainedAmount(
@@ -104,7 +78,7 @@ describe('loadOrderGiglInternalCreditRetainedAmount', () => {
           shipping_platform_retained_amount: 3200,
         }
       )
-    ).resolves.toBe(3200);
+    ).resolves.toBe(500);
 
     expect(from).toHaveBeenCalledTimes(1);
     expect(from).toHaveBeenCalledWith('transactions');
@@ -112,17 +86,7 @@ describe('loadOrderGiglInternalCreditRetainedAmount', () => {
   });
 
   it('returns 0 when no internal-credit payment exists', async () => {
-    const from = vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              in: vi.fn().mockResolvedValue({ data: [], error: null }),
-            })),
-          })),
-        })),
-      })),
-    }));
+    const from = mockTransactions([]);
 
     await expect(
       loadOrderGiglInternalCreditRetainedAmount(

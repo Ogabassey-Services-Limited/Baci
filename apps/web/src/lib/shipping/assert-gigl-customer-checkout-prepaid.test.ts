@@ -100,7 +100,7 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
 
       if (table === 'transactions') {
         const inGateways = vi.fn().mockResolvedValue({
-          data: [{ gateway: 'wallet', status: 'completed' }],
+          data: [{ gateway: 'wallet', status: 'completed', amount: 2500 }],
           error: null,
         });
         const eqStatus = vi.fn(() => ({ in: inGateways }));
@@ -132,6 +132,54 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
     ).resolves.toBeUndefined();
 
     expect(from).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('bugfix: rejects when internal-credit amount is below the stamped tariff', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'merchant_settlements') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+              })),
+            })),
+          })),
+        };
+      }
+
+      if (table === 'transactions') {
+        const inGateways = vi.fn().mockResolvedValue({
+          data: [{ gateway: 'wallet', status: 'completed', amount: 500 }],
+          error: null,
+        });
+        const eqStatus = vi.fn(() => ({ in: inGateways }));
+        const eqOrderId = vi.fn(() => ({ eq: eqStatus }));
+        const eqMerchant = vi.fn(() => ({ eq: eqOrderId }));
+        return {
+          select: vi.fn(() => ({ eq: eqMerchant })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(
+      assertGiglCustomerCheckoutPrepaid(
+        {
+          shipping_provider: 'GIGL',
+          shipping_funding_source: 'customer_checkout',
+          payment_status: 'paid',
+          payment_method: 'manual',
+          shipping_platform_retained_amount: 2500,
+        },
+        {
+          supabase: { from } as never,
+          merchantId: 'merchant-1',
+          orderId: 'order-1',
+        }
+      )
+    ).rejects.toMatchObject({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' });
   });
 
   it('bugfix: rejects paid gateway orders when stamped retention is not settled', async () => {

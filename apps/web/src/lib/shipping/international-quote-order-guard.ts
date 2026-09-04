@@ -179,32 +179,51 @@ export function assertQuoteReceiverMatchesOrder(
   order: Pick<InternationalQuoteOrder, 'shipping_address'>
 ): void {
   const orderAddress = order.shipping_address;
+  if (!orderAddress) {
+    throwMismatch(
+      'The saved shipping quote no longer matches this order destination. Please get a new quote before shipping.',
+      'SHIPPING_QUOTE_RECEIVER_MISMATCH'
+    );
+  }
   const addressMatches =
     quoteRequest.shipmentType === 'domestic'
-      ? Boolean(
-          orderAddress &&
-            matchesDomesticReceiverAddress(orderAddress, quoteRequest.receiver)
-        )
-      : Boolean(
-          orderAddress &&
-            normalizeText(orderAddress.address) ===
-              normalizeText(quoteRequest.receiver.address)
-        );
-  const countryMatches = Boolean(
-    orderAddress &&
-      matchesReceiverCountryFields(
-        orderAddress,
-        quoteRequest.receiver,
-        quoteRequest.shipmentType
-      )
+      ? matchesDomesticReceiverAddress(orderAddress, quoteRequest.receiver)
+      : normalizeText(orderAddress.address) ===
+        normalizeText(quoteRequest.receiver.address);
+  const countryMatches = matchesReceiverCountryFields(
+    orderAddress,
+    quoteRequest.receiver,
+    quoteRequest.shipmentType
   );
+  const orderLatitude = readCoordinate(orderAddress.latitude, -90, 90);
+  const orderLongitude = readCoordinate(orderAddress.longitude, -180, 180);
+  const quoteLatitude = readCoordinate(quoteRequest.receiver.latitude, -90, 90);
+  const quoteLongitude = readCoordinate(
+    quoteRequest.receiver.longitude,
+    -180,
+    180
+  );
+  const hasMatchingFiniteCoordinates =
+    orderLatitude.status === 'valid' &&
+    orderLongitude.status === 'valid' &&
+    quoteLatitude.status === 'valid' &&
+    quoteLongitude.status === 'valid' &&
+    Math.abs(orderLatitude.value - quoteLatitude.value) <=
+      COORDINATE_TOLERANCE &&
+    Math.abs(orderLongitude.value - quoteLongitude.value) <=
+      COORDINATE_TOLERANCE;
+  const orderLocalityBlank =
+    !normalizeText(orderAddress.city) && !normalizeText(orderAddress.state);
+  const localityMatches =
+    hasMatchingFiniteCoordinates && orderLocalityBlank
+      ? true
+      : normalizeText(orderAddress.city) ===
+          normalizeText(quoteRequest.receiver.city) &&
+        normalizeText(orderAddress.state) ===
+          normalizeText(quoteRequest.receiver.state);
   if (
-    !orderAddress ||
     !addressMatches ||
-    normalizeText(orderAddress.city) !==
-      normalizeText(quoteRequest.receiver.city) ||
-    normalizeText(orderAddress.state) !==
-      normalizeText(quoteRequest.receiver.state) ||
+    !localityMatches ||
     !countryMatches ||
     !matchesOptionalText(
       orderAddress.postalCode ?? orderAddress.postal_code,

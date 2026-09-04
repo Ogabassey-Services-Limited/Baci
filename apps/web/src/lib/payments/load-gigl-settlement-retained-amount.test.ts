@@ -7,7 +7,8 @@ function createSupabase(result: {
   error: { message: string } | null;
 }) {
   const maybeSingle = vi.fn(async () => result);
-  const eqSourceId = vi.fn(() => ({ maybeSingle }));
+  const neqStatus = vi.fn(() => ({ maybeSingle }));
+  const eqSourceId = vi.fn(() => ({ neq: neqStatus }));
   const eqSourceType = vi.fn(() => ({ eq: eqSourceId }));
   const eqGatewayReference = vi.fn(() => ({ eq: eqSourceType }));
   const eqGateway = vi.fn(() => ({ eq: eqGatewayReference }));
@@ -20,6 +21,7 @@ function createSupabase(result: {
     eqSourceId,
     eqSourceType,
     from,
+    neqStatus,
     supabase: { from } as unknown as ServiceRoleClient,
   };
 }
@@ -39,6 +41,7 @@ describe('loadGiglSettlementRetainedAmount', () => {
       eqSourceId,
       eqSourceType,
       from,
+      neqStatus,
       supabase,
     } = createSupabase({
       data: { metadata: { retained_shipping_amount: 8_500 } },
@@ -56,6 +59,19 @@ describe('loadGiglSettlementRetainedAmount', () => {
     );
     expect(eqSourceType).toHaveBeenCalledWith('source_type', lookup.sourceType);
     expect(eqSourceId).toHaveBeenCalledWith('source_id', lookup.sourceId);
+    expect(neqStatus).toHaveBeenCalledWith('status', 'cancelled');
+  });
+
+  it('bugfix: excludes cancelled settlements from the retained-amount lookup', async () => {
+    const { neqStatus, supabase } = createSupabase({
+      data: { metadata: { retained_shipping_amount: 4_200 } },
+      error: null,
+    });
+
+    await expect(
+      loadGiglSettlementRetainedAmount(supabase, lookup)
+    ).resolves.toBe(4_200);
+    expect(neqStatus).toHaveBeenCalledWith('status', 'cancelled');
   });
 
   it('fails closed when the scoped settlement row is missing', async () => {

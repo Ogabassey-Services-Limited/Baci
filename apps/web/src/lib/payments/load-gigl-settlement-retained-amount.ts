@@ -30,6 +30,7 @@ export async function loadGiglSettlementRetainedAmount(
     .eq('gateway_reference', lookup.gatewayReference)
     .eq('source_type', lookup.sourceType)
     .eq('source_id', lookup.sourceId)
+    .neq('status', 'cancelled')
     .maybeSingle();
 
   if (error) {

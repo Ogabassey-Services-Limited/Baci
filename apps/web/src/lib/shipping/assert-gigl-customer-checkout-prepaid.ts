@@ -133,7 +133,8 @@ export async function assertGiglCustomerCheckoutPrepaid(
         context.orderId
       );
       // Wallet/savings/store-credit checkouts often have no settlement row;
-      // include completed internal-credit payment evidence for the stamped tariff.
+      // sum completed internal-credit amounts and combine with settlements,
+      // never counting more than the stamped tariff as retained.
       const fromInternalCredit =
         fromSettlements >= requiredRetained
           ? 0
@@ -147,7 +148,10 @@ export async function assertGiglCustomerCheckoutPrepaid(
                   order.shipping_platform_retained_amount,
               }
             );
-      settledRetained = Math.max(fromSettlements, fromInternalCredit);
+      settledRetained = Math.min(
+        requiredRetained,
+        fromSettlements + fromInternalCredit
+      );
     } catch {
       throwPrepaidRequired();
     }

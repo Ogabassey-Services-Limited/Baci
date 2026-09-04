@@ -2,12 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import {
   assertQuoteItemsMatchOrder,
+  assertQuoteReceiverMatchesOrder,
   type InternationalQuoteOrder,
 } from '@/lib/shipping/international-quote-order-guard';
-import {
-  matchesQuoteDestination,
-  type OrderShippingAddressForQuote,
-} from '@/lib/shipping/order-quote-destination-address';
 import {
   parseStoredQuoteRequest,
   toQuoteComparableOrderItems,
@@ -34,6 +31,9 @@ export type BoundWalletOrderContext = {
 const ACTIVE_BOUND_QUOTE_CHARGE_STATUSES = new Set([
   'reserved',
   'provider_submitting',
+  // Booked charges still need the bound quote so recoverBookedWalletShipment
+  // can finish after a failed final order update without a second debit.
+  'booked',
 ]);
 
 export function shouldReuseBoundAdminWalletGiglQuote(
@@ -54,41 +54,18 @@ export function shouldReuseBoundAdminWalletGiglQuote(
     : null;
 }
 
-function toQuoteMatchAddress(
-  shippingAddress: BoundWalletOrderContext['shipping_address']
-): OrderShippingAddressForQuote | null {
-  if (
-    !shippingAddress?.address ||
-    !shippingAddress.city ||
-    !shippingAddress.state
-  ) {
-    return null;
-  }
-  return {
-    address: shippingAddress.address,
-    city: shippingAddress.city,
-    state: shippingAddress.state,
-    country: shippingAddress.country ?? undefined,
-    countryCode: shippingAddress.countryCode ?? undefined,
-    postalCode:
-      shippingAddress.postalCode ?? shippingAddress.postal_code ?? undefined,
-  };
-}
-
 function boundQuoteMatchesOrderContext(
   quoteRequestRaw: unknown,
   order: BoundWalletOrderContext
 ): boolean {
   const quoteRequest = parseStoredQuoteRequest(quoteRequestRaw);
-  if (!quoteRequest) return false;
-  const shippingAddress = toQuoteMatchAddress(order.shipping_address);
-  if (
-    !shippingAddress ||
-    !matchesQuoteDestination(shippingAddress, quoteRequest)
-  ) {
-    return false;
-  }
+  if (!quoteRequest || !order.shipping_address?.address) return false;
   try {
+    // Prefer the receiver assert so coordinate-only domestic addresses
+    // (address + lat/lng, empty city/state) still reuse a reserved quote.
+    assertQuoteReceiverMatchesOrder(quoteRequest, {
+      shipping_address: order.shipping_address,
+    });
     assertQuoteItemsMatchOrder(
       quoteRequest,
       toQuoteComparableOrderItems(order.order_items ?? [], { defaultWeight: 1 })
