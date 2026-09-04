@@ -422,4 +422,87 @@ describe('NewCustomerAddressInput', () => {
     );
     warnSpy.mockRestore();
   });
+
+  describe('bugfix: Save raced ahead of place details', () => {
+    it('reports pending while Google place details are in flight', async () => {
+      let resolveDetails: ((value: unknown) => void) | undefined;
+      const onAddressDetailsPendingChange = vi.fn();
+      const setNewCustomer = vi.fn();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.includes('/details/')) {
+            return new Promise((resolve) => {
+              resolveDetails = resolve;
+            });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              predictions: [
+                {
+                  description: '12 Allen Avenue, Ikeja',
+                  place_id: 'place-1',
+                },
+              ],
+            }),
+          });
+        })
+      );
+
+      const view = render(
+        <NewCustomerAddressInput
+          address=""
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          onAddressDetailsPendingChange={onAddressDetailsPendingChange}
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      fireEvent.focus(screen.getByPlaceholderText('Search Address'));
+      fireEvent.change(screen.getByPlaceholderText('Search Address'), {
+        target: { value: '12 Allen' },
+      });
+      view.rerender(
+        <NewCustomerAddressInput
+          address="12 Allen"
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          onAddressDetailsPendingChange={onAddressDetailsPendingChange}
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      await waitFor(() =>
+        expect(screen.getByText('12 Allen Avenue, Ikeja')).toBeInTheDocument()
+      );
+      fireEvent.click(screen.getByText('12 Allen Avenue, Ikeja'));
+
+      expect(onAddressDetailsPendingChange).toHaveBeenCalledWith(true);
+
+      await act(async () => {
+        resolveDetails?.({
+          ok: true,
+          json: async () => ({
+            status: 'OK',
+            result: {
+              address_components: [
+                { long_name: 'Ikeja', types: ['locality'] },
+                { long_name: 'Lagos', types: ['administrative_area_level_1'] },
+                { long_name: 'Nigeria', types: ['country'] },
+              ],
+              geometry: { location: { lat: 6.6, lng: 3.3 } },
+            },
+          }),
+        });
+      });
+
+      await waitFor(() =>
+        expect(onAddressDetailsPendingChange).toHaveBeenCalledWith(false)
+      );
+    });
+  });
 });

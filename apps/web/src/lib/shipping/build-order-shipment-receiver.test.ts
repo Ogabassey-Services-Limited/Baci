@@ -121,4 +121,35 @@ describe('buildOrderShipmentReceiver', () => {
       ).toThrow(OrderShipmentBookingError);
     }
   });
+
+  describe('bugfix: booking used customer phone over recipient phone', () => {
+    it('prefers the shipping-address phone and falls back to customer phone', () => {
+      expect(
+        buildOrderShipmentReceiver({
+          customer_name: 'Jane Customer',
+          customer_email: null,
+          customer_phone: '08010000000',
+          shipping_address: {
+            address: '1 Allen Avenue',
+            city: 'Lagos',
+            state: 'Lagos',
+            phone: '08020000000',
+          },
+        }).phone
+      ).toBe('08020000000');
+
+      expect(
+        buildOrderShipmentReceiver({
+          customer_name: 'Jane Customer',
+          customer_email: null,
+          customer_phone: '08010000000',
+          shipping_address: {
+            address: '1 Allen Avenue',
+            city: 'Lagos',
+            state: 'Lagos',
+          },
+        }).phone
+      ).toBe('08010000000');
+    });
+  });
 });

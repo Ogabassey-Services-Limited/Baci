@@ -44,5 +44,9 @@ export function createRefreshOrderQuote(overrides?: {
       items: [{ name: 'Widget', quantity: 1, weight: 1, value: 5000 }],
     },
     provider_metadata: {},
+    provider_cost: 2000,
+    platform_margin: 500,
+    platform_margin_bps: 2500,
+    pricing_version: 'gigl_platform_margin_v1',
   };
 }

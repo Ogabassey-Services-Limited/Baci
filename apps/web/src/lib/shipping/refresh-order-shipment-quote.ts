@@ -51,10 +51,18 @@ export async function refreshOrderShipmentQuote(
       (!quoteRequest.sender ||
         domesticSendersDiffer(quoteRequest.sender, senderOverride))
   );
+  // Pre-deployment GIGL checkout quotes can still be unexpired after economics
+  // columns land with NULL pricing_version. Force a refresh (or wallet
+  // reconfirm) before the carrier booking so shipment inserts do not fail with
+  // gigl_shipment_quote_economics_missing after a real provider submission.
+  const missingGiglEconomics =
+    provider === 'GIGL' &&
+    (quote.pricing_version == null || quote.pricing_version.trim() === '');
   const needsRefresh =
     new Date(quote.expires_at) < new Date() ||
     (provider === 'TOPSHIP' && !quote.provider_metadata) ||
-    domesticSenderNeedsRefresh;
+    domesticSenderNeedsRefresh ||
+    missingGiglEconomics;
 
   if (!needsRefresh) {
     return quote;

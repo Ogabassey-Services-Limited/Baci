@@ -42,7 +42,7 @@ export function buildOrderShipmentReceiver(
   const city = shippingAddress.city?.trim();
   const state = shippingAddress.state?.trim();
   const phone =
-    order.customer_phone?.trim() || shippingAddress.phone?.trim() || '';
+    shippingAddress.phone?.trim() || order.customer_phone?.trim() || '';
   const latitude = boundedCoordinate(shippingAddress.latitude, -90, 90);
   const longitude = boundedCoordinate(shippingAddress.longitude, -180, 180);
   const hasFiniteCoordinates =

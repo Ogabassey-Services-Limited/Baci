@@ -22,6 +22,7 @@ interface NewCustomerAddressInputProps {
   colors: ThemeColors;
   googleMapsApiKey: string | undefined;
   onAddressBlur?: () => void;
+  onAddressDetailsPendingChange?: (pending: boolean) => void;
   onAddressFocus?: () => void;
   selectedCountryCode: CountryCode;
   setNewCustomer: Dispatch<SetStateAction<NewCustomerDraft>>;
@@ -32,6 +33,7 @@ export function NewCustomerAddressInput({
   colors,
   googleMapsApiKey,
   onAddressBlur,
+  onAddressDetailsPendingChange,
   onAddressFocus,
   selectedCountryCode,
   setNewCustomer,
@@ -127,6 +129,7 @@ export function NewCustomerAddressInput({
 
   const handleAddressChange = (text: string) => {
     selectionSequenceRef.current += 1;
+    onAddressDetailsPendingChange?.(false);
     setNewCustomer((previous) => ({
       ...previous,
       address: text,
@@ -181,19 +184,27 @@ export function NewCustomerAddressInput({
       longitude: undefined,
     }));
     if (googleMapsApiKey && suggestion.placeId) {
+      onAddressDetailsPendingChange?.(true);
       fetchGoogleAddressDetails({
         googleMapsApiKey,
         placeId: suggestion.placeId,
       })
         .then((details) => {
-          if (!details) return;
-          setNewCustomer((previous) =>
-            selectionSequenceRef.current === selectionSequence
-              ? { ...previous, ...details }
-              : previous
-          );
+          if (selectionSequenceRef.current !== selectionSequence) {
+            return;
+          }
+          if (details) {
+            setNewCustomer((previous) => ({ ...previous, ...details }));
+          }
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          if (selectionSequenceRef.current === selectionSequence) {
+            onAddressDetailsPendingChange?.(false);
+          }
+        });
+    } else {
+      onAddressDetailsPendingChange?.(false);
     }
     onAddressBlur?.();
   };

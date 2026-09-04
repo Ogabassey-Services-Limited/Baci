@@ -98,7 +98,10 @@ export function NewOrderCustomerCreateView({
   // up and its (position:absolute) predictions dropdown clears the keyboard.
   const addressDropdownReserve = Math.max(220, Math.round(windowHeight * 0.35));
   const [isAddressFocused, setIsAddressFocused] = useState(false);
+  const [isAddressDetailsPending, setIsAddressDetailsPending] = useState(false);
   const isCompany = newCustomer.customerType === 'company';
+  const isSaveDisabled =
+    createCustomerMutation.isPending || isAddressDetailsPending;
 
   return (
     <BottomSheetScrollView
@@ -212,6 +215,7 @@ export function NewOrderCustomerCreateView({
         colors={colors}
         googleMapsApiKey={googleMapsApiKey}
         onAddressBlur={() => setIsAddressFocused(false)}
+        onAddressDetailsPendingChange={setIsAddressDetailsPending}
         onAddressFocus={() => {
           setIsAddressFocused(true);
           // Wait for the keyboard to settle, then bring the field + reserved
@@ -228,10 +232,10 @@ export function NewOrderCustomerCreateView({
         accessibilityLabel="Save customer"
         accessibilityRole="button"
         accessibilityState={{
-          disabled: createCustomerMutation.isPending,
-          busy: createCustomerMutation.isPending,
+          disabled: isSaveDisabled,
+          busy: isSaveDisabled,
         }}
-        disabled={createCustomerMutation.isPending}
+        disabled={isSaveDisabled}
         onPress={handleCreateCustomer}
         style={[
           styles.payBtn,
@@ -242,7 +246,7 @@ export function NewOrderCustomerCreateView({
           },
         ]}
       >
-        {createCustomerMutation.isPending ? (
+        {isSaveDisabled ? (
           <ActivityIndicator color={colors.textOnPrimary} />
         ) : (
           <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>

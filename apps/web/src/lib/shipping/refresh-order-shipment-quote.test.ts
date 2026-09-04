@@ -251,6 +251,50 @@ describe('refreshOrderShipmentQuote', () => {
     );
   });
 
+  describe('bugfix: live legacy GIGL quotes missing economics must refresh', () => {
+    it('refreshes an unexpired GIGL quote when pricing_version is null', async () => {
+      const quote = {
+        ...createRefreshOrderQuote({ sender: correctedSender }),
+        pricing_version: null,
+        provider_cost: null,
+        platform_margin: null,
+        platform_margin_bps: null,
+      };
+
+      const result = await refreshOrderShipmentQuote(
+        createSupabase() as never,
+        quote,
+        'GIGL',
+        correctedSender,
+        { orderId: 'order-1' }
+      );
+
+      expect(shippingService.getProviderQuotes).toHaveBeenCalled();
+      expect(result.id).toBe('quote-refreshed');
+    });
+
+    it('requires wallet reconfirm when refresh is disabled for missing economics', async () => {
+      const quote = {
+        ...createRefreshOrderQuote({ sender: correctedSender }),
+        pricing_version: null,
+      };
+
+      await expect(
+        refreshOrderShipmentQuote(
+          createSupabase() as never,
+          quote,
+          'GIGL',
+          correctedSender,
+          { allowRefresh: false, orderId: 'order-1' }
+        )
+      ).rejects.toMatchObject({
+        code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+        status: 409,
+      });
+      expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
+    });
+  });
+
   describe('bugfix: upsert failure must not continue booking', () => {
     it('throws QUOTE_REFRESH_PERSIST_FAILED when the refreshed quote cannot be saved', async () => {
       const quote = createRefreshOrderQuote({
