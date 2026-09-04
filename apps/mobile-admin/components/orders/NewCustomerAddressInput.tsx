@@ -7,6 +7,7 @@ import { SheetTextInput } from '@/components/ui/SheetTextInput';
 import type { ThemeColors } from '@/constants/theme';
 import { fetchGoogleAddressDetails } from './google-address-details';
 import { NewCustomerAddressSuggestions } from './NewCustomerAddressSuggestions';
+import { NewCustomerManualAddressFallback } from './NewCustomerManualAddressFallback';
 import { customerCreateStyles as customerStyles } from './NewOrderCustomerCreateView.styles';
 import {
   type AddressSuggestion,
@@ -19,6 +20,7 @@ import type { NewCustomerDraft } from './new-order.types';
 
 interface NewCustomerAddressInputProps {
   address: string;
+  city?: string;
   colors: ThemeColors;
   googleMapsApiKey: string | undefined;
   onAddressBlur?: () => void;
@@ -26,10 +28,12 @@ interface NewCustomerAddressInputProps {
   onAddressFocus?: () => void;
   selectedCountryCode: CountryCode;
   setNewCustomer: Dispatch<SetStateAction<NewCustomerDraft>>;
+  state?: string;
 }
 
 export function NewCustomerAddressInput({
   address,
+  city = '',
   colors,
   googleMapsApiKey,
   onAddressBlur,
@@ -37,6 +41,7 @@ export function NewCustomerAddressInput({
   onAddressFocus,
   selectedCountryCode,
   setNewCustomer,
+  state = '',
 }: NewCustomerAddressInputProps) {
   const hasGoogleMapsApiKey = Boolean(googleMapsApiKey);
   const [isFocused, setIsFocused] = useState(false);
@@ -130,6 +135,16 @@ export function NewCustomerAddressInput({
   const handleAddressChange = (text: string) => {
     selectionSequenceRef.current += 1;
     onAddressDetailsPendingChange?.(false);
+    if (!hasGoogleMapsApiKey) {
+      // Manual city/state entry — only clear coords so locality is not wiped.
+      setNewCustomer((previous) => ({
+        ...previous,
+        address: text,
+        latitude: undefined,
+        longitude: undefined,
+      }));
+      return;
+    }
     setNewCustomer((previous) => ({
       ...previous,
       address: text,
@@ -264,22 +279,14 @@ export function NewCustomerAddressInput({
           ) : null}
         </View>
       ) : (
-        <View
-          style={[
-            customerStyles.field,
-            { backgroundColor: colors.inputBg, borderColor: colors.border },
-          ]}
-        >
-          <Ionicons color={colors.error} name="map-outline" size={18} />
-          <SheetTextInput
-            accessibilityLabel="Customer address"
-            onChangeText={handleAddressChange}
-            placeholder="Enter address"
-            placeholderTextColor={colors.textMuted}
-            style={[customerStyles.fieldInput, { color: colors.text }]}
-            value={address}
-          />
-        </View>
+        <NewCustomerManualAddressFallback
+          address={address}
+          city={city}
+          colors={colors}
+          onAddressChange={handleAddressChange}
+          setNewCustomer={setNewCustomer}
+          state={state}
+        />
       )}
     </View>
   );

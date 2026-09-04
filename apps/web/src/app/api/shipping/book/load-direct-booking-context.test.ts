@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
-import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
+import {
+  giglQuoteEconomicsFields,
+  prepaidGiglCustomerCheckoutOrderFields,
+} from './route.test-fixtures';
 
 const {
   mockGetShippingQuoteBookingMetadata,
@@ -70,6 +73,7 @@ function buildSupabaseMock(orderOverrides: Record<string, unknown> = {}) {
     price: 4500,
     currency: 'NGN',
     estimated_days: 2,
+    ...giglQuoteEconomicsFields,
   };
 
   return {

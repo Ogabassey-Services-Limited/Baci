@@ -212,6 +212,7 @@ export function NewOrderCustomerCreateView({
 
       <NewCustomerAddressInput
         address={newCustomer.address}
+        city={newCustomer.city}
         colors={colors}
         googleMapsApiKey={googleMapsApiKey}
         onAddressBlur={() => setIsAddressFocused(false)}
@@ -226,6 +227,7 @@ export function NewOrderCustomerCreateView({
         }}
         selectedCountryCode={selectedCountryCode}
         setNewCustomer={setNewCustomer}
+        state={newCustomer.state}
       />
 
       <Pressable

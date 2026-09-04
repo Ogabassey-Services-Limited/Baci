@@ -144,7 +144,6 @@ export function ShipmentFlowSheet({
     if (step === 'rider') return onConfirmSelfFulfillment();
     if (
       selectedMode === 'provider' &&
-      !canUseProvider &&
       giglShipping &&
       !(await giglShipping.ensureFreshQuoteForConfirmation())
     ) {
@@ -261,9 +260,13 @@ export function ShipmentFlowSheet({
               isPrimaryDisabled={
                 step === 'method' &&
                 selectedMode === 'provider' &&
-                !canUseProvider &&
-                (!giglShipping?.wallet?.canBook ||
-                  giglShipping.state === 'loading')
+                (giglShipping
+                  ? !giglShipping.wallet?.canBook ||
+                    giglShipping.state === 'loading' ||
+                    giglShipping.state === 'funding' ||
+                    giglShipping.state === 'funding_pending' ||
+                    giglShipping.state === 'polling'
+                  : !canUseProvider)
               }
               onBack={handleBack}
               onPrimaryAction={() => void handlePrimaryAction()}

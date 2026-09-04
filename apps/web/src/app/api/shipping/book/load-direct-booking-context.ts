@@ -112,7 +112,7 @@ export async function loadDirectBookingContext(
   const { data: quote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days'
+      'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days, provider_cost, platform_margin, platform_margin_bps, pricing_version'
     )
     .eq('id', data.quoteId)
     .eq('merchant_id', merchantId)

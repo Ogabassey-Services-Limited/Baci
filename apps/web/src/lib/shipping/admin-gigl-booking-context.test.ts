@@ -43,7 +43,7 @@ describe('Admin GIGL booking context', () => {
     ).toBe(1);
   });
 
-  it('merges attested coordinates without changing order identity', () => {
+  it('merges attested coordinates and prefers quoted delivery contact', () => {
     const result = resolveAdminGiglBookingContext(
       'GIGL',
       {
@@ -52,10 +52,44 @@ describe('Admin GIGL booking context', () => {
         customer_phone: '08000000000',
         shipping_address: adminDomesticQuote.receiver,
       },
-      adminDomesticQuote
+      {
+        ...adminDomesticQuote,
+        receiver: {
+          ...adminDomesticQuote.receiver,
+          name: 'Quoted Receiver',
+          phone: '08011112222',
+        },
+      }
+    ).receiver;
+    expect(result).toMatchObject({
+      name: 'Quoted Receiver',
+      phone: '08011112222',
+      latitude: 6.6018,
+      longitude: 3.3515,
+    });
+  });
+
+  it('falls back to order receiver contact when quote contact is blank', () => {
+    const result = resolveAdminGiglBookingContext(
+      'GIGL',
+      {
+        customer_name: 'Order Customer',
+        customer_email: null,
+        customer_phone: '08000000000',
+        shipping_address: adminDomesticQuote.receiver,
+      },
+      {
+        ...adminDomesticQuote,
+        receiver: {
+          ...adminDomesticQuote.receiver,
+          name: '   ',
+          phone: '',
+        },
+      }
     ).receiver;
     expect(result).toMatchObject({
       name: 'Order Customer',
+      phone: '08000000000',
       latitude: 6.6018,
       longitude: 3.3515,
     });

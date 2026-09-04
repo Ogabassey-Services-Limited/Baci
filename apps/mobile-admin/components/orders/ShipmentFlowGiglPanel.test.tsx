@@ -148,4 +148,25 @@ describe('ShipmentFlowGiglPanel', () => {
       screen.queryByRole('button', { name: "I've transferred" })
     ).toBeNull();
   });
+
+  it('hides active DVA details when Self Fulfill is selected', () => {
+    render(
+      <ShipmentFlowGiglPanel
+        {...base}
+        selected={false}
+        fundingAccount={{
+          accountName: 'BACI / Store',
+          accountNumber: '1234567890',
+          bankName: 'Wema Bank',
+          currency: 'NGN',
+          status: 'active',
+        }}
+      />
+    );
+    expect(screen.queryByText('Wema Bank')).toBeNull();
+    expect(screen.queryByText('1234567890')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: "I've transferred" })
+    ).toBeNull();
+  });
 });

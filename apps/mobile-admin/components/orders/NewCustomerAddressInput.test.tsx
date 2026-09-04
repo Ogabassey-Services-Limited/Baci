@@ -189,10 +189,12 @@ describe('NewCustomerAddressInput', () => {
     render(
       <NewCustomerAddressInput
         address="12 Allen"
+        city="Lagos"
         colors={LIGHT_COLORS}
         googleMapsApiKey={undefined}
         selectedCountryCode="NG"
         setNewCustomer={setNewCustomer}
+        state="Lagos State"
       />
     );
 
@@ -200,7 +202,80 @@ describe('NewCustomerAddressInput', () => {
     fireEvent.change(input, { target: { value: '14 Bode Thomas' } });
 
     expect(screen.queryByLabelText('Search Address')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('City')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('State')).toBeInTheDocument();
     expect(setNewCustomer).toHaveBeenCalledTimes(1);
+
+    const updater = setNewCustomer.mock.calls[0][0] as (
+      previous: Record<string, unknown>
+    ) => Record<string, unknown>;
+    expect(
+      updater({
+        address: '12 Allen',
+        city: 'Lagos',
+        state: 'Lagos State',
+        latitude: 6.5,
+        longitude: 3.3,
+      })
+    ).toEqual({
+      address: '14 Bode Thomas',
+      city: 'Lagos',
+      state: 'Lagos State',
+      latitude: undefined,
+      longitude: undefined,
+    });
+  });
+
+  it('clears locality when typing with a Google Maps key', () => {
+    const setNewCustomer = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ predictions: [] }),
+      })
+    );
+
+    render(
+      <NewCustomerAddressInput
+        address="12 Allen"
+        city="Lagos"
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="maps-test-key"
+        selectedCountryCode="NG"
+        setNewCustomer={setNewCustomer}
+        state="Lagos State"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search Address'), {
+      target: { value: '14 Bode Thomas' },
+    });
+
+    const updater = setNewCustomer.mock.calls[0][0] as (
+      previous: Record<string, unknown>
+    ) => Record<string, unknown>;
+    expect(
+      updater({
+        address: '12 Allen',
+        city: 'Lagos',
+        state: 'Lagos State',
+        country: 'Nigeria',
+        countryCode: 'NG',
+        postalCode: '100001',
+        latitude: 6.5,
+        longitude: 3.3,
+      })
+    ).toEqual({
+      address: '14 Bode Thomas',
+      city: '',
+      state: '',
+      country: '',
+      countryCode: '',
+      postalCode: '',
+      latitude: undefined,
+      longitude: undefined,
+    });
   });
 
   it('keeps suggestions hidden when a pending lookup resolves after blur', async () => {

@@ -203,6 +203,20 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
     expect(screen.queryByText('Use GIG Logistics')).not.toBeInTheDocument();
   });
 
+  it('disables Book when canUseProvider is true but the wallet is underfunded', () => {
+    render(
+      <ShipmentFlowSheet
+        {...base}
+        canUseProvider
+        giglShipping={gigl(false)}
+        providerLabel="GIG Logistics"
+      />
+    );
+    expect(
+      screen.getByRole('button', { name: 'Book with GIG Logistics' })
+    ).toBeDisabled();
+  });
+
   it('blocks the stale-quote tap and requires a new tap after refresh', async () => {
     const shipping = gigl(true) as unknown as {
       ensureFreshQuoteForConfirmation: ReturnType<typeof vi.fn>;
@@ -225,6 +239,28 @@ describe('ShipmentFlowSheet manual-order GIG flow', () => {
     await vi.waitFor(() =>
       expect(base.onContinueFromMethod).toHaveBeenCalledOnce()
     );
+  });
+
+  it('runs quote freshness when canUseProvider is true', async () => {
+    const shipping = gigl(true) as unknown as {
+      ensureFreshQuoteForConfirmation: ReturnType<typeof vi.fn>;
+    };
+    shipping.ensureFreshQuoteForConfirmation.mockResolvedValue(true);
+    render(
+      <ShipmentFlowSheet
+        {...base}
+        canUseProvider
+        giglShipping={shipping as never}
+        providerLabel="GIG Logistics"
+      />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Book with GIG Logistics' })
+    );
+    await vi.waitFor(() =>
+      expect(shipping.ensureFreshQuoteForConfirmation).toHaveBeenCalledOnce()
+    );
+    expect(base.onContinueFromMethod).toHaveBeenCalledOnce();
   });
 
   it('leaves Self Fulfill available after a provider error', () => {

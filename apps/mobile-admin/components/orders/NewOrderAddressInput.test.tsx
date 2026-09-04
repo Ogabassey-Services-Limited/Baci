@@ -299,6 +299,97 @@ describe('NewOrderAddressInput', () => {
     });
   });
 
+  it('preserves city and state when onChangeText fires after place selection', () => {
+    const setDeliveryInfo = vi.fn();
+
+    render(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: 'Old address',
+            city: 'Ikeja',
+            name: '',
+            phone: '',
+            state: 'Lagos',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    const onPress = googlePlacesState.lastProps?.onPress as
+      | ((
+          data: { description: string },
+          details?: {
+            address_components?: Array<{
+              long_name: string;
+              short_name?: string;
+              types: string[];
+            }>;
+            geometry?: { location?: { lat: number; lng: number } };
+          } | null
+        ) => void)
+      | undefined;
+    const textInputProps = googlePlacesState.lastProps?.textInputProps as
+      | { onChangeText?: (text: string) => void }
+      | undefined;
+
+    onPress?.(
+      { description: '42 Marina, Ikeja, Lagos' },
+      {
+        address_components: [
+          { long_name: 'Ikeja', types: ['locality'] },
+          { long_name: 'Lagos', types: ['administrative_area_level_1'] },
+          {
+            long_name: 'Nigeria',
+            short_name: 'NG',
+            types: ['country'],
+          },
+        ],
+        geometry: { location: { lat: 6.6, lng: 3.3 } },
+      }
+    );
+    textInputProps?.onChangeText?.('42 Marina, Ikeja, Lagos');
+
+    expect(setDeliveryInfo).toHaveBeenCalledTimes(2);
+    const selectionUpdater = setDeliveryInfo.mock.calls[0][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+    const followUpUpdater = setDeliveryInfo.mock.calls[1][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+
+    const afterSelection = selectionUpdater({
+      address: 'Old address',
+      city: 'Ikeja',
+      name: '',
+      phone: '',
+      state: 'Lagos',
+    });
+    expect(afterSelection).toMatchObject({
+      address: '42 Marina, Ikeja, Lagos',
+      city: 'Ikeja',
+      state: 'Lagos',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      latitude: 6.6,
+      longitude: 3.3,
+    });
+    expect(
+      followUpUpdater({
+        ...afterSelection,
+        city: 'Ikeja',
+        state: 'Lagos',
+      })
+    ).toEqual({
+      ...afterSelection,
+      address: '42 Marina, Ikeja, Lagos',
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+  });
+
   it('configures the Google Places dropdown elevation for Android stacking', () => {
     render(
       <NewOrderAddressInput

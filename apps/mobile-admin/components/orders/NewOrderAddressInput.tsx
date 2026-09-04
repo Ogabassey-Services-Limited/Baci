@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
@@ -17,6 +18,7 @@ export function NewOrderAddressInput({
 }: NewOrderAddressInputProps) {
   const { colors, deliveryInfo, setDeliveryInfo } = controller;
   const hasGoogleMapsApiKey = Boolean(googleMapsApiKey);
+  const isApplyingPlaceSelectionRef = useRef(false);
 
   return (
     <View style={{ zIndex: 5 }}>
@@ -52,6 +54,7 @@ export function NewOrderAddressInput({
             );
           }}
           onPress={(data, details = null) => {
+            isApplyingPlaceSelectionRef.current = true;
             if (!details) {
               setDeliveryInfo((previous) => ({
                 ...previous,
@@ -128,7 +131,17 @@ export function NewOrderAddressInput({
             separator: { backgroundColor: colors.border },
           }}
           textInputProps={{
-            onChangeText: (text) =>
+            onChangeText: (text) => {
+              if (isApplyingPlaceSelectionRef.current) {
+                setDeliveryInfo((previous) => ({
+                  ...previous,
+                  address: text,
+                }));
+                queueMicrotask(() => {
+                  isApplyingPlaceSelectionRef.current = false;
+                });
+                return;
+              }
               setDeliveryInfo((previous) => ({
                 ...previous,
                 address: text,
@@ -139,7 +152,8 @@ export function NewOrderAddressInput({
                 postalCode: '',
                 latitude: undefined,
                 longitude: undefined,
-              })),
+              }));
+            },
             placeholderTextColor: colors.textMuted,
             style: {
               backgroundColor: colors.background,

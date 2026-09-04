@@ -170,7 +170,7 @@ export function ShipmentFlowGiglPanel({
         </View>
       ) : null}
 
-      {fundingAccount?.status === 'active' ? (
+      {selected && fundingAccount?.status === 'active' ? (
         <View
           style={[
             panelStyles.account,

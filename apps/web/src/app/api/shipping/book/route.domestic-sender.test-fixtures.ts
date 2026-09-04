@@ -1,6 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { expect, vi } from 'vitest';
-import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
+import {
+  giglQuoteEconomicsFields,
+  prepaidGiglCustomerCheckoutOrderFields,
+} from './route.test-fixtures';
 
 export const domesticSenderShipmentInsertPayloads: unknown[] = [];
 
@@ -55,6 +58,7 @@ export function buildDomesticSenderSupabaseMock(
         price: 4500,
         currency: 'NGN',
         estimated_days: 2,
+        ...giglQuoteEconomicsFields,
         ...quoteOverrides,
       },
       error: null,
