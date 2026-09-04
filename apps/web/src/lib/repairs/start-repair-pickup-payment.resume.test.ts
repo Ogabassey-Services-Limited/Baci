@@ -124,7 +124,7 @@ describe('startRepairPickupPayment resume and validation', () => {
       code: 'validation_failed',
       error: 'Enter valid repair and pickup details.',
     });
-    expect(mocks.resolveWalletTopUpMerchant).not.toHaveBeenCalled();
+    expect(mocks.resolveRepairPickupPaymentMerchant).not.toHaveBeenCalled();
   });
 
   it('rejects a non-string or oversized merchant identifier before lookup', async () => {
@@ -140,6 +140,6 @@ describe('startRepairPickupPayment resume and validation', () => {
       code: 'validation_failed',
       error: 'Enter valid repair and pickup details.',
     });
-    expect(mocks.resolveWalletTopUpMerchant).not.toHaveBeenCalled();
+    expect(mocks.resolveRepairPickupPaymentMerchant).not.toHaveBeenCalled();
   });
 });

@@ -54,6 +54,11 @@ describe('startRepairPickupPayment', () => {
         authorizationUrl: 'https://checkout.paystack.com/access-code',
       },
     });
+    expect(mocks.resolveRepairPickupPaymentMerchant).toHaveBeenCalledWith({
+      merchantId,
+      merchantSlug: 'ogabassey',
+      supabase: expect.anything(),
+    });
     expect(mocks.markRepairPickupAwaitingPayment).toHaveBeenCalledWith({
       merchantId,
       repairId,
@@ -97,10 +102,7 @@ describe('startRepairPickupPayment', () => {
   });
 
   it('fails closed when the repairs catalogue is disabled', async () => {
-    mocks.resolveRepairsCatalogMerchant.mockResolvedValueOnce({
-      enabled: false,
-      merchantId,
-    });
+    mocks.resolveRepairPickupPaymentMerchant.mockResolvedValueOnce(null);
 
     const result = await startRepairPickupPayment({
       data: input,
@@ -184,6 +186,8 @@ describe('startRepairPickupPayment', () => {
       id: repairId,
       ticketNumber: 42,
     });
+    // Create already persists awaiting_payment atomically; mark is reinforcement.
+    expect(mocks.createRepairBooking).toHaveBeenCalledWith(input, merchantId);
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 

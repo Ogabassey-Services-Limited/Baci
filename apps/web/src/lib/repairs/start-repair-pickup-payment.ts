@@ -12,8 +12,7 @@ import { quoteRepairPickup } from '@/lib/repairs/quote-repair-pickup';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 import { repairPickupResumeClaims } from '@/lib/repairs/repair-pickup-resume-claim';
-import { resolveRepairsCatalogMerchant } from '@/lib/repairs/repairs-catalog-access';
-import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
+import { resolveRepairPickupPaymentMerchant } from '@/lib/repairs/resolve-repair-pickup-payment-merchant';
 import { createClient } from '@/lib/supabase/server';
 import { repairBookingSchema } from '@/lib/validations/repair';
 import {
@@ -106,32 +105,12 @@ export async function startRepairPickupPayment({
   }
 
   const supabase = await createClient();
-  const merchant = await resolveWalletTopUpMerchant<{
-    id: string;
-    slug: string | null;
-    is_published: boolean | null;
-  }>(
+  const merchant = await resolveRepairPickupPaymentMerchant({
+    merchantId: parsedMerchantId.data,
+    merchantSlug: parsedMerchantIdentifier.data,
     supabase,
-    {
-      merchantId: parsedMerchantId.data,
-      merchantSlug: parsedMerchantIdentifier.data,
-    },
-    'id, slug, is_published'
-  );
-  if (
-    !merchant?.is_published ||
-    merchant.id !== parsedMerchantId.data ||
-    !merchant.slug
-  ) {
-    return {
-      success: false,
-      code: 'not_found',
-      error: 'Store not found.',
-    };
-  }
-
-  const catalog = await resolveRepairsCatalogMerchant(merchant.slug);
-  if (!catalog?.enabled || catalog.merchantId !== merchant.id) {
+  });
+  if (!merchant) {
     return {
       success: false,
       code: 'not_found',

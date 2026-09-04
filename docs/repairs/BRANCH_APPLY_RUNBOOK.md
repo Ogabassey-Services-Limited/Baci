@@ -55,6 +55,7 @@ July catalog:
 14. `20260904120000_record_repair_pickup_payment_mismatch.sql` — ledger claim mismatches and force review without booking
 15. `20260904130000_awaiting_repair_pickup_payment.sql` — allow `awaiting_payment` status + capability-gated mark RPC so unpaid new pickups are not bookable
 16. `20260904140000_find_resumable_repair_pickup_by_id.sql` — optional `p_repair_id` so resume reclaim pins the claim ticket (not a newer unpaid sibling)
+17. `20260904150000_create_repair_booking_awaiting_pickup_payment.sql` — pickup creates insert `awaiting_payment` atomically so a failed post-create mark cannot leave a bookable null/null row
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 

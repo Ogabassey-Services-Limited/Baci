@@ -9,8 +9,7 @@ const mocks = vi.hoisted(() => ({
   initializeTransaction: vi.fn(),
   markRepairPickupAwaitingPayment: vi.fn(),
   quoteRepairPickup: vi.fn(),
-  resolveRepairsCatalogMerchant: vi.fn(),
-  resolveWalletTopUpMerchant: vi.fn(),
+  resolveRepairPickupPaymentMerchant: vi.fn(),
   rpc: vi.fn(),
 }));
 
@@ -21,11 +20,8 @@ function createSupabaseMock() {
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
 }));
-vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
-  resolveWalletTopUpMerchant: mocks.resolveWalletTopUpMerchant,
-}));
-vi.mock('@/lib/repairs/repairs-catalog-access', () => ({
-  resolveRepairsCatalogMerchant: mocks.resolveRepairsCatalogMerchant,
+vi.mock('@/lib/repairs/resolve-repair-pickup-payment-merchant', () => ({
+  resolveRepairPickupPaymentMerchant: mocks.resolveRepairPickupPaymentMerchant,
 }));
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mocks.ensureActionRateLimit,
@@ -100,14 +96,9 @@ export function arrangeStartRepairPickupPayment() {
   });
   mocks.createClient.mockResolvedValue({});
   mocks.createRepairPickupReceiverClient.mockReturnValue(createSupabaseMock());
-  mocks.resolveWalletTopUpMerchant.mockResolvedValue({
+  mocks.resolveRepairPickupPaymentMerchant.mockResolvedValue({
     id: startRepairPickupPaymentMerchantId,
-    is_published: true,
     slug: 'ogabassey',
-  });
-  mocks.resolveRepairsCatalogMerchant.mockResolvedValue({
-    enabled: true,
-    merchantId: startRepairPickupPaymentMerchantId,
   });
   mocks.getRepairCenterAddress.mockResolvedValue(
     startRepairPickupPaymentCenter
