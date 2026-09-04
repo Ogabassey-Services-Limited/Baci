@@ -1,3 +1,4 @@
+import { normalizeAddressForQuoteMatch } from './order-quote-destination-address';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 import type { QuoteRequest } from './types';
 
@@ -45,6 +46,23 @@ function matchesOptionalText(
   if (!hasOrderValue && !hasQuoteValue) return true;
   if (!hasOrderValue || !hasQuoteValue) return false;
   return normalizeText(orderValue) === normalizeText(quoteValue);
+}
+
+function matchesDomesticReceiverAddress(
+  orderAddress: OrderShippingAddress,
+  quoteAddress: QuoteRequest['receiver']
+): boolean {
+  const quoteStreet = normalizeText(quoteAddress.address);
+  const orderStreet = normalizeAddressForQuoteMatch(
+    orderAddress.address,
+    orderAddress.city,
+    orderAddress.state
+  );
+  if (orderStreet === quoteStreet) {
+    return true;
+  }
+  const normalizedOrderAddress = normalizeText(orderAddress.address);
+  return normalizedOrderAddress.startsWith(`${quoteStreet},`);
 }
 
 const COORDINATE_TOLERANCE = 1e-6;
@@ -181,10 +199,20 @@ export function assertQuoteReceiverMatchesOrder(
   order: Pick<InternationalQuoteOrder, 'shipping_address'>
 ): void {
   const orderAddress = order.shipping_address;
+  const addressMatches =
+    quoteRequest.shipmentType === 'domestic'
+      ? Boolean(
+          orderAddress &&
+            matchesDomesticReceiverAddress(orderAddress, quoteRequest.receiver)
+        )
+      : Boolean(
+          orderAddress &&
+            normalizeText(orderAddress.address) ===
+              normalizeText(quoteRequest.receiver.address)
+        );
   if (
     !orderAddress ||
-    normalizeText(orderAddress.address) !==
-      normalizeText(quoteRequest.receiver.address) ||
+    !addressMatches ||
     normalizeText(orderAddress.city) !==
       normalizeText(quoteRequest.receiver.city) ||
     normalizeText(orderAddress.state) !==

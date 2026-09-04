@@ -163,7 +163,7 @@ export async function bookOrderShipment(
       orderId: typedOrder.id,
       ...(typedOrder.shipping_funding_source === 'merchant_wallet'
         ? { allowRefresh: false }
-        : {}),
+        : { expectedShippingFee: typedOrder.shipping_fee }),
     }
   );
   if (typedOrder.shipping_funding_source !== 'merchant_wallet') {

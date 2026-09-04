@@ -295,6 +295,46 @@ describe('refreshOrderShipmentQuote', () => {
     });
   });
 
+  describe('bugfix: do not rebind a repriced quote before fee validation', () => {
+    it('rejects a price-changed refresh before persisting the replacement', async () => {
+      const quote = createRefreshOrderQuote({
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      });
+      vi.mocked(shippingService.getProviderQuotes).mockResolvedValueOnce([
+        {
+          id: 'quote-repriced',
+          provider: 'GIGL',
+          serviceTier: 'GoStandard',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - GoStandard',
+          price: 9999,
+          currency: 'NGN',
+          estimatedDays: 3,
+          pickupIncluded: true,
+          insuranceIncluded: false,
+          providerRateId: 'GIGL_4_0',
+          expiresAt: new Date(Date.now() + 86_400_000),
+          rawResponse: { refreshed: true },
+        },
+      ]);
+      const supabase = createSupabase();
+
+      await expect(
+        refreshOrderShipmentQuote(
+          supabase as never,
+          quote,
+          'GIGL',
+          correctedSender,
+          { orderId: 'order-1', expectedShippingFee: 2500 }
+        )
+      ).rejects.toMatchObject({
+        code: 'QUOTE_PRICE_CHANGED',
+        status: 400,
+      });
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+  });
+
   describe('bugfix: upsert failure must not continue booking', () => {
     it('throws QUOTE_REFRESH_PERSIST_FAILED when the refreshed quote cannot be saved', async () => {
       const quote = createRefreshOrderQuote({

@@ -94,7 +94,7 @@ describe('resolveBookingQuoteForSender', () => {
         quote,
         'GIGL',
         merchantSender,
-        { orderId: 'order-1' }
+        { orderId: 'order-1', expectedShippingFee: 2500 }
       );
       expect(result.id).toBe('quote-refreshed');
     });

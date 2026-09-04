@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { domesticSendersDiffer } from '@/lib/shipping/merchant-sender-comparison';
 import {
   OrderShipmentBookingError,
@@ -35,6 +36,11 @@ export type RefreshOrderShipmentQuoteOptions = {
   allowRefresh?: boolean;
   /** Order identity required by the proof-bound quote persistence RPC. */
   orderId?: string;
+  /**
+   * When set, a refreshed replacement must match this fee before the order is
+   * rebound to the new quote id. Prevents permanent QUOTE_PRICE_CHANGED loops.
+   */
+  expectedShippingFee?: number | string | null;
 };
 
 export async function refreshOrderShipmentQuote(
@@ -118,6 +124,15 @@ export async function refreshOrderShipmentQuote(
       'No active shipping quote is available for this provider right now.',
       400,
       'QUOTE_REFRESH_FAILED'
+    );
+  }
+
+  // Fail closed before the order-binding persist RPC when the refreshed tariff
+  // no longer matches the paid shipping fee.
+  if ('expectedShippingFee' in options) {
+    assertQuotePriceMatchesOrderFee(
+      { price: replacement.price },
+      options.expectedShippingFee
     );
   }
 

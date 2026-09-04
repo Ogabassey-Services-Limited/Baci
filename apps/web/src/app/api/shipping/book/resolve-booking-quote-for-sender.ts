@@ -43,7 +43,10 @@ export async function resolveBookingQuoteForSender(
     quote,
     provider,
     options.merchantSender,
-    { orderId: options.orderId }
+    {
+      orderId: options.orderId,
+      expectedShippingFee: options.expectedShippingFee,
+    }
   );
 
   assertQuotePriceMatchesOrderFee(refreshedQuote, options.expectedShippingFee);

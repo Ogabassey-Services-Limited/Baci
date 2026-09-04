@@ -160,6 +160,36 @@ describe('assertQuoteReceiverMatchesOrder', () => {
     ).not.toThrow();
   });
 
+  describe('bugfix: composed domestic street still matches quote street', () => {
+    it('accepts order address that appends city and state to the quote street', () => {
+      const domesticQuote: QuoteRequest = {
+        ...quoteRequest,
+        shipmentType: 'domestic',
+        receiver: {
+          ...quoteRequest.receiver,
+          address: '12 Admiralty Way',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+          postalCode: undefined,
+        },
+      };
+
+      expect(() =>
+        assertQuoteReceiverMatchesOrder(domesticQuote, {
+          shipping_address: {
+            address: '12 Admiralty Way, Lagos, Lagos',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+        })
+      ).not.toThrow();
+    });
+  });
+
   it('rejects a domestic quote when the order destination changed', () => {
     const domesticQuote: QuoteRequest = {
       ...quoteRequest,
