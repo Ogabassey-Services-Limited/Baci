@@ -12,7 +12,10 @@ import { reconcileLinkedRepairPickup } from '@/lib/repairs/reconcile-linked-repa
 import { releaseRejectedRepairPickupReservation } from '@/lib/repairs/release-rejected-repair-pickup-reservation';
 import { releaseRepairPickupBookingClaim } from '@/lib/repairs/release-repair-pickup-booking-claim';
 import { releaseUnlinkedRepairPickupReservation } from '@/lib/repairs/release-unlinked-repair-pickup-reservation';
-import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
+import {
+  getRepairCenterAddress,
+  RepairCenterLookupError,
+} from '@/lib/repairs/repair-center-address';
 import { REPAIR_PICKUP_PROVIDER } from '@/lib/repairs/repair-pickup-constants';
 import type { RepairPickupRow } from '@/lib/repairs/repair-pickup-row';
 import {
@@ -41,7 +44,11 @@ export async function bookRepairPickup(
     .maybeSingle();
 
   const repair = repairData as RepairPickupRow | null;
-  if (repairError || !repair) {
+  if (repairError) {
+    console.error('Repair pickup lookup failed:', repairError);
+    return pickupFailure('lookup_failed');
+  }
+  if (!repair) {
     return pickupFailure('not_found');
   }
 
@@ -77,7 +84,16 @@ export async function bookRepairPickup(
   if (!sender) {
     return pickupFailure('missing_pickup_address');
   }
-  const receiver = await getRepairCenterAddress(merchantId);
+  let receiver: Awaited<ReturnType<typeof getRepairCenterAddress>>;
+  try {
+    receiver = await getRepairCenterAddress(merchantId);
+  } catch (error) {
+    if (!(error instanceof RepairCenterLookupError)) {
+      throw error;
+    }
+    console.error('Repair center lookup failed during pickup booking:', error);
+    return pickupFailure('lookup_failed');
+  }
   if (!receiver) {
     return pickupFailure('repair_center_unconfigured');
   }

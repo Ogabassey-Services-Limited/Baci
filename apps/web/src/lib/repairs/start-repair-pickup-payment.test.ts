@@ -10,26 +10,11 @@ const mocks = vi.hoisted(() => ({
   initializeTransaction: vi.fn(),
   quoteRepairPickup: vi.fn(),
   resolveWalletTopUpMerchant: vi.fn(),
-  maybeSingle: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 function _createSupabaseMock() {
-  const chain = {
-    eq: vi.fn(),
-    gte: vi.fn(),
-    is: vi.fn(),
-    limit: vi.fn(),
-    maybeSingle: mocks.maybeSingle,
-    order: vi.fn(),
-    select: vi.fn(),
-  };
-  chain.eq.mockReturnValue(chain);
-  chain.gte.mockReturnValue(chain);
-  chain.is.mockReturnValue(chain);
-  chain.limit.mockReturnValue(chain);
-  chain.order.mockReturnValue(chain);
-  chain.select.mockReturnValue(chain);
-  return { from: vi.fn().mockReturnValue(chain) };
+  return { rpc: mocks.rpc };
 }
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -94,7 +79,7 @@ describe('startRepairPickupPayment', () => {
     process.env.PAYSTACK_SECRET_KEY = 'paystack-secret-for-tests';
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     mocks.ensureActionRateLimit.mockResolvedValue(true);
-    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
     mocks.createClient.mockResolvedValue(_createSupabaseMock());
     mocks.resolveWalletTopUpMerchant.mockResolvedValue({
       id: merchantId,
@@ -249,6 +234,32 @@ describe('startRepairPickupPayment', () => {
     });
     expect(mocks.createRepairBooking).not.toHaveBeenCalled();
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reclaims an unpaid pickup via the authorized RPC instead of creating a duplicate', async () => {
+    const existingId = '323e4567-e89b-12d3-a456-426614174000';
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ id: existingId, ticket_number: 17 }],
+      error: null,
+    });
+
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('find_resumable_repair_pickup', {
+      p_merchant_id: merchantId,
+      p_customer_email: input.customerEmail,
+    });
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      id: existingId,
+      ticketNumber: 17,
+    });
   });
 
   it('rejects invalid expected pickup fees before merchant lookup', async () => {

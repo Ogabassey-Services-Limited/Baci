@@ -20,6 +20,13 @@ export interface RepairCenterAddress {
 
 const REPAIR_PICKUP_RECEIVER_RPC = 'get_repair_pickup_receiver';
 
+export class RepairCenterLookupError extends Error {
+  constructor(message = 'Repair center lookup failed') {
+    super(message);
+    this.name = 'RepairCenterLookupError';
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -52,7 +59,7 @@ export async function getRepairCenterAddress(
 
   if (error) {
     console.error('getRepairCenterAddress: query failed', error);
-    return null;
+    throw new RepairCenterLookupError(error.message);
   }
   if (!isRecord(data)) {
     return null;

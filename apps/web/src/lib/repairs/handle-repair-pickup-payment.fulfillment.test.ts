@@ -110,6 +110,31 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
   });
 
+  it('asks Paystack to retry when post-payment repair lookup fails transiently', async () => {
+    const { client, update } = createRepairPickupPaymentSupabase();
+    mocks.bookRepairPickup.mockResolvedValueOnce({
+      ok: false,
+      reason: 'lookup_failed',
+      message:
+        'Could not load this repair booking right now. Payment is safe — please retry shortly.',
+      canRetryManually: false,
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toMatchObject({ handled: true, status: 503 });
+    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
+  });
+
   it('does not ask Paystack to retry definitive GIGL booking rejections', async () => {
     const { client, update, neq } = createRepairPickupPaymentSupabase();
     mocks.bookRepairPickup.mockResolvedValueOnce({

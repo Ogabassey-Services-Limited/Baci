@@ -159,6 +159,7 @@ export async function handleRepairPickupPayment({
     'booking_failed',
     'booking_in_progress',
     'gigl_unavailable',
+    'lookup_failed',
   ].includes(booking.reason);
   const statusUpdated = await setPickupPaymentStatus(
     supabase,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './book-repair-pickup.test-support';
 import { bookRepairPickup } from './book-repair-pickup';
 import {
@@ -49,6 +49,23 @@ describe('bookRepairPickup', () => {
 
     expect(result).toMatchObject({ ok: false, reason: 'not_found' });
     expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
+  it('returns lookup_failed when the repair select errors transiently', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': { data: null, error: { message: 'db timeout' } },
+      })
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({ ok: false, reason: 'lookup_failed' });
+      expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('does not quote or book GIGL before the customer payment is confirmed', async () => {
@@ -212,6 +229,25 @@ describe('bookRepairPickup', () => {
       reason: 'repair_center_unconfigured',
     });
     expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+  });
+
+  it('returns lookup_failed when repair-center projection query errors', async () => {
+    const { RepairCenterLookupError } = await import(
+      '@/lib/repairs/repair-center-address'
+    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.getRepairCenterAddress.mockRejectedValueOnce(
+      new RepairCenterLookupError('rpc unavailable')
+    );
+    const supabase = makeSupabase(happyResponses());
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({ ok: false, reason: 'lookup_failed' });
+      expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('returns gigl_unavailable when no quotes come back', async () => {

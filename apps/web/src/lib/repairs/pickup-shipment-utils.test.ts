@@ -93,6 +93,7 @@ describe('buildPickupItems', () => {
 describe('pickupFailure', () => {
   const cases: readonly [PickupFailureReason, boolean][] = [
     ['not_found', false],
+    ['lookup_failed', false],
     ['already_booked', false],
     ['missing_pickup_address', true],
     ['repair_center_unconfigured', true],

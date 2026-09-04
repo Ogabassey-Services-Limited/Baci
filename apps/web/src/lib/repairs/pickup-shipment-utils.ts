@@ -19,6 +19,7 @@ export interface RepairPickupSource {
 /** Why a courier pickup could not be booked automatically. */
 export type PickupFailureReason =
   | 'not_found'
+  | 'lookup_failed'
   | 'payment_required'
   | 'terminal_status'
   | 'already_booked'
@@ -57,6 +58,11 @@ const FAILURE_COPY: Record<
 > = {
   not_found: {
     message: 'Repair booking not found.',
+    canRetryManually: false,
+  },
+  lookup_failed: {
+    message:
+      'Could not load this repair booking right now. Payment is safe — please retry shortly.',
     canRetryManually: false,
   },
   payment_required: {

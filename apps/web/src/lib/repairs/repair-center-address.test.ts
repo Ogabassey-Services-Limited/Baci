@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRepairCenterAddress } from './repair-center-address';
+import {
+  getRepairCenterAddress,
+  RepairCenterLookupError,
+} from './repair-center-address';
 
 const mocks = vi.hoisted(() => ({
   createRepairPickupReceiverClient: vi.fn(),
@@ -101,7 +104,9 @@ describe('getRepairCenterAddress', () => {
     });
     mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
     try {
-      expect(await getRepairCenterAddress(merchantId)).toBeNull();
+      await expect(getRepairCenterAddress(merchantId)).rejects.toBeInstanceOf(
+        RepairCenterLookupError
+      );
       expect(consoleSpy).toHaveBeenCalledWith(
         'getRepairCenterAddress: query failed',
         { message: 'boom' }

@@ -26,43 +26,38 @@ const createReference = customAlphabet(
   16
 );
 
-const RESUMABLE_PICKUP_WINDOW_MS = 2 * 60 * 60 * 1000;
-
 async function findResumablePickupRepair(
   supabase: Awaited<ReturnType<typeof createClient>>,
   merchantId: string,
   input: RepairBookingInput
 ): Promise<{ success: true; id: string; ticketNumber: number } | null> {
-  const cutoff = new Date(
-    Date.now() - RESUMABLE_PICKUP_WINDOW_MS
-  ).toISOString();
-  const { data, error } = await supabase
-    .from('repairs')
-    .select('id, ticket_number')
-    .eq('merchant_id', merchantId)
-    .eq('customer_email', input.customerEmail)
-    .eq('service_type', 'pickup')
-    .is('pickup_payment_reference', null)
-    .is('shipment_id', null)
-    .gte('created_at', cutoff)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Storefront/anon cannot SELECT repairs (RLS). Reclaim unpaid pickups through
+  // the SECURITY DEFINER RPC so retries do not create duplicate tickets.
+  const { data, error } = await supabase.rpc('find_resumable_repair_pickup', {
+    p_merchant_id: merchantId,
+    p_customer_email: input.customerEmail,
+  });
 
-  if (error || !data) {
+  if (error) {
+    console.error('Resumable repair pickup lookup failed:', error);
     return null;
   }
 
-  const row = data as { id: string; ticket_number: number | string };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const record = row as { id?: unknown; ticket_number?: unknown };
   const ticketNumber =
-    typeof row.ticket_number === 'number'
-      ? row.ticket_number
-      : Number(row.ticket_number);
-  if (!row.id || !Number.isFinite(ticketNumber)) {
+    typeof record.ticket_number === 'number'
+      ? record.ticket_number
+      : Number(record.ticket_number);
+  if (typeof record.id !== 'string' || !Number.isFinite(ticketNumber)) {
     return null;
   }
 
-  return { success: true, id: row.id, ticketNumber };
+  return { success: true, id: record.id, ticketNumber };
 }
 
 type StartRepairPickupPaymentResult =

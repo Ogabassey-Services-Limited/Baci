@@ -14,9 +14,18 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
-vi.mock('@/lib/repairs/repair-center-address', () => ({
-  getRepairCenterAddress: mocks.getRepairCenterAddress,
-}));
+vi.mock('@/lib/repairs/repair-center-address', () => {
+  class RepairCenterLookupError extends Error {
+    constructor(message = 'Repair center lookup failed') {
+      super(message);
+      this.name = 'RepairCenterLookupError';
+    }
+  }
+  return {
+    RepairCenterLookupError,
+    getRepairCenterAddress: mocks.getRepairCenterAddress,
+  };
+});
 
 export const merchantId = 'm-1';
 export const repairId = 'r-1';
