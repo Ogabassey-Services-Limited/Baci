@@ -103,4 +103,25 @@ describe('merchantFeatureSettingsPatchSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects an invalid contact_phone even when pickup_enabled is omitted', () => {
+    const result = merchantFeatureSettingsPatchSchema.safeParse({
+      repair_settings: {
+        contact_phone: 'not-a-phone',
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects clearing contact_phone in the same patch that enables pickup', () => {
+    const result = merchantFeatureSettingsPatchSchema.safeParse({
+      repair_settings: {
+        pickup_enabled: true,
+        contact_phone: '',
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

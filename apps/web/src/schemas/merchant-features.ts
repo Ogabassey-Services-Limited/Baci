@@ -24,16 +24,21 @@ export const repairSettingsSchema = z
   })
   .partial()
   .superRefine((value, ctx) => {
-    // Phone is only required/validated while courier pickup is enabled so
-    // merchants can disable pickup or save unrelated repair settings with a
-    // blank contact_phone.
-    if (value.pickup_enabled !== true) {
+    // Blank phones are allowed when the patch explicitly disables pickup, or
+    // when pickup_enabled is omitted (route merge validation covers the DB).
+    // Non-empty phones are always format-checked. Enabling pickup in the same
+    // patch with an explicit blank/invalid phone is rejected here.
+    if (value.pickup_enabled === false) {
       return;
     }
+
     if (value.contact_phone === undefined) {
       return;
     }
-    if (!isValidPhone(value.contact_phone)) {
+
+    const phoneMustBeValid =
+      value.pickup_enabled === true || value.contact_phone !== '';
+    if (phoneMustBeValid && !isValidPhone(value.contact_phone)) {
       ctx.addIssue({
         code: 'custom',
         message: 'Enter a valid repair-center phone number.',

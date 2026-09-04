@@ -220,6 +220,78 @@ describe('PATCH /api/repairs/settings', () => {
     });
   });
 
+  describe('bugfix: partial phone patch with enabled pickup', () => {
+    it('rejects clearing contact_phone while persisted pickup stays enabled', async () => {
+      const admin = makeAdmin({
+        select: {
+          data: {
+            merchant_id: 'm-1',
+            repair_settings: {
+              pickup_enabled: true,
+              contact_phone: '09070007000',
+              contact_name: 'Repair Center',
+            },
+          },
+          error: null,
+        },
+      });
+      mocks.createClient.mockReturnValue(admin);
+
+      const res = await PATCH(req({ contact_phone: '' }));
+
+      expect(res.status).toBe(400);
+      expect(admin.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid contact_phone patch while persisted pickup stays enabled', async () => {
+      const admin = makeAdmin({
+        select: {
+          data: {
+            merchant_id: 'm-1',
+            repair_settings: {
+              pickup_enabled: true,
+              contact_phone: '09070007000',
+            },
+          },
+          error: null,
+        },
+      });
+      mocks.createClient.mockReturnValue(admin);
+
+      const res = await PATCH(req({ contact_phone: 'not-a-phone' }));
+
+      expect(res.status).toBe(400);
+      expect(admin.update).not.toHaveBeenCalled();
+    });
+
+    it('accepts a valid contact_phone patch while persisted pickup stays enabled', async () => {
+      const admin = makeAdmin({
+        select: {
+          data: {
+            merchant_id: 'm-1',
+            repair_settings: {
+              pickup_enabled: true,
+              contact_phone: '09070007000',
+              contact_name: 'Repair Center',
+            },
+          },
+          error: null,
+        },
+      });
+      mocks.createClient.mockReturnValue(admin);
+
+      const res = await PATCH(req({ contact_phone: '08031234567' }));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.repairSettings).toMatchObject({
+        pickup_enabled: true,
+        contact_phone: '08031234567',
+        contact_name: 'Repair Center',
+      });
+    });
+  });
+
   it('clears a stored contact email when the merchant submits a blank value', async () => {
     const admin = makeAdmin({
       select: {

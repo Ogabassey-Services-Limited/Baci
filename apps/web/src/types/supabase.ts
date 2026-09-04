@@ -14065,7 +14065,7 @@ export type Database = {
           manual_terminal_override_at: string | null;
           next_poll_at: string | null;
           notification_events_not_before: string | null;
-          order_id: string;
+          order_id: string | null;
           provider: string;
           shipment_id: string;
           started_at: string;
@@ -14090,7 +14090,7 @@ export type Database = {
           manual_terminal_override_at?: string | null;
           next_poll_at?: string | null;
           notification_events_not_before?: string | null;
-          order_id: string;
+          order_id?: string | null;
           provider: string;
           shipment_id: string;
           started_at?: string;
@@ -14115,7 +14115,7 @@ export type Database = {
           manual_terminal_override_at?: string | null;
           next_poll_at?: string | null;
           notification_events_not_before?: string | null;
-          order_id?: string;
+          order_id?: string | null;
           provider?: string;
           shipment_id?: string;
           started_at?: string;
@@ -14160,7 +14160,7 @@ export type Database = {
           merchant_id: string;
           next_attempt_at: string;
           notification_kind: string;
-          order_id: string;
+          order_id: string | null;
           sent_at: string | null;
           shipment_id: string;
           skip_reason: string | null;
@@ -14183,7 +14183,7 @@ export type Database = {
           merchant_id: string;
           next_attempt_at?: string;
           notification_kind: string;
-          order_id: string;
+          order_id?: string | null;
           sent_at?: string | null;
           shipment_id: string;
           skip_reason?: string | null;
@@ -14206,7 +14206,7 @@ export type Database = {
           merchant_id?: string;
           next_attempt_at?: string;
           notification_kind?: string;
-          order_id?: string;
+          order_id?: string | null;
           sent_at?: string | null;
           shipment_id?: string;
           skip_reason?: string | null;
@@ -16416,7 +16416,7 @@ export type Database = {
       claim_due_gigl_tracking_monitors: {
         Args: { p_limit: number; p_worker_id: string };
         Returns: {
-          order_id: string;
+          order_id: string | null;
           shipment_id: string;
           state: string;
           tracking_epoch_id: string;
