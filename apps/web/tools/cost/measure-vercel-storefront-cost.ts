@@ -46,10 +46,25 @@ function finiteSigned(value: unknown, field: string) {
 function dateString(value: unknown, field: string) {
   if (typeof value !== 'string')
     throw new Error(`billing row has an invalid ${field}`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value
+    )
+  ) {
+    throw new Error(`billing row has an invalid ${field}`);
+  }
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp))
     throw new Error(`billing row has an invalid ${field}`);
   return new Date(timestamp).toISOString();
+}
+
+function comparableWindowDurationMs(window: {
+  observedChargePeriod: { end: string; start: string };
+  requestedWindow?: { end: string; start: string };
+}) {
+  const bounds = window.requestedWindow ?? window.observedChargePeriod;
+  return Date.parse(bounds.end) - Date.parse(bounds.start);
 }
 
 function roundMetric(value: number) {
@@ -102,8 +117,12 @@ async function summarizeBillingWindow(
     observedStart =
       !observedStart || start < observedStart ? start : observedStart;
     observedEnd = !observedEnd || end > observedEnd ? end : observedEnd;
+    const serviceName =
+      typeof row.ServiceName === 'string' ? row.ServiceName : undefined;
     const metric =
-      SERVICE_METRICS[row.ServiceName as keyof typeof SERVICE_METRICS];
+      serviceName && Object.hasOwn(SERVICE_METRICS, serviceName)
+        ? SERVICE_METRICS[serviceName as keyof typeof SERVICE_METRICS]
+        : undefined;
     if (metric) services[metric] += quantity;
   }
   if (!observedStart || !observedEnd)
@@ -229,6 +248,14 @@ export async function measureVercelStorefrontCost(options: {
       )
     : null;
   const hasDbTracePair = Boolean(before.dbTrace && after?.dbTrace);
+  if (
+    after &&
+    comparableWindowDurationMs(before) !== comparableWindowDurationMs(after)
+  ) {
+    throw new Error(
+      'before and after measurement windows must have equal durations'
+    );
+  }
   return {
     after,
     before,

@@ -1,5 +1,5 @@
-import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { measureVercelStorefrontCost } from './measure-vercel-storefront-cost';
 import type { WindowOptions } from './measure-vercel-storefront-cost-types';
 
@@ -96,11 +96,41 @@ export async function writeMeasurementReport(
   }
 }
 
+/** Rejects --out paths that would destroy measurement evidence inputs. */
+export async function assertMeasurementOutputPath(
+  outputPath: string,
+  inputPaths: readonly string[]
+): Promise<void> {
+  const resolvedOutput = await resolvedPath(outputPath);
+  for (const inputPath of inputPaths) {
+    if ((await resolvedPath(inputPath)) === resolvedOutput) {
+      throw new Error('measurement --out must not overwrite an input path');
+    }
+  }
+}
+
+async function resolvedPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
 async function runMeasurementCli(): Promise<void> {
   const parsed = parseMeasurementArgs(process.argv.slice(2));
   const result = await measureVercelStorefrontCost(parsed);
   const serialized = `${JSON.stringify(result, null, 2)}\n`;
   if (parsed.outputPath) {
+    const inputPaths = [
+      parsed.before.inputPath,
+      parsed.after?.inputPath,
+      parsed.before.window.cacheProbePath,
+      parsed.before.window.dbTracePath,
+      parsed.after?.window.cacheProbePath,
+      parsed.after?.window.dbTracePath,
+    ].filter((path): path is string => typeof path === 'string');
+    await assertMeasurementOutputPath(parsed.outputPath, inputPaths);
     await writeMeasurementReport(parsed.outputPath, serialized);
   } else {
     process.stdout.write(serialized);

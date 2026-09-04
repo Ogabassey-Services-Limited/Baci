@@ -47,7 +47,7 @@ describe('measureVercelStorefrontCost comparisons', () => {
           deploymentSha: MEASUREMENT_BEFORE_SHA,
           label: 'before',
           requestedWindowEnd: '2026-08-01T00:00:00.000Z',
-          requestedWindowStart: '2026-07-01T00:00:00.000Z',
+          requestedWindowStart: '2026-07-02T00:00:00.000Z',
         },
       },
       projectId: MEASUREMENT_PROJECT_ID,

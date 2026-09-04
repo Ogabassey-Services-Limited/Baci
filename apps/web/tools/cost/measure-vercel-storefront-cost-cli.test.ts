@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  assertMeasurementOutputPath,
   parseMeasurementArgs,
   writeMeasurementReport,
 } from './measure-vercel-storefront-cost-cli';
@@ -114,5 +115,16 @@ describe('parseMeasurementArgs', () => {
 
     expect(await readFile(outputPath, 'utf8')).toBe('{"safe":true}\n');
     expect((await stat(outputPath)).mode & 0o777).toBe(0o600);
+  });
+
+  it('bugfix: rejects --out paths that alias an evidence input', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vercel-cost-alias-'));
+    roots.push(root);
+    const beforePath = join(root, 'before.jsonl');
+    await writeFile(beforePath, '{}\n');
+
+    await expect(
+      assertMeasurementOutputPath(beforePath, [beforePath])
+    ).rejects.toThrow('measurement --out must not overwrite an input path');
   });
 });
