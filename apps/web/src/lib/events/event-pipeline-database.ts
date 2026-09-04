@@ -174,6 +174,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking/route.ts',
+      'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
