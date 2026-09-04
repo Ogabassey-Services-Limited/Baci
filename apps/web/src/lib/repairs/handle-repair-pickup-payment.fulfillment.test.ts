@@ -31,7 +31,7 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('marks an ambiguous provider result for review without retrying the webhook', async () => {
-    const { client, firstEq, secondEq, thirdEq, neq, update } =
+    const { client, firstEq, secondEq, thirdEq, bookedNeq, reviewNeq, update } =
       createRepairPickupPaymentSupabase();
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
@@ -68,7 +68,8 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
       'pickup_payment_reference',
       repairPickupPaymentTestReference
     );
-    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(bookedNeq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(reviewNeq).toHaveBeenCalledWith('pickup_payment_status', 'review');
     expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
       client,
       repairPickupPaymentTestMerchantId,
@@ -151,7 +152,8 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('does not ask Paystack to retry definitive GIGL booking rejections', async () => {
-    const { client, update, neq } = createRepairPickupPaymentSupabase();
+    const { client, update, bookedNeq, reviewNeq } =
+      createRepairPickupPaymentSupabase();
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
       reason: 'provider_rejected',
@@ -178,7 +180,8 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
       },
     });
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
-    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(bookedNeq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(reviewNeq).toHaveBeenCalledWith('pickup_payment_status', 'review');
     expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
       client,
       repairPickupPaymentTestMerchantId,
@@ -187,8 +190,8 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
   });
 
   it('asks Paystack to retry when definitive failure review state cannot be persisted', async () => {
-    const { client, neq } = createRepairPickupPaymentSupabase();
-    neq.mockResolvedValueOnce({ error: { message: 'write failed' } });
+    const { client, reviewNeq } = createRepairPickupPaymentSupabase();
+    reviewNeq.mockResolvedValueOnce({ error: { message: 'write failed' } });
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
       reason: 'quote_increased',
@@ -215,6 +218,34 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
           'Repair pickup payment confirmed; review state persistence will retry',
       },
     });
+    expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
+  });
+
+  it('ACKs without rebooking after merchant manual fallback marked review', async () => {
+    const { client } = createRepairPickupPaymentSupabase({
+      confirmed: false,
+      pickupPaymentStatus: 'review',
+    });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 200,
+      body: {
+        message: 'Repair pickup payment confirmed; shipment requires review',
+      },
+    });
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
     expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
   });
 });

@@ -53,11 +53,20 @@ async function recordManualPickup(
       : '';
   const note = `${existing ? `${existing}\n` : ''}[${new Date().toISOString()}] Pickup arranged manually.`;
 
+  // Terminal `review` stops Paystack webhook rebooking loops (503 + retrying)
+  // while still allowing a later dashboard auto booking if needed.
   const { error: updateError } = await admin
     .from('repairs')
-    .update({ admin_notes: note, updated_at: new Date().toISOString() })
+    .update({
+      admin_notes: note,
+      pickup_payment_status: 'review',
+      pickup_booking_lock_token: null,
+      pickup_booking_started_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', repairId)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .neq('pickup_payment_status', 'booked');
 
   if (updateError) {
     logger.error({

@@ -45,7 +45,16 @@ describe('findResumablePickupRepair', () => {
       rpc: mocks.rpc,
     });
     mocks.rpc.mockResolvedValueOnce({
-      data: [{ id: repairId, ticket_number: 17 }],
+      data: [
+        {
+          id: repairId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: input.pickupAddress,
+        },
+      ],
       error: null,
     });
     const resumeToken = repairPickupResumeClaims.create(
@@ -74,6 +83,80 @@ describe('findResumablePickupRepair', () => {
       kind: 'found',
       repair: { success: true, id: repairId, ticketNumber: 17 },
     });
+  });
+
+  it('rejects resume when the saved pickup address no longer matches', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: repairId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: '99 Different Street, Lagos',
+        },
+      ],
+      error: null,
+    });
+    const resumeToken = repairPickupResumeClaims.create(
+      {
+        customerEmail: input.customerEmail,
+        issuedAt: Date.now(),
+        merchantId,
+        repairId,
+      },
+      secret
+    );
+
+    const result = await findResumablePickupRepair({
+      input,
+      merchantId,
+      resumeToken,
+      secret,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+  });
+
+  it('rejects resume when the saved device no longer matches', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: repairId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: 'Pixel 9',
+          device_type: input.deviceType,
+          pickup_address: input.pickupAddress,
+        },
+      ],
+      error: null,
+    });
+    const resumeToken = repairPickupResumeClaims.create(
+      {
+        customerEmail: input.customerEmail,
+        issuedAt: Date.now(),
+        merchantId,
+        repairId,
+      },
+      secret
+    );
+
+    const result = await findResumablePickupRepair({
+      input,
+      merchantId,
+      resumeToken,
+      secret,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
   });
 
   it('fails closed when the scoped resume lookup errors', async () => {

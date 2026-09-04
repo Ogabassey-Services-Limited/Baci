@@ -16,19 +16,31 @@ export const repairSettingsSchema = z
     pickup_enabled: z.boolean(),
     pickup_address: z.string().trim().max(500),
     contact_name: z.string().trim().max(120),
-    contact_phone: z
-      .string()
-      .trim()
-      .max(40)
-      .refine((value) => isValidPhone(value), {
-        message: 'Enter a valid repair-center phone number.',
-      }),
+    contact_phone: z.string().trim().max(40),
     contact_email: optionalEmailSchema,
     city: z.string().trim().max(120),
     state: z.string().trim().max(120),
     country: z.string().trim().max(120),
   })
-  .partial();
+  .partial()
+  .superRefine((value, ctx) => {
+    // Phone is only required/validated while courier pickup is enabled so
+    // merchants can disable pickup or save unrelated repair settings with a
+    // blank contact_phone.
+    if (value.pickup_enabled !== true) {
+      return;
+    }
+    if (value.contact_phone === undefined) {
+      return;
+    }
+    if (!isValidPhone(value.contact_phone)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Enter a valid repair-center phone number.',
+        path: ['contact_phone'],
+      });
+    }
+  });
 
 export type RepairSettingsInput = z.infer<typeof repairSettingsSchema>;
 

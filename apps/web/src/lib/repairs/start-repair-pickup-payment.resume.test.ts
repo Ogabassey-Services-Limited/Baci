@@ -28,7 +28,16 @@ describe('startRepairPickupPayment resume and validation', () => {
       'paystack-secret-for-tests'
     );
     mocks.rpc.mockResolvedValueOnce({
-      data: [{ id: existingId, ticket_number: 17 }],
+      data: [
+        {
+          id: existingId,
+          ticket_number: 17,
+          customer_phone: input.customerPhone,
+          device_model: input.deviceModel,
+          device_type: input.deviceType,
+          pickup_address: input.pickupAddress,
+        },
+      ],
       error: null,
     });
 

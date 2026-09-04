@@ -21,6 +21,9 @@ describe('repair pickup pending replay sources', () => {
       '12cf44e6ddc3ba27f68d5e2ef42dc05d368a7d35c2107561308310b1e2092023 20260904130000_awaiting_repair_pickup_payment.sql',
       'f2fee781e57f044c4d5559ae4a4e9246e2c954cafade04f62df5fe8cfd30b43b 20260904140000_find_resumable_repair_pickup_by_id.sql',
       '83a4457efa62913adf7652552ae2c03a751cac54015a4fd06ffc65718c96eaf7 20260904150000_create_repair_booking_awaiting_pickup_payment.sql',
+      '86092089921bf49b2ccbbc4abdc2f7ba0160bc4a2a6ef06e7ae617632402db9d 20260904160000_normalize_nigerian_repair_pickup_receiver_phone.sql',
+      '7908e63e7f557baf8fb501e5db77b3bf7bb208a3214f159949310ac8d0da8216 20260904170000_find_resumable_repair_pickup_return_details.sql',
+      'c48611749d0b1c9e6b636e378a3c643ecdf9514d8b8f0ed1dcba87eb6d2c7ecd 20260904180000_claim_repair_pickup_booking_terminal_guard.sql',
     ]);
   });
 });

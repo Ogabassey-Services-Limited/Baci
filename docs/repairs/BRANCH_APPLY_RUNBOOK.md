@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (15 September migrations, including security hardenings).
+pickup follow-on** set (20 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -56,6 +56,9 @@ July catalog:
 15. `20260904130000_awaiting_repair_pickup_payment.sql` — allow `awaiting_payment` status + capability-gated mark RPC so unpaid new pickups are not bookable
 16. `20260904140000_find_resumable_repair_pickup_by_id.sql` — optional `p_repair_id` so resume reclaim pins the claim ticket (not a newer unpaid sibling)
 17. `20260904150000_create_repair_booking_awaiting_pickup_payment.sql` — pickup creates insert `awaiting_payment` atomically so a failed post-create mark cannot leave a bookable null/null row
+18. `20260904160000_normalize_nigerian_repair_pickup_receiver_phone.sql` — accept Nigerian local `0XXXXXXXXXX` phones in the usable-phone gate (app schema already accepts them)
+19. `20260904170000_find_resumable_repair_pickup_return_details.sql` — return device/phone/address so resume reclaim can bind to saved pickup details
+20. `20260904180000_claim_repair_pickup_booking_terminal_guard.sql` — refuse claims on completed/cancelled/rejected repairs and return `terminal=true`
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
@@ -73,6 +76,8 @@ Run these after the September paid-pickup migrations:
 - `supabase/migrations/tests/repair_pickup_payment_confirmation.sql` — paid pickup confirmation / fulfillment invariants
 - `supabase/migrations/tests/repair_pickup_receiver_projection.sql` — receiver projection is capability-gated and phone-complete
 - `supabase/migrations/tests/find_resumable_repair_pickup.sql` — resumable unpaid pickup reclaim requires matching JWT claims; `p_repair_id` pins the claim ticket; anon/authenticated cannot execute
+- `supabase/migrations/tests/normalize_nigerian_repair_pickup_receiver_phone.sql` — local trunk phones like `09070007000` normalize and pass the usable-phone gate
+- `supabase/migrations/tests/claim_repair_pickup_booking_terminal.sql` — claim RPC refuses terminal repairs and reports `terminal=true`
 
 ### Manual smoke checks (do these on the branch too)
 - **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).

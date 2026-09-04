@@ -84,4 +84,19 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260904150000_create_repair_booking_awaiting_pickup_payment.sql',
     sha256: '83a4457efa62913adf7652552ae2c03a751cac54015a4fd06ffc65718c96eaf7',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904160000_normalize_nigerian_repair_pickup_receiver_phone.sql',
+    sha256: '86092089921bf49b2ccbbc4abdc2f7ba0160bc4a2a6ef06e7ae617632402db9d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904170000_find_resumable_repair_pickup_return_details.sql',
+    sha256: '7908e63e7f557baf8fb501e5db77b3bf7bb208a3214f159949310ac8d0da8216',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260904180000_claim_repair_pickup_booking_terminal_guard.sql',
+    sha256: 'c48611749d0b1c9e6b636e378a3c643ecdf9514d8b8f0ed1dcba87eb6d2c7ecd',
+  },
 ];

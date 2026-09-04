@@ -42,14 +42,38 @@ async function setPickupPaymentStatus(
     .eq('id', claim.repairId)
     .eq('merchant_id', claim.merchantId)
     .eq('pickup_payment_reference', claim.reference)
-    // Never let a slower duplicate webhook overwrite a completed booking.
-    .neq('pickup_payment_status', 'booked');
+    // Never let a slower duplicate webhook overwrite a completed booking or a
+    // merchant manual-fallback review state (which terminates auto retries).
+    .neq('pickup_payment_status', 'booked')
+    .neq('pickup_payment_status', 'review');
 
   if (error) {
     console.error('Repair pickup payment status update failed:', error);
     return false;
   }
   return true;
+}
+
+async function readPickupPaymentStatus(
+  supabase: SupabaseClient,
+  claim: { merchantId: string; repairId: string }
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('repairs')
+    .select('pickup_payment_status')
+    .eq('id', claim.repairId)
+    .eq('merchant_id', claim.merchantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Repair pickup payment status lookup failed:', error);
+    return null;
+  }
+  const status =
+    data && typeof data === 'object'
+      ? (data as { pickup_payment_status?: unknown }).pickup_payment_status
+      : null;
+  return typeof status === 'string' ? status : null;
 }
 
 function mismatchReasonFor(input: {
@@ -178,6 +202,17 @@ export async function handleRepairPickupPayment({
       handled: true,
       status: 503,
       body: { message: 'Repair pickup payment confirmation will retry' },
+    };
+  }
+
+  const pickupPaymentStatus = await readPickupPaymentStatus(supabase, claim);
+  if (pickupPaymentStatus === 'review') {
+    return {
+      handled: true,
+      status: 200,
+      body: {
+        message: 'Repair pickup payment confirmed; shipment requires review',
+      },
     };
   }
 

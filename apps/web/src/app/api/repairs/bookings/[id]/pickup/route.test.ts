@@ -35,15 +35,25 @@ function req(body?: unknown): Request {
 }
 
 function manualAdmin(exists: boolean) {
+  const update = vi.fn().mockReturnValue({
+    eq() {
+      return this;
+    },
+    neq() {
+      return this;
+    },
+    // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
+    then(f: (v: unknown) => unknown) {
+      return Promise.resolve({ data: null, error: null }).then(f);
+    },
+  });
   return {
     from() {
       const builder = {
         select() {
           return builder;
         },
-        update() {
-          return builder;
-        },
+        update,
         eq() {
           return builder;
         },
@@ -53,13 +63,10 @@ function manualAdmin(exists: boolean) {
             error: null,
           });
         },
-        // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
-        then(f: (v: unknown) => unknown) {
-          return Promise.resolve({ data: null, error: null }).then(f);
-        },
       };
       return builder;
     },
+    update,
   };
 }
 
@@ -76,7 +83,20 @@ function manualAdminFailure(stage: 'lookup' | 'update') {
           return builder;
         },
         update() {
-          return builder;
+          return {
+            eq() {
+              return this;
+            },
+            neq() {
+              return this;
+            },
+            // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
+            then(f: (v: unknown) => unknown) {
+              return Promise.resolve(
+                stage === 'update' ? failure : { data: null, error: null }
+              ).then(f);
+            },
+          };
         },
         eq() {
           return builder;
@@ -87,12 +107,6 @@ function manualAdminFailure(stage: 'lookup' | 'update') {
               ? failure
               : { data: { admin_notes: 'prior' }, error: null }
           );
-        },
-        // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
-        then(f: (v: unknown) => unknown) {
-          return Promise.resolve(
-            stage === 'update' ? failure : { data: null, error: null }
-          ).then(f);
         },
       };
       return builder;
@@ -167,11 +181,20 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
   });
 
   it('records a manual pickup arrangement without calling the courier', async () => {
+    const admin = manualAdmin(true);
+    mocks.createClient.mockReturnValueOnce(admin);
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ ok: true, manual: true });
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+    expect(admin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pickup_payment_status: 'review',
+        pickup_booking_lock_token: null,
+        pickup_booking_started_at: null,
+      })
+    );
   });
 
   it('returns 404 when marking pickup manual on a missing booking', async () => {

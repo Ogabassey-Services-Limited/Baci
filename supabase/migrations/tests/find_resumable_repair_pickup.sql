@@ -153,6 +153,21 @@ BEGIN
       found_ticket;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.find_resumable_repair_pickup(
+      '84a63d82-0000-4000-8000-000000000001',
+      'Ada@Example.com',
+      '84a63d82-0000-4000-8000-000000000010'
+    ) AS reclaim
+    WHERE reclaim.device_type = 'Smartphone'
+      AND reclaim.device_model = 'iPhone 15'
+      AND reclaim.customer_phone = '+2348012345678'
+      AND reclaim.pickup_address = '12 Station Road, Osogbo'
+  ) THEN
+    RAISE EXCEPTION 'resumable reclaim must return pickup-binding fields';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM public.find_resumable_repair_pickup(

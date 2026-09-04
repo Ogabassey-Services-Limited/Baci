@@ -75,4 +75,32 @@ describe('merchantFeatureSettingsPatchSchema', () => {
       repair_settings: { contact_email: null },
     });
   });
+
+  it('allows empty contact_phone when courier pickup is disabled', () => {
+    const result = merchantFeatureSettingsPatchSchema.safeParse({
+      repair_settings: {
+        pickup_enabled: false,
+        contact_phone: '',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.repair_settings).toEqual({
+        pickup_enabled: false,
+        contact_phone: '',
+      });
+    }
+  });
+
+  it('still rejects an invalid contact_phone when pickup is enabled', () => {
+    const result = merchantFeatureSettingsPatchSchema.safeParse({
+      repair_settings: {
+        pickup_enabled: true,
+        contact_phone: 'not-a-phone',
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
