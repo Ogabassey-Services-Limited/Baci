@@ -176,6 +176,13 @@ export async function startRepairPickupPayment({
     resumeToken,
     secret,
   });
+  if (resumed.kind === 'invalid_resume') {
+    return {
+      success: false,
+      code: 'resume_invalid',
+      error: resumed.error,
+    };
+  }
   if (resumed.kind === 'error') {
     return {
       success: false,

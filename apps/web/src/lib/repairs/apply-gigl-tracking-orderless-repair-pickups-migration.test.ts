@@ -24,3 +24,24 @@ describe('apply GIGL tracking for orderless repair pickups migration', () => {
     );
   });
 });
+
+describe('fix GIGL tracking notification conflict target migration', () => {
+  it('rewrites column-list ON CONFLICT to bare exclusion for partial indexes', () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        '../../supabase/migrations/20260904190550_fix_gigl_tracking_notification_conflict_target.sql'
+      ),
+      'utf8'
+    );
+
+    expect(migration).toContain('ON CONFLICT DO NOTHING');
+    expect(migration).toContain('pg_get_functiondef');
+    expect(migration).toContain(
+      'apply_gigl_tracking_result(uuid, uuid, text, text, text, timestamptz, jsonb)'
+    );
+    expect(migration).toContain(
+      'shipment_id, tracking_epoch_id, tracking_event_id, audience, notification_kind'
+    );
+  });
+});

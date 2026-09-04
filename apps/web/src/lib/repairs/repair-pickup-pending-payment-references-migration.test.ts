@@ -52,3 +52,22 @@ describe('repair_pickup_pending_payment_references migration', () => {
     );
   });
 });
+
+const preserveLateCaptureMigrationPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260904190500_preserve_manual_fulfilled_on_late_pickup_capture.sql'
+);
+
+describe('preserve manual_fulfilled on late pickup capture migration', () => {
+  it('keeps manual_fulfilled and booked terminal while still ledging late capture', () => {
+    const sql = readFileSync(preserveLateCaptureMigrationPath, 'utf8');
+    expect(sql).toContain(
+      "WHEN v_repair.pickup_payment_status IN ('manual_fulfilled', 'booked')"
+    );
+    expect(sql).toContain(
+      'WHEN v_preserve_status IS NOT NULL THEN v_preserve_status'
+    );
+    expect(sql).toContain('preserved_pickup_payment_status');
+    expect(sql).toContain('consumed_at = now()');
+  });
+});

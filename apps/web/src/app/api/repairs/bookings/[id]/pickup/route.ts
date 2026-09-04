@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -34,11 +35,11 @@ function isActivePickupBookingLock(
  * merchants cannot race a webhook/provider booking into dual fulfillment.
  */
 async function recordManualPickup(
-  admin: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   merchantId: string,
   repairId: string
 ): Promise<ManualPickupOutcome> {
-  const { data, error } = await admin
+  const { data, error } = await supabase
     .from('repairs')
     .select(
       'admin_notes, shipment_id, pickup_booking_lock_token, pickup_booking_started_at'
@@ -88,7 +89,9 @@ async function recordManualPickup(
   // Terminal `manual_fulfilled` stops Paystack webhook rebooking and blocks
   // further GIGL auto booking (distinct from payment-side `review`). Guard the
   // write so a concurrent provider link / active lock loses the race cleanly.
-  const { data: updated, error: updateError } = await admin
+  // Include NULL pickup_payment_status so grandfathered rows still update
+  // (PostgreSQL `status IN (...)` / neq alone rejects NULL).
+  const { data: updated, error: updateError } = await supabase
     .from('repairs')
     .update({
       admin_notes: note,
@@ -99,9 +102,10 @@ async function recordManualPickup(
     })
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
-    .neq('pickup_payment_status', 'booked')
-    .neq('pickup_payment_status', 'manual_fulfilled')
     .is('shipment_id', null)
+    .or(
+      'pickup_payment_status.is.null,and(pickup_payment_status.neq.booked,pickup_payment_status.neq.manual_fulfilled)'
+    )
     .or(
       `pickup_booking_lock_token.is.null,pickup_booking_started_at.is.null,pickup_booking_started_at.lt.${staleCutoff}`
     )
@@ -151,11 +155,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
-  const admin = createClient();
-
   if (parsed.data.mode === 'manual') {
     const outcome = await recordManualPickup(
-      admin,
+      authz.supabase,
       authz.access.merchantId,
       id
     );
@@ -180,6 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ ok: true, manual: true });
   }
 
+  const admin = createClient();
   const result = await bookRepairPickup(admin, authz.access.merchantId, id);
   if (!result.ok && result.reason === 'not_found') {
     return NextResponse.json({ error: result.message }, { status: 404 });

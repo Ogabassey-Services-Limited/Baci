@@ -23,17 +23,6 @@ vi.mock('@/lib/repairs/book-repair-pickup', () => ({
 const VALID_ID = '123e4567-e89b-12d3-a456-426614174000';
 const params = Promise.resolve({ id: VALID_ID });
 
-function authorized() {
-  return { ok: true, access: { merchantId: 'm-1' }, supabase: {} };
-}
-
-function req(body?: unknown): Request {
-  return new Request(`https://x/api/repairs/bookings/${VALID_ID}/pickup`, {
-    method: 'POST',
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-}
-
 type ManualRow = {
   admin_notes: string | null;
   shipment_id: string | null;
@@ -41,7 +30,7 @@ type ManualRow = {
   pickup_booking_started_at: string | null;
 };
 
-function manualAdmin(
+function manualClient(
   exists: boolean,
   overrides: Partial<ManualRow> = {},
   updateMatched = true
@@ -53,6 +42,7 @@ function manualAdmin(
     pickup_booking_started_at: null,
     ...overrides,
   };
+  const orCalls: string[] = [];
   const updateTerminal = {
     eq() {
       return this;
@@ -63,7 +53,8 @@ function manualAdmin(
     is() {
       return this;
     },
-    or() {
+    or(filter: string) {
+      orCalls.push(filter);
       return this;
     },
     select() {
@@ -97,14 +88,15 @@ function manualAdmin(
       return builder;
     },
     update,
+    orCalls,
   };
 }
 
 /**
- * Manual-pickup admin double whose lookup or note-write fails, exercising the
+ * Manual-pickup client double whose lookup or note-write fails, exercising the
  * server-error path in recordManualPickup.
  */
-function manualAdminFailure(stage: 'lookup' | 'update') {
+function manualClientFailure(stage: 'lookup' | 'update') {
   const failure = { data: null, error: { message: 'db down' } };
   return {
     from() {
@@ -160,11 +152,22 @@ function manualAdminFailure(stage: 'lookup' | 'update') {
   };
 }
 
+function authorized(supabase: unknown = {}) {
+  return { ok: true, access: { merchantId: 'm-1' }, supabase };
+}
+
+function req(body?: unknown): Request {
+  return new Request(`https://x/api/repairs/bookings/${VALID_ID}/pickup`, {
+    method: 'POST',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
 describe('POST /api/repairs/bookings/[id]/pickup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.authorizeRepairsRequest.mockResolvedValue(authorized());
-    mocks.createClient.mockReturnValue(manualAdmin(true));
+    mocks.createClient.mockReturnValue({});
   });
 
   it('returns 401 when unauthorized', async () => {
@@ -188,6 +191,7 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.result).toMatchObject({ ok: true, trackingNumber: 'TRK-1' });
+    expect(mocks.createClient).toHaveBeenCalled();
   });
 
   it('returns 400 for a malformed JSON body instead of booking a pickup', async () => {
@@ -227,14 +231,15 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
   });
 
   it('records a manual pickup arrangement without calling the courier', async () => {
-    const admin = manualAdmin(true);
-    mocks.createClient.mockReturnValueOnce(admin);
+    const client = manualClient(true);
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(authorized(client));
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ ok: true, manual: true });
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
-    expect(admin.update).toHaveBeenCalledWith(
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(client.update).toHaveBeenCalledWith(
       expect.objectContaining({
         pickup_payment_status: 'manual_fulfilled',
         pickup_booking_lock_token: null,
@@ -243,11 +248,33 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     );
   });
 
+  it('bugfix: uses the authenticated RLS client for manual fulfillment writes', async () => {
+    const client = manualClient(true);
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(authorized(client));
+    await POST(req({ mode: 'manual' }) as never, { params });
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(client.update).toHaveBeenCalled();
+  });
+
+  it('bugfix: allows grandfathered null pickup_payment_status through the manual filter', async () => {
+    const client = manualClient(true);
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(authorized(client));
+    const res = await POST(req({ mode: 'manual' }) as never, { params });
+    expect(res.status).toBe(200);
+    expect(client.orCalls[0]).toContain('pickup_payment_status.is.null');
+    expect(client.orCalls[0]).toContain('pickup_payment_status.neq.booked');
+    expect(client.orCalls[0]).toContain(
+      'pickup_payment_status.neq.manual_fulfilled'
+    );
+  });
+
   it('bugfix: returns 409 when manual fallback races a linked shipment', async () => {
-    mocks.createClient.mockReturnValueOnce(
-      manualAdmin(true, {
-        shipment_id: '00000000-0000-4000-8000-000000000099',
-      })
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorized(
+        manualClient(true, {
+          shipment_id: '00000000-0000-4000-8000-000000000099',
+        })
+      )
     );
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(409);
@@ -255,18 +282,22 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
   });
 
   it('bugfix: returns 409 when an automatic booking lock is still active', async () => {
-    mocks.createClient.mockReturnValueOnce(
-      manualAdmin(true, {
-        pickup_booking_lock_token: 'lock-token',
-        pickup_booking_started_at: new Date().toISOString(),
-      })
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorized(
+        manualClient(true, {
+          pickup_booking_lock_token: 'lock-token',
+          pickup_booking_started_at: new Date().toISOString(),
+        })
+      )
     );
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(409);
   });
 
   it('returns 404 when marking pickup manual on a missing booking', async () => {
-    mocks.createClient.mockReturnValueOnce(manualAdmin(false));
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorized(manualClient(false))
+    );
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(404);
   });
@@ -286,13 +317,17 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
   });
 
   it('returns 500 when the manual booking lookup fails', async () => {
-    mocks.createClient.mockReturnValueOnce(manualAdminFailure('lookup'));
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorized(manualClientFailure('lookup'))
+    );
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(500);
   });
 
   it('returns 500 when the manual note write fails', async () => {
-    mocks.createClient.mockReturnValueOnce(manualAdminFailure('update'));
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorized(manualClientFailure('update'))
+    );
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(500);
   });

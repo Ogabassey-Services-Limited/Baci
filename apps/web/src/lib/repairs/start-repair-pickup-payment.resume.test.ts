@@ -174,6 +174,24 @@ describe('startRepairPickupPayment resume and validation', () => {
     expect(mocks.initializeTransaction).not.toHaveBeenCalled();
   });
 
+  it('bugfix: does not create a new repair when the resume token is invalid', async () => {
+    const result = await startRepairPickupPayment({
+      data: input,
+      expectedPickupFee: 8250,
+      merchantId,
+      merchantIdentifier: 'ogabassey',
+      resumeToken: 'tampered-or-rotated-resume-token',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'resume_invalid',
+    });
+    expect(mocks.createRepairBooking).not.toHaveBeenCalled();
+    expect(mocks.initializeTransaction).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid expected pickup fees before merchant lookup', async () => {
     const result = await startRepairPickupPayment({
       data: input,

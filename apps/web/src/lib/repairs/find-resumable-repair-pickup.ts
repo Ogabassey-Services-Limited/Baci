@@ -8,7 +8,8 @@ type ResumableRepair = { success: true; id: string; ticketNumber: number };
 type FindResumablePickupRepairResult =
   | { kind: 'found'; repair: ResumableRepair }
   | { kind: 'none' }
-  | { kind: 'error'; error: string };
+  | { kind: 'error'; error: string }
+  | { kind: 'invalid_resume'; error: string };
 
 type ResumablePickupRow = {
   id?: unknown;
@@ -61,8 +62,14 @@ export async function findResumablePickupRepair(options: {
     claim.merchantId === options.merchantId &&
     claim.customerEmail === options.input.customerEmail.trim().toLowerCase();
 
+  // Present-but-invalid tokens must fail closed — treating them as "none"
+  // would create a duplicate repair instead of reclaiming the original.
   if (options.resumeToken && !hasValidClaim) {
-    return { kind: 'none' };
+    return {
+      kind: 'invalid_resume',
+      error:
+        'Your saved pickup session is no longer valid. Start payment again from this page, or open the original link from your ticket email.',
+    };
   }
 
   const pinnedRepairId = hasValidClaim && claim ? claim.repairId : null;

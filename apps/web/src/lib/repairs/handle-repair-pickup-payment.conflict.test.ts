@@ -66,8 +66,11 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
         body: { message: 'Repair pickup payment mismatch ignored (unbound)' },
       });
       expect(rpc).not.toHaveBeenCalled();
+      expect(from).toHaveBeenCalledWith(
+        'repair_pickup_pending_payment_references'
+      );
       expect(eq).toHaveBeenCalledWith(
-        'pickup_payment_pending_reference',
+        'reference',
         repairPickupPaymentTestReference
       );
       expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
@@ -81,7 +84,7 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
     const { client, from, rpc } = createRepairPickupPaymentSupabase();
     const maybeSingle = vi.fn().mockResolvedValue({
       data: {
-        id: repairPickupPaymentTestRepairId,
+        repair_id: repairPickupPaymentTestRepairId,
         merchant_id: repairPickupPaymentTestMerchantId,
       },
       error: null,
@@ -113,6 +116,13 @@ describe('handleRepairPickupPayment conflict and claim mismatch', () => {
         status: 200,
         body: { message: 'Repair pickup payment requires review' },
       });
+      expect(from).toHaveBeenCalledWith(
+        'repair_pickup_pending_payment_references'
+      );
+      expect(eq).toHaveBeenCalledWith(
+        'reference',
+        repairPickupPaymentTestReference
+      );
       expect(rpc).toHaveBeenCalledWith(
         'record_repair_pickup_payment_mismatch',
         expect.objectContaining({

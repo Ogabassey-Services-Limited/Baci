@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { findResumablePickupRepair } from './find-resumable-repair-pickup';
 import { repairPickupResumeClaims } from './repair-pickup-resume-claim';
@@ -28,6 +28,10 @@ const input = {
 } as RepairBookingInput;
 
 describe('findResumablePickupRepair', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('reclaims the newest unpaid pickup when details match without a resume token', async () => {
     mocks.createRepairPickupReceiverClient.mockReturnValue({
       rpc: mocks.rpc,
@@ -237,5 +241,46 @@ describe('findResumablePickupRepair', () => {
     });
 
     expect(result).toMatchObject({ kind: 'error' });
+  });
+
+  it('bugfix: rejects a present-but-invalid resume token without creating a sibling', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+
+    const result = await findResumablePickupRepair({
+      input,
+      merchantId,
+      resumeToken: 'not-a-valid-resume-capability',
+      secret,
+    });
+
+    expect(result).toMatchObject({ kind: 'invalid_resume' });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: rejects a resume token signed with a rotated secret', async () => {
+    mocks.createRepairPickupReceiverClient.mockReturnValue({
+      rpc: mocks.rpc,
+    });
+    const resumeToken = repairPickupResumeClaims.create(
+      {
+        customerEmail: input.customerEmail,
+        issuedAt: Date.now(),
+        merchantId,
+        repairId,
+      },
+      'old-rotated-secret'
+    );
+
+    const result = await findResumablePickupRepair({
+      input,
+      merchantId,
+      resumeToken,
+      secret,
+    });
+
+    expect(result).toMatchObject({ kind: 'invalid_resume' });
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });

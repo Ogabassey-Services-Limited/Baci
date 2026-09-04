@@ -40,11 +40,15 @@ describe('processClaimedGiglTrackingNotifications orderless repair pickups', () 
     );
   });
 
-  it('bugfix: merchant orderless claims notify with shipment identity', async () => {
-    const supabase = createGiglTrackingNotificationSupabase({
-      description: 'Rider assigned',
-      raw_status: 'RIDER EN ROUTE FOR PICKUP',
-    });
+  it('bugfix: merchant orderless claims notify with repair identity', async () => {
+    const repairId = '00000000-0000-4000-8000-000000000099';
+    const supabase = createGiglTrackingNotificationSupabase(
+      {
+        description: 'Rider assigned',
+        raw_status: 'RIDER EN ROUTE FOR PICKUP',
+      },
+      { id: repairId }
+    );
     const summary = await processClaimedGiglTrackingNotifications(
       supabase as never,
       [{ ...notification, order_id: null }],
@@ -52,13 +56,14 @@ describe('processClaimedGiglTrackingNotifications orderless repair pickups', () 
     );
 
     expect(summary.sent).toBe(1);
+    expect(supabase.from).toHaveBeenCalledWith('repairs');
     expect(notifyMerchant).toHaveBeenCalledWith(
       notification.merchant_id,
       'Rider en route',
       expect.any(String),
       {
-        shipmentId: notification.shipment_id,
-        type: 'shipment_tracking',
+        repairId,
+        type: 'repair',
       },
       'orders',
       expect.any(Object)

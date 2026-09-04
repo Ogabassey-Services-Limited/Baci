@@ -8,6 +8,7 @@ import {
 import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { logger } from '@/lib/logger';
 import type { Database } from '@/types/supabase';
+import { buildGiglTrackingMerchantPushPayload } from './build-gigl-tracking-merchant-push-payload';
 import { copyFor } from './gigl-tracking-notification-copy';
 
 const claimedNotificationSchema = z.object({
@@ -68,12 +69,6 @@ async function processNotification(
     throw eventError ?? new Error('Tracking event missing');
 
   const copy = copyFor(notification.notification_kind, event.description);
-  const payload = {
-    ...(notification.order_id
-      ? { orderId: notification.order_id }
-      : { shipmentId: notification.shipment_id }),
-    type: 'shipment_tracking',
-  };
   if (notification.notification_kind === 'delivered' && notification.order_id) {
     await notifyDeliveredProtectionActivation(
       notification.order_id,
@@ -104,6 +99,10 @@ async function processNotification(
     );
   };
   if (notification.audience === 'merchant') {
+    const payload = await buildGiglTrackingMerchantPushPayload(
+      supabase,
+      notification
+    );
     const result = await notifyMerchant(
       notification.merchant_id,
       copy.title,
@@ -168,6 +167,10 @@ async function processNotification(
     );
     return 'skipped' as const;
   }
+  const payload = {
+    orderId: notification.order_id,
+    type: 'shipment_tracking',
+  };
   const result = await notifyCustomer(
     customer.user_id,
     copy.title,

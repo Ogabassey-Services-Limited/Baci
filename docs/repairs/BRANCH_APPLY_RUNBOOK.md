@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (24 September migrations, including security hardenings).
+pickup follow-on** set (29 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -66,6 +66,8 @@ July catalog:
 25. `20260904190300_manual_fulfilled_repair_pickup_payment_status.sql` — distinct `manual_fulfilled` status so merchant offline arrangement is non-bookable (unlike payment-side `review`)
 26. `20260904190400_repair_pickup_pending_payment_references.sql` — history table preserving every pending RPU tip across payment retries
 27. `20260904190450_consume_repair_pickup_pending_payment_references.sql` — consume history rows on confirm/mismatch; clear tip only when it matches the settled reference
+28. `20260904190500_preserve_manual_fulfilled_on_late_pickup_capture.sql` — late Paystack capture after merchant manual fulfillment (or booked) ledgers money without overwriting those terminal statuses to paid
+29. `20260904190550_fix_gigl_tracking_notification_conflict_target.sql` — rebind orderless apply RPC ON CONFLICT to bare exclusion so partial milestone/attempt indexes race safely
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
