@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const INTERNAL_CREDIT_GATEWAYS = ['wallet', 'savings', 'store_credit'] as const;
 
+export type ProjectedGiglCheckoutRetention = {
+  shipping_funding_source?: 'customer_checkout' | 'merchant_wallet' | null;
+  shipping_platform_retained_amount?: number | string | null;
+};
+
 function parseRetainedShippingAmount(
   value: number | string | null | undefined
 ): number {
@@ -15,12 +20,14 @@ function parseRetainedShippingAmount(
  * Customer wallet / savings / store-credit checkouts never create
  * merchant_settlements retention rows the way Paystack does. A completed
  * internal-credit transaction proves Baci already controls that paid portion;
- * treat the order's stamped checkout retention as settled coverage.
+ * reuse the already-projected checkout retention instead of re-selecting
+ * revoked orders.shipping_platform_retained_amount.
  */
 export async function loadOrderGiglInternalCreditRetainedAmount(
   supabase: SupabaseClient,
   merchantId: string,
-  orderId: string
+  orderId: string,
+  projectedRetention: ProjectedGiglCheckoutRetention
 ): Promise<number> {
   if (typeof supabase.from !== 'function') {
     throw new Error(
@@ -56,31 +63,11 @@ export async function loadOrderGiglInternalCreditRetainedAmount(
     return 0;
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('shipping_funding_source, shipping_platform_retained_amount')
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-
-  if (orderError) {
-    throw new Error(
-      `Failed to load internal-credit GIGL retention: ${orderError.message}`
-    );
-  }
-
-  if (
-    !order ||
-    typeof order !== 'object' ||
-    !('shipping_funding_source' in order) ||
-    order.shipping_funding_source !== 'customer_checkout'
-  ) {
+  if (projectedRetention.shipping_funding_source !== 'customer_checkout') {
     return 0;
   }
 
   return parseRetainedShippingAmount(
-    'shipping_platform_retained_amount' in order
-      ? (order.shipping_platform_retained_amount as number | string | null)
-      : null
+    projectedRetention.shipping_platform_retained_amount
   );
 }

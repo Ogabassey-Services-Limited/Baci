@@ -14,10 +14,10 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { hasGiglCheckoutShippingRetention } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-or-customer-checkout';
 import { findReusableOrderShipment } from '@/lib/shipping/find-reusable-order-shipment';
+import { isFundedCheckoutGiglAddressLocked } from '@/lib/shipping/is-funded-checkout-gigl-address-locked';
 import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
@@ -156,7 +156,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, payment_method, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_platform_retained_amount, shipping_address, tracking_number, shipment_id'
+        'id, order_number, shipping_status, payment_status, payment_method, is_credit_order, customer_id, selected_quote_id, shipping_provider, shipping_funding_source, shipping_address, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -259,15 +259,15 @@ export async function PATCH(
         // Paid checkout-funded GIGL retention survives quote clears via DB
         // triggers, but Admin re-quote cannot rebind away from checkout. Reject
         // before clearing so prepaid shipping is not stranded without a quote.
+        // Retention is projected via get_shipping_quote_booking_economics —
+        // never selected from revoked orders economics columns.
         if (
-          existingOrder.shipping_provider === 'GIGL' &&
-          (existingOrder.payment_status ?? '').trim().toLowerCase() ===
-            'paid' &&
-          hasGiglCheckoutShippingRetention({
-            shipping_funding_source: existingOrder.shipping_funding_source,
-            shipping_platform_retained_amount:
-              existingOrder.shipping_platform_retained_amount,
-          })
+          await isFundedCheckoutGiglAddressLocked(
+            supabase,
+            merchantId,
+            id,
+            existingOrder
+          )
         ) {
           return NextResponse.json(
             {

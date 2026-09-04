@@ -140,7 +140,12 @@ export async function assertGiglCustomerCheckoutPrepaid(
           : await loadOrderGiglInternalCreditRetainedAmount(
               context.supabase,
               context.merchantId,
-              context.orderId
+              context.orderId,
+              {
+                shipping_funding_source: order.shipping_funding_source,
+                shipping_platform_retained_amount:
+                  order.shipping_platform_retained_amount,
+              }
             );
       settledRetained = Math.max(fromSettlements, fromInternalCredit);
     } catch {

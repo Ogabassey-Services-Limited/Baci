@@ -20,8 +20,12 @@ describe('order PATCH merchant wallet booking', () => {
     expect(source).toContain(
       'bookingEconomics?.shipping_platform_retained_amount'
     );
+    expect(source).toContain('isFundedCheckoutGiglAddressLocked');
     expect(source).not.toContain(
       'existingOrder.shipping_platform_retained_amount'
+    );
+    expect(source).not.toMatch(
+      /\.select\(\s*'[^']*shipping_platform_retained_amount[^']*'\s*\)/
     );
   });
 });

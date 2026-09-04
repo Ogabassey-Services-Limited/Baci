@@ -681,7 +681,6 @@ describe('PATCH /api/orders/[id]', () => {
       selected_quote_id: 'quote-1',
       shipping_provider: 'GIGL',
       shipping_funding_source: 'customer_checkout',
-      shipping_platform_retained_amount: 2500,
       tracking_number: null,
       shipment_id: null,
       shipping_address: {
@@ -700,6 +699,16 @@ describe('PATCH /api/orders/[id]', () => {
       error: null,
       user: createMockUser(),
       supabase,
+    });
+    vi.mocked(getShippingQuoteBookingEconomics).mockResolvedValue({
+      provider_cost: 5000,
+      platform_margin: 2500,
+      platform_margin_bps: 5000,
+      pricing_version: 'v1',
+      shipping_provider_cost: 5000,
+      shipping_platform_margin: 2500,
+      shipping_pricing_version: 'v1',
+      shipping_platform_retained_amount: 2500,
     });
 
     const response = await PATCH(
@@ -720,6 +729,12 @@ describe('PATCH /api/orders/[id]', () => {
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
     expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(getShippingQuoteBookingEconomics).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      'order-1',
+      'quote-1'
+    );
   });
 
   it('requires re-quoting instead of shipping after editing a bound address', async () => {

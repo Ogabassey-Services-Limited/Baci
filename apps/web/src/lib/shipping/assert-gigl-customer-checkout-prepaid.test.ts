@@ -111,24 +111,6 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         };
       }
 
-      if (table === 'orders') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: {
-                    shipping_funding_source: 'customer_checkout',
-                    shipping_platform_retained_amount: 2500,
-                  },
-                  error: null,
-                }),
-              })),
-            })),
-          })),
-        };
-      }
-
       throw new Error(`Unexpected table: ${table}`);
     });
 
@@ -148,6 +130,8 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
         }
       )
     ).resolves.toBeUndefined();
+
+    expect(from).not.toHaveBeenCalledWith('orders');
   });
 
   it('bugfix: rejects paid gateway orders when stamped retention is not settled', async () => {
