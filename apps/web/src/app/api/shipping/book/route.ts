@@ -7,23 +7,15 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { assertGiglCustomerCheckoutPrepaid } from '@/lib/shipping/assert-gigl-customer-checkout-prepaid';
-import {
-  isShippingProviderCode,
-  OrderShipmentBookingError,
-} from '@/lib/shipping/order-shipment-booking-utils';
-import { getShippingQuoteBookingMetadata } from '@/lib/shipping/shipping-quote-booking-metadata';
+import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import type { ShipmentBookingResult } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
 import { bookingSuccessResponse } from './booking-success-response';
 import { executeDirectBookingAttempt } from './execute-direct-booking-attempt';
+import { loadDirectBookingContext } from './load-direct-booking-context';
 import { persistBookedShipment } from './persist-booked-shipment';
 import { prepareDirectBookingAttempt } from './prepare-direct-booking-attempt';
-import {
-  resolveBookingQuoteRequestPayload,
-  validateBookingQuoteRequestPayload,
-} from './quote-request-payload';
 import { releaseDirectBookingLock } from './release-direct-booking-lock';
 
 export async function POST(request: NextRequest) {
@@ -81,115 +73,20 @@ export async function POST(request: NextRequest) {
 
     const data = parseResult.data;
     bookingOrderId = data.orderId;
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(
-        'id, merchant_id, selected_quote_id, shipping_funding_source, shipping_provider, shipping_status, shipping_fee, payment_method, payment_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
-      )
-      .eq('id', data.orderId)
-      .eq('merchant_id', merchantId)
-      .single();
 
-    if (orderError || !order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    const loaded = await loadDirectBookingContext(supabase, merchantId, data);
+    if (!loaded.ok) {
+      return loaded.response;
     }
 
-    if (order.shipping_funding_source === 'merchant_wallet') {
-      return NextResponse.json(
-        {
-          error:
-            'Merchant-wallet orders must be booked from the order workflow.',
-          code: 'USE_ORDER_SHIPMENT_BOOKING',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (
-      ['shipped', 'delivered', 'processing'].includes(order.shipping_status)
-    ) {
-      return NextResponse.json(
-        { error: 'Order has already been shipped or is being processed' },
-        { status: 400 }
-      );
-    }
-
-    if (order.selected_quote_id && order.selected_quote_id !== data.quoteId) {
-      return NextResponse.json(
-        { error: 'Quote does not match order' },
-        { status: 400 }
-      );
-    }
-
-    const { data: quote, error: quoteError } = await supabase
-      .from('shipping_quotes')
-      .select(
-        'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, quote_request, expires_at, price, currency, estimated_days'
-      )
-      .eq('id', data.quoteId)
-      .eq('merchant_id', merchantId)
-      .single();
-
-    if (quoteError || !quote) {
-      return NextResponse.json(
-        { error: 'Quote not found or expired' },
-        { status: 404 }
-      );
-    }
-
-    const bookingMetadata = await getShippingQuoteBookingMetadata(
-      supabase,
-      merchantId,
-      data.orderId,
-      quote.id
-    );
-    let bookingQuote = {
-      ...quote,
-      provider_metadata: bookingMetadata,
-    };
-
-    const quotePayload = resolveBookingQuoteRequestPayload(
-      bookingQuote,
-      {
-        ...data.receiver,
-        country: data.receiver.country || 'Nigeria',
-        countryCode: data.receiver.countryCode || 'NG',
-      },
-      data.items,
-      order.order_items ?? []
-    );
-    if (!quotePayload) {
-      return NextResponse.json(
-        { error: 'Saved international quote request not found' },
-        { status: 400 }
-      );
-    }
-    const quoteValidation = validateBookingQuoteRequestPayload(
-      quotePayload,
+    const {
       order,
-      merchantId
-    );
-    if (!quoteValidation.ok) {
-      return NextResponse.json(
-        { error: quoteValidation.error, code: quoteValidation.code },
-        { status: quoteValidation.status }
-      );
-    }
-    if (!isShippingProviderCode(quote.provider)) {
-      return NextResponse.json(
-        { error: 'Invalid shipping provider in quote' },
-        { status: 400 }
-      );
-    }
+      bookingQuote,
+      quotePayload,
+      usesStoredInternationalSender,
+      quote,
+    } = loaded.context;
 
-    assertGiglCustomerCheckoutPrepaid({
-      payment_method: order.payment_method,
-      payment_status: order.payment_status,
-      shipping_funding_source: order.shipping_funding_source,
-      shipping_provider: order.shipping_provider ?? quote.provider,
-    });
-
-    const usesStoredInternationalSender = Boolean(quotePayload.sender);
     const bookingAttempt = await prepareDirectBookingAttempt(
       supabase,
       merchantId,
@@ -221,6 +118,7 @@ export async function POST(request: NextRequest) {
     let resolvedSenderInfo: typeof quotePayload.sender;
     let resolvedReceiver = quotePayload.receiver;
     let resolvedItems = quotePayload.items;
+    let activeBookingQuote = bookingQuote;
     if (bookingAttempt.status === 'recovered') {
       result = bookingAttempt.result;
     } else {
@@ -236,7 +134,7 @@ export async function POST(request: NextRequest) {
         merchantId,
         merchantBusinessName: merchantContext.businessName,
         orderId: data.orderId,
-        quote: bookingQuote,
+        quote: activeBookingQuote,
         quotePayload,
         usesStoredInternationalSender,
         expectedShippingFee: order.shipping_fee,
@@ -245,7 +143,7 @@ export async function POST(request: NextRequest) {
           retainBookingLock = true;
         },
       });
-      bookingQuote = booking.bookingQuote;
+      activeBookingQuote = booking.bookingQuote;
       result = booking.result;
       resolvedSenderInfo = booking.senderInfo;
       resolvedReceiver = booking.receiver;
@@ -260,7 +158,7 @@ export async function POST(request: NextRequest) {
       receiver:
         bookingAttempt.status === 'recovered' ? undefined : resolvedReceiver,
       items: bookingAttempt.status === 'recovered' ? undefined : resolvedItems,
-      bookingQuote,
+      bookingQuote: activeBookingQuote,
       result,
       existingShipment:
         bookingAttempt.status === 'recovered'

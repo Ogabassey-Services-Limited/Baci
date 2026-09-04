@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { expect, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
 
 export function buildInternationalBookingRequest(): NextRequest {
   return new Request('https://usebaci.com/api/shipping/book', {
@@ -69,6 +70,7 @@ export function buildInternationalSupabaseMock({
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
         selected_quote_id: selectedQuoteId,
+        ...prepaidGiglCustomerCheckoutOrderFields,
         shipping_status: 'pending',
         shipping_address: {
           address: '999 New Address',

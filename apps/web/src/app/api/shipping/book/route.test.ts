@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
@@ -56,6 +57,7 @@ function buildSupabaseMock(
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
         selected_quote_id: selectedQuoteId,
+        ...prepaidGiglCustomerCheckoutOrderFields,
         shipping_status: 'pending',
         shipping_address: {
           address: '123 Queen Street West',

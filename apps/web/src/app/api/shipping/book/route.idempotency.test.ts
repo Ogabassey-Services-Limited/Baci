@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
@@ -50,6 +51,7 @@ function buildSupabaseMock(options: { respectRetainedLock?: boolean } = {}) {
     id: orderId,
     merchant_id: 'merchant-1',
     selected_quote_id: quoteId,
+    ...prepaidGiglCustomerCheckoutOrderFields,
     shipping_status: 'pending',
     shipping_fee: 4500,
     shipping_address: null,

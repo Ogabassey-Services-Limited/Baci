@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { expect, vi } from 'vitest';
+import { prepaidGiglCustomerCheckoutOrderFields } from './route.test-fixtures';
 
 export const domesticSenderShipmentInsertPayloads: unknown[] = [];
 
@@ -13,6 +14,7 @@ export function buildDomesticSenderSupabaseMock(
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
         selected_quote_id: '22222222-2222-4222-8222-222222222222',
+        ...prepaidGiglCustomerCheckoutOrderFields,
         shipping_status: 'pending',
         shipping_address: {
           address: '123 Queen Street West',
