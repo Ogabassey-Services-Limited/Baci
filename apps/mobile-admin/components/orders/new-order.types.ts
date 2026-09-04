@@ -100,7 +100,15 @@ export type SelectableCustomer = Pick<
   | 'email'
   | 'phone'
   | 'address'
-> & { city?: string | null; state?: string | null };
+> & {
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 export type SelectableOrderProduct = SelectableManualOrderProduct;
 

@@ -55,6 +55,34 @@ describe('buildOrderGiglQuoteRequest', () => {
       expect.objectContaining({ name: 'iPhone 15', quantity: 1, weight: 1 }),
     ]);
   });
+  it('carries normalized product dimensions onto international quote items', async () => {
+    const result = await buildOrderGiglQuoteRequest(
+      {
+        ...base,
+        shipping_address: {
+          ...base.shipping_address,
+          country: 'United States',
+          countryCode: 'US',
+        },
+      },
+      sender,
+      async () => ({
+        p1: {
+          weight_value: 1,
+          weight_unit: 'kg',
+          commodity_code: '851712',
+          dimensions: { length: 4, width: 3, height: 2, unit: 'in' },
+        },
+      })
+    );
+
+    expect(result.ok && result.request.items[0]).toMatchObject({
+      length: 10.16,
+      width: 7.62,
+      height: 5.08,
+      hsCode: '851712',
+    });
+  });
   it('uses 1 kilogram per unweighted item instead of collapsing a two-item order', async () => {
     const result = await buildOrderGiglQuoteRequest(
       {

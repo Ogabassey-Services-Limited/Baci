@@ -2,6 +2,7 @@ type OrderItemProduct = {
   weight_value?: number | null;
   weight_unit?: string | null;
   commodity_code?: string | null;
+  dimensions?: unknown;
 };
 
 type OrderItemWithProduct = {
@@ -24,6 +25,7 @@ export function buildAdminOrderGiglProductLookup(
     weight_value: number | null;
     weight_unit: string | null;
     commodity_code: string | null;
+    dimensions: unknown;
   }
 > {
   return Object.fromEntries(
@@ -38,6 +40,7 @@ export function buildAdminOrderGiglProductLookup(
             weight_value: product?.weight_value ?? null,
             weight_unit: product?.weight_unit ?? null,
             commodity_code: product?.commodity_code ?? null,
+            dimensions: product?.dimensions ?? null,
           },
         ],
       ];

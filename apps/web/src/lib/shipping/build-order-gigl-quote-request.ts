@@ -1,3 +1,4 @@
+import { readPackageDimensionsCm } from './package-dimensions';
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from './types';
 
 const DEFAULT_ORDER_ITEM_WEIGHT_KG = 1;
@@ -25,6 +26,7 @@ type ProductLookup = (ids: string[]) => Promise<
       weight_value?: number | null;
       weight_unit?: string | null;
       commodity_code?: string | null;
+      dimensions?: unknown;
     }
   >
 >;
@@ -188,12 +190,14 @@ export async function buildOrderGiglQuoteRequest(
         status: 422,
       };
     }
+    const dimensions = readPackageDimensionsCm(product?.dimensions);
     items.push({
       name: String(item.name ?? 'Item'),
       quantity,
       weight,
       value: Number(item.price ?? 0),
       ...(hsCode ? { hsCode } : {}),
+      ...(dimensions ?? {}),
     });
   }
   return {

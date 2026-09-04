@@ -9,7 +9,16 @@ export type WalletChargeReservation = Awaited<
   ReturnType<typeof reserveMerchantShippingCharge>
 >;
 
-export async function hasReservedMerchantShippingCharge(
+const ACTIVE_WALLET_CHARGE_STATUSES = [
+  'reserved',
+  'provider_submitting',
+] as const;
+
+/**
+ * Detect reserved or provider_submitting charges so reserve/recovery runs
+ * before quote refresh (active submissions block quote replacement).
+ */
+export async function hasActiveMerchantShippingCharge(
   supabase: SupabaseClient,
   orderId: string,
   quoteId: string
@@ -21,10 +30,10 @@ export async function hasReservedMerchantShippingCharge(
       .select('id')
       .eq('order_id', orderId)
       .eq('shipping_quote_id', quoteId)
-      .eq('status', 'reserved')
-      .maybeSingle();
+      .in('status', [...ACTIVE_WALLET_CHARGE_STATUSES])
+      .limit(1);
     if (error) return null;
-    return Boolean(data?.id);
+    return Array.isArray(data) && data.length > 0;
   } catch {
     return null;
   }

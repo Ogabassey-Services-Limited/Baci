@@ -78,17 +78,25 @@ describe('createNewOrderCustomerActions', () => {
   it('prefers full names and falls back through email, phone, then unknown when selecting a customer', () => {
     const setCustomer = vi.fn();
     const actions = makeActions({ setCustomer });
+    const emptyLocality = {
+      city: '',
+      country: '',
+      countryCode: '',
+      latitude: undefined,
+      longitude: undefined,
+      postalCode: '',
+      state: '',
+    };
 
     [
       {
         expected: {
           address: '12 Allen Avenue',
-          city: '',
           email: 'ada@example.com',
           id: 'customer-1',
           name: 'Ada Lovelace',
           phone: '08012345678',
-          state: '',
+          ...emptyLocality,
         },
         input: {
           address: '12 Allen Avenue',
@@ -105,12 +113,11 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
-          city: '',
           email: 'merchant-owner@example.com',
           id: 'customer-2',
           name: 'merchant-owner',
           phone: '',
-          state: '',
+          ...emptyLocality,
         },
         input: {
           address: null,
@@ -127,12 +134,11 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
-          city: '',
           email: '',
           id: 'customer-3',
           name: '08099999999',
           phone: '08099999999',
-          state: '',
+          ...emptyLocality,
         },
         input: {
           address: null,
@@ -149,12 +155,11 @@ describe('createNewOrderCustomerActions', () => {
       {
         expected: {
           address: '',
-          city: '',
           email: '',
           id: 'customer-4',
           name: 'Unknown',
           phone: '',
-          state: '',
+          ...emptyLocality,
         },
         input: {
           address: null,
@@ -171,6 +176,45 @@ describe('createNewOrderCustomerActions', () => {
     ].forEach(({ expected, input }, index) => {
       actions.handleSelectCustomer(input);
       expect(setCustomer).toHaveBeenNthCalledWith(index + 1, expected);
+    });
+  });
+
+  it('bugfix: preserves structured locality when reusing an existing customer', () => {
+    const setCustomer = vi.fn();
+    const actions = makeActions({ setCustomer });
+
+    actions.handleSelectCustomer({
+      address: '12 Allen Avenue',
+      city: 'Ikeja',
+      company_name: null,
+      country: 'Nigeria',
+      country_code: 'NG',
+      customer_type: 'individual',
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      full_name: 'Ada Lovelace',
+      id: 'customer-locality',
+      last_name: 'Lovelace',
+      latitude: 6.6018,
+      longitude: 3.3515,
+      phone: '08012345678',
+      state: 'Lagos',
+      zip_code: '100001',
+    });
+
+    expect(setCustomer).toHaveBeenCalledWith({
+      address: '12 Allen Avenue',
+      city: 'Ikeja',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      email: 'ada@example.com',
+      id: 'customer-locality',
+      latitude: 6.6018,
+      longitude: 3.3515,
+      name: 'Ada Lovelace',
+      phone: '08012345678',
+      postalCode: '100001',
+      state: 'Lagos',
     });
   });
 });

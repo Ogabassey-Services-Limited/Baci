@@ -10,6 +10,7 @@ export async function hasSettledPaystackOrderPaymentReference({
   const { data, error } = await supabase
     .from('transactions')
     .select('id')
+    .eq('gateway', 'paystack')
     .eq('gateway_reference', gatewayReference)
     .eq('status', 'completed')
     .not('order_id', 'is', null)

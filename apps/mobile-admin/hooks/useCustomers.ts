@@ -129,6 +129,10 @@ export function useCreateCustomer() {
       city?: string;
       state?: string;
       zip_code?: string;
+      country?: string;
+      country_code?: string;
+      latitude?: number;
+      longitude?: number;
     }) => {
       if (!merchant?.id) throw new Error('No merchant selected');
 
@@ -176,12 +180,13 @@ export function useCreateCustomer() {
         last_name: newCustomer.last_name,
         email: normalizedEmail || undefined,
       });
-      const address = buildCustomerAddressLine(
-        newCustomer.address,
-        newCustomer.city,
-        newCustomer.state,
-        newCustomer.zip_code
-      );
+      const address =
+        newCustomer.address?.trim() ||
+        buildCustomerAddressLine(
+          newCustomer.city,
+          newCustomer.state,
+          newCustomer.zip_code
+        );
 
       const { data, error } = await supabase
         .from('customers')
@@ -191,6 +196,21 @@ export function useCreateCustomer() {
           email: normalizedEmail || null,
           phone: normalizedPhone || null,
           address,
+          city: newCustomer.city?.trim() || null,
+          state: newCustomer.state?.trim() || null,
+          zip_code: newCustomer.zip_code?.trim() || null,
+          country: newCustomer.country?.trim() || null,
+          country_code: newCustomer.country_code?.trim() || null,
+          latitude:
+            typeof newCustomer.latitude === 'number' &&
+            Number.isFinite(newCustomer.latitude)
+              ? newCustomer.latitude
+              : null,
+          longitude:
+            typeof newCustomer.longitude === 'number' &&
+            Number.isFinite(newCustomer.longitude)
+              ? newCustomer.longitude
+              : null,
           store_credit: 0,
           total_orders: 0,
           total_spent: 0,

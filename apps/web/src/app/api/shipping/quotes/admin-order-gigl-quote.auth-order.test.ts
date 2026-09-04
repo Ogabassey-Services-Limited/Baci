@@ -138,7 +138,7 @@ describe('Admin GIGL edge auth and order validation', () => {
     expect(response.status).toBe(200);
     expect(supabase.from('orders').select).toHaveBeenCalledWith(
       expect.stringContaining(
-        'product:products!order_items_product_id_fkey(weight_value, weight_unit)'
+        'product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code)'
       )
     );
   });

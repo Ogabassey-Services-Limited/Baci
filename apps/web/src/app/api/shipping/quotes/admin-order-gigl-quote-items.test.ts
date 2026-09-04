@@ -35,6 +35,31 @@ describe('admin order gigl quote items', () => {
         weight_value: 2,
         weight_unit: 'kg',
         commodity_code: '851712',
+        dimensions: null,
+      },
+    });
+  });
+
+  it('carries product package dimensions into the admin product lookup', () => {
+    const dimensions = { length: 10, width: 8, height: 6, unit: 'cm' };
+    const items = [
+      {
+        product_id: 'p1',
+        product: {
+          weight_value: 2,
+          weight_unit: 'kg',
+          commodity_code: '851712',
+          dimensions,
+        },
+      },
+    ];
+
+    expect(buildAdminOrderGiglProductLookup(items)).toEqual({
+      p1: {
+        weight_value: 2,
+        weight_unit: 'kg',
+        commodity_code: '851712',
+        dimensions,
       },
     });
   });

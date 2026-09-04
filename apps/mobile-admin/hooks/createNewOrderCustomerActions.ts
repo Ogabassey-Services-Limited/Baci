@@ -32,6 +32,10 @@ interface CreateNewOrderCustomerActionsParams {
     city?: string;
     state?: string;
     zip_code?: string;
+    country?: string;
+    country_code?: string;
+    latitude?: number;
+    longitude?: number;
   }) => Promise<SelectableCustomer>;
   merchantId?: string;
   newCustomer: NewCustomerDraft;
@@ -105,6 +109,11 @@ export function createNewOrderCustomerActions({
       phone: item.phone || '',
       city: item.city || '',
       state: item.state || '',
+      country: item.country || '',
+      countryCode: item.country_code || '',
+      postalCode: item.zip_code || '',
+      latitude: item.latitude ?? undefined,
+      longitude: item.longitude ?? undefined,
     });
     setShowCustomerModal(false);
     setCustomerSearch('');
@@ -154,7 +163,7 @@ export function createNewOrderCustomerActions({
         let query = supabase
           .from('customers')
           .select(
-            'id, customer_type, company_name, full_name, first_name, last_name, email, phone, address'
+            'id, customer_type, company_name, full_name, first_name, last_name, email, phone, address, city, state, zip_code, country, country_code, latitude, longitude'
           )
           .eq('merchant_id', merchantId)
           .is('deleted_at', null);
@@ -196,6 +205,10 @@ export function createNewOrderCustomerActions({
         city: normalizedCustomer.city || undefined,
         state: normalizedCustomer.state || undefined,
         zip_code: normalizedCustomer.postalCode || undefined,
+        country: normalizedCustomer.country || undefined,
+        country_code: normalizedCustomer.countryCode || undefined,
+        latitude: normalizedCustomer.latitude,
+        longitude: normalizedCustomer.longitude,
       });
 
       handleSelectCustomer(customer);

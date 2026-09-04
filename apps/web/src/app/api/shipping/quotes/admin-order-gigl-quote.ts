@@ -49,7 +49,7 @@ type AdminInput = {
 };
 
 const orderSelect =
-  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipping_provider, shipping_funding_source, selected_quote_id, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, commodity_code))';
+  'id, merchant_id, customer_name, customer_phone, customer_email, shipping_address, shipping_status, shipping_provider, shipping_funding_source, selected_quote_id, shipment_id, tracking_number, order_items(id, name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))';
 
 export async function postAdminOrderGiglQuote(
   request: NextRequest,

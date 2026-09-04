@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BookOrderShipmentResult } from './book-order-shipment';
 import {
   cleanupPreSubmissionReservation,
-  hasReservedMerchantShippingCharge,
+  hasActiveMerchantShippingCharge,
 } from './book-wallet-funded-reservation-cleanup';
 import {
   completePendingWalletExistingShipment,
@@ -53,7 +53,7 @@ export async function bookWalletFundedOrderShipment(
   }
   let preparedQuoteId = quoteId;
   let reservation: ChargeReservation | undefined;
-  const reservedChargeState = await hasReservedMerchantShippingCharge(
+  const reservedChargeState = await hasActiveMerchantShippingCharge(
     supabase,
     orderId,
     quoteId
