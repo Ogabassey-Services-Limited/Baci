@@ -155,4 +155,115 @@ describe('finalizeRepairPickupBooking', () => {
       })
     );
   });
+
+  describe('bugfix: booked-state persistence must fail closed for webhook retry', () => {
+    it('returns shipment_save_failed when clearing the booking lock fails after GIGL succeeds', async () => {
+      const shipmentSingle = vi.fn().mockResolvedValue({
+        data: { id: 'shipment-1' },
+        error: null,
+      });
+      const shipmentEqMerchant = vi
+        .fn()
+        .mockReturnValue({ select: () => ({ single: shipmentSingle }) });
+      const shipmentEqId = vi.fn().mockReturnValue({ eq: shipmentEqMerchant });
+      const shipmentUpdate = vi.fn().mockReturnValue({ eq: shipmentEqId });
+
+      const repairEqLock = vi
+        .fn()
+        .mockResolvedValue({ error: { message: 'lock clear failed' } });
+      const repairEqShipment = vi.fn().mockReturnValue({ eq: repairEqLock });
+      const repairEqMerchant = vi
+        .fn()
+        .mockReturnValue({ eq: repairEqShipment });
+      const repairEqId = vi.fn().mockReturnValue({ eq: repairEqMerchant });
+      const repairUpdate = vi.fn().mockReturnValue({ eq: repairEqId });
+
+      const from = vi.fn((table: string) => {
+        if (table === 'shipments') {
+          return { update: shipmentUpdate };
+        }
+        return { update: repairUpdate };
+      });
+
+      const result = await finalizeRepairPickupBooking({
+        booking: {
+          carrierName: 'GIG Logistics',
+          isStationPickup: false,
+          provider: 'GIGL',
+          providerShipmentId: 'prov-1',
+          status: 'pending',
+          trackingNumber: '1349000000',
+        },
+        lockToken: 'lock-1',
+        merchantId: '123e4567-e89b-12d3-a456-426614174000',
+        quoteId: 'quote-1',
+        repairId: '223e4567-e89b-12d3-a456-426614174000',
+        shipmentId: 'shipment-1',
+        supabase: { from } as never,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'shipment_save_failed',
+      });
+    });
+
+    it('returns shipment_save_failed when marking the quote used fails after the lock clears', async () => {
+      const shipmentSingle = vi.fn().mockResolvedValue({
+        data: { id: 'shipment-1' },
+        error: null,
+      });
+      const shipmentEqMerchant = vi
+        .fn()
+        .mockReturnValue({ select: () => ({ single: shipmentSingle }) });
+      const shipmentEqId = vi.fn().mockReturnValue({ eq: shipmentEqMerchant });
+      const shipmentUpdate = vi.fn().mockReturnValue({ eq: shipmentEqId });
+
+      const repairEqLock = vi.fn().mockResolvedValue({ error: null });
+      const repairEqShipment = vi.fn().mockReturnValue({ eq: repairEqLock });
+      const repairEqMerchant = vi
+        .fn()
+        .mockReturnValue({ eq: repairEqShipment });
+      const repairEqId = vi.fn().mockReturnValue({ eq: repairEqMerchant });
+      const repairUpdate = vi.fn().mockReturnValue({ eq: repairEqId });
+
+      const quoteEqMerchant = vi
+        .fn()
+        .mockResolvedValue({ error: { message: 'quote update failed' } });
+      const quoteEqId = vi.fn().mockReturnValue({ eq: quoteEqMerchant });
+      const quoteUpdate = vi.fn().mockReturnValue({ eq: quoteEqId });
+
+      const from = vi.fn((table: string) => {
+        if (table === 'shipments') {
+          return { update: shipmentUpdate };
+        }
+        if (table === 'repairs') {
+          return { update: repairUpdate };
+        }
+        return { update: quoteUpdate };
+      });
+
+      const result = await finalizeRepairPickupBooking({
+        booking: {
+          carrierName: 'GIG Logistics',
+          isStationPickup: false,
+          provider: 'GIGL',
+          providerShipmentId: 'prov-1',
+          status: 'pending',
+          trackingNumber: '1349000000',
+        },
+        lockToken: 'lock-1',
+        merchantId: '123e4567-e89b-12d3-a456-426614174000',
+        quoteId: 'quote-1',
+        repairId: '223e4567-e89b-12d3-a456-426614174000',
+        shipmentId: 'shipment-1',
+        supabase: { from } as never,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'shipment_save_failed',
+      });
+    });
+  });
 });

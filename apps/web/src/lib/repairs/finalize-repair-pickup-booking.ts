@@ -70,6 +70,9 @@ export async function finalizeRepairPickupBooking({
       'Failed to clear repair pickup booking lock:',
       clearLockError
     );
+    // Shipment already holds GIGL tracking; fail closed so the webhook retries
+    // and reconcileLinkedRepairPickup can finish clearing the lock.
+    return pickupFailure('shipment_save_failed');
   }
 
   const { error: quoteUsedError } = await supabase
@@ -80,6 +83,7 @@ export async function finalizeRepairPickupBooking({
 
   if (quoteUsedError) {
     console.error('Failed to mark repair pickup quote used:', quoteUsedError);
+    return pickupFailure('shipment_save_failed');
   }
 
   return {

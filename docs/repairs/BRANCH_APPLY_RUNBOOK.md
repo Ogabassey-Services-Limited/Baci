@@ -101,9 +101,9 @@ Run these after the September paid-pickup migrations:
 - **Cached-merchant RPC surfaces the flag (migration `20260711100010`):** `SELECT (feature_settings ? 'repairs_catalog_enabled') FROM public.resolve_storefront_cached_merchant('<ogabassey-slug>');` returns `true` (there is no `supabase/tests/*.sql` for `resolve_storefront_cached_merchant`, so verify this manually). With the flag on, the value should be `true`; the storefront merchant shell reads it from this jsonb.
 
 ## 3. Regenerate types
-The web Supabase clients are currently **untyped** (no generated `Database` type exists in the repo),
-so no regen is strictly required for the shipped code. If a typed client is later introduced,
-run `mcp__supabase__generate_typescript_types` after the branch merges to prod and wire it in.
+`apps/web/src/types/supabase.ts` must include the Sept pickup-payment columns, pending-reference
+table, and public RPCs before merge. Prefer a clean history-replay `--types-output` regen after
+prod apply; until then keep the checked-in patch in sync with the migration chain.
 
 ## 4. Merge the branch to prod, then deploy the app branch
 Standard flow. After the DB migrations are on prod, deploy `codex/repairs-catalog`.
