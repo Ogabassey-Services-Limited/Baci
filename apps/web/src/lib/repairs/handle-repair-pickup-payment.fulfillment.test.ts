@@ -9,16 +9,25 @@ import {
   repairPickupPaymentTestSecret,
 } from './handle-repair-pickup-payment.test-support';
 
-const mocks = vi.hoisted(() => ({ bookRepairPickup: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  bookRepairPickup: vi.fn(),
+  notifyRepairPickupBookingAfterPayment: vi.fn(),
+}));
 
 vi.mock('@/lib/repairs/book-repair-pickup', () => ({
   bookRepairPickup: mocks.bookRepairPickup,
+}));
+
+vi.mock('@/lib/repairs/notify-repair-pickup-booking', () => ({
+  notifyRepairPickupBookingAfterPayment:
+    mocks.notifyRepairPickupBookingAfterPayment,
 }));
 
 describe('handleRepairPickupPayment fulfillment outcomes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.PAYSTACK_SECRET_KEY = repairPickupPaymentTestSecret;
+    mocks.notifyRepairPickupBookingAfterPayment.mockResolvedValue(undefined);
   });
 
   it('marks an ambiguous provider result for review without retrying the webhook', async () => {
@@ -60,6 +69,11 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
       repairPickupPaymentTestReference
     );
     expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
+      client,
+      repairPickupPaymentTestMerchantId,
+      repairPickupPaymentTestRepairId
+    );
   });
 
   it('marks carrier availability failures retrying and asks Paystack to retry', async () => {
@@ -84,6 +98,7 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
 
     expect(result).toMatchObject({ handled: true, status: 503 });
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'retrying' });
+    expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
   });
 
   it('asks Paystack to retry when local shipment insert fails before booking', async () => {
@@ -164,6 +179,11 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
     });
     expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
     expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
+    expect(mocks.notifyRepairPickupBookingAfterPayment).toHaveBeenCalledWith(
+      client,
+      repairPickupPaymentTestMerchantId,
+      repairPickupPaymentTestRepairId
+    );
   });
 
   it('asks Paystack to retry when definitive failure review state cannot be persisted', async () => {
@@ -195,5 +215,6 @@ describe('handleRepairPickupPayment fulfillment outcomes', () => {
           'Repair pickup payment confirmed; review state persistence will retry',
       },
     });
+    expect(mocks.notifyRepairPickupBookingAfterPayment).not.toHaveBeenCalled();
   });
 });

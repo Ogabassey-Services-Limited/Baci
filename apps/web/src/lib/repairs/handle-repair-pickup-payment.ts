@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
 import { notifyRepairPickupBookingAfterPayment } from '@/lib/repairs/notify-repair-pickup-booking';
+import {
+  readRepairPickupMismatchIdentity,
+  recordRepairPickupPaymentMismatch,
+} from '@/lib/repairs/record-repair-pickup-payment-mismatch';
 import { repairPickupPaymentClaims } from '@/lib/repairs/repair-pickup-payment-claim';
 
 type RepairPickupPaymentHandlingResult =
@@ -26,24 +30,6 @@ function getConfirmed(value: unknown): boolean | null {
   return typeof confirmed === 'boolean' ? confirmed : null;
 }
 
-async function markPickupClaimMismatchForReview(
-  supabase: SupabaseClient,
-  claim: { merchantId: string; repairId: string }
-): Promise<boolean> {
-  const { error } = await supabase
-    .from('repairs')
-    .update({ pickup_payment_status: 'review' })
-    .eq('id', claim.repairId)
-    .eq('merchant_id', claim.merchantId)
-    .neq('pickup_payment_status', 'booked');
-
-  if (error) {
-    console.error('Repair pickup claim mismatch review update failed:', error);
-    return false;
-  }
-  return true;
-}
-
 async function setPickupPaymentStatus(
   supabase: SupabaseClient,
   claim: { merchantId: string; reference: string; repairId: string },
@@ -63,6 +49,21 @@ async function setPickupPaymentStatus(
     return false;
   }
   return true;
+}
+
+function mismatchReasonFor(input: {
+  claim: { amountKobo: number; currency: string; reference: string } | null;
+  currency: string;
+  reference: string;
+  verifiedAmount: number;
+}): string {
+  if (!input.claim) return 'claim_missing_or_invalid';
+  if (input.claim.reference !== input.reference) return 'reference_mismatch';
+  if (input.claim.amountKobo !== Math.round(input.verifiedAmount * 100)) {
+    return 'amount_mismatch';
+  }
+  if (input.claim.currency !== input.currency) return 'currency_mismatch';
+  return 'claim_mismatch';
 }
 
 export async function handleRepairPickupPayment({
@@ -100,8 +101,30 @@ export async function handleRepairPickupPayment({
       claimVerified: Boolean(claim),
       reference,
     });
-    if (claim) {
-      await markPickupClaimMismatchForReview(supabase, claim);
+    const unsigned = readRepairPickupMismatchIdentity(metadata);
+    const recorded = await recordRepairPickupPaymentMismatch({
+      currency: currency || 'XXX',
+      gatewayResponse,
+      merchantId: claim?.merchantId ?? unsigned.merchantId,
+      mismatchReason: mismatchReasonFor({
+        claim,
+        currency,
+        reference,
+        verifiedAmount,
+      }),
+      reference,
+      repairId: claim?.repairId ?? unsigned.repairId,
+      supabase,
+      verifiedAmount,
+    });
+    if (!recorded) {
+      return {
+        handled: true,
+        status: 503,
+        body: {
+          message: 'Repair pickup payment mismatch will retry until durable',
+        },
+      };
     }
     return {
       handled: true,
@@ -184,6 +207,14 @@ export async function handleRepairPickupPayment({
           : 'Repair pickup payment confirmed; review state persistence will retry',
       },
     };
+  }
+
+  if (!shouldRetry) {
+    await notifyRepairPickupBookingAfterPayment(
+      supabase,
+      claim.merchantId,
+      claim.repairId
+    );
   }
 
   return {

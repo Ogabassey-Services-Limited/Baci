@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { claimRepairPickupBooking } from '@/lib/repairs/claim-repair-pickup-booking';
 import { finalizeRepairPickupBooking } from '@/lib/repairs/finalize-repair-pickup-booking';
 import {
+  isRepairPickupPaymentReady,
+  isRepairPickupQuoteAbovePaidFee,
+} from '@/lib/repairs/is-repair-pickup-payment-ready';
+import {
   type BookRepairPickupResult,
   buildPickupItems,
   buildPickupSender,
@@ -37,7 +41,7 @@ export async function bookRepairPickup(
   const { data: repairData, error: repairError } = await supabase
     .from('repairs')
     .select(
-      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, pickup_fee, pickup_payment_status, shipment_id, quoted_price, status'
+      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, pickup_fee, pickup_payment_status, pickup_payment_reference, shipment_id, quoted_price, status'
     )
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
@@ -71,13 +75,7 @@ export async function bookRepairPickup(
     return pickupFailure('shipment_save_failed');
   }
 
-  const paidPickupFee = Number(repair.pickup_fee);
-  const pickupPaymentStatus = repair.pickup_payment_status ?? '';
-  if (
-    !['paid', 'retrying', 'review'].includes(pickupPaymentStatus) ||
-    !Number.isFinite(paidPickupFee) ||
-    paidPickupFee <= 0
-  ) {
+  if (!isRepairPickupPaymentReady(repair)) {
     return pickupFailure('payment_required');
   }
   const sender = buildPickupSender(repair);
@@ -115,7 +113,7 @@ export async function bookRepairPickup(
     return pickupFailure('gigl_unavailable');
   }
 
-  if (Math.round(quote.price * 100) > Math.round(paidPickupFee * 100)) {
+  if (isRepairPickupQuoteAbovePaidFee(quote.price, repair.pickup_fee)) {
     return pickupFailure('quote_increased');
   }
 

@@ -68,7 +68,7 @@ describe('bookRepairPickup', () => {
     }
   });
 
-  it('does not quote or book GIGL before the customer payment is confirmed', async () => {
+  it('grandfathers legacy unpaid pickups with null payment columns', async () => {
     const supabase = makeSupabase(
       happyResponses({
         'repairs.select': {
@@ -76,6 +76,28 @@ describe('bookRepairPickup', () => {
             ...repairRow,
             pickup_fee: null,
             pickup_payment_status: null,
+            pickup_payment_reference: null,
+          },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: true, trackingNumber: 'TRK-123' });
+    expect(mocks.bookShipment).toHaveBeenCalledOnce();
+  });
+
+  it('still requires payment when a pickup reference exists without paid status', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: {
+            ...repairRow,
+            pickup_fee: null,
+            pickup_payment_status: null,
+            pickup_payment_reference: 'RPU-PENDINGREF12345',
           },
           error: null,
         },

@@ -80,9 +80,9 @@ describe('handleRepairPickupPayment claim confirmation', () => {
     expect(mocks.bookRepairPickup).toHaveBeenCalledOnce();
   });
 
-  it('does not confirm or book a tampered payment amount', async () => {
-    const { client, rpc, neq, thirdEq, update } =
-      createRepairPickupPaymentSupabase();
+  it('ledgers a tampered payment amount before ACKing for review', async () => {
+    const { client, rpc } = createRepairPickupPaymentSupabase();
+    rpc.mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
 
     const result = await handleRepairPickupPayment({
       gateway: 'paystack',
@@ -100,15 +100,50 @@ describe('handleRepairPickupPayment claim confirmation', () => {
       status: 200,
       body: { message: 'Repair pickup payment requires review' },
     });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith('record_repair_pickup_payment_mismatch', {
+      p_amount: 8000,
+      p_currency: 'NGN',
+      p_gateway_response: expect.objectContaining({ currency: 'NGN' }),
+      p_merchant_id: repairPickupPaymentTestMerchantId,
+      p_mismatch_reason: 'amount_mismatch',
+      p_reference: repairPickupPaymentTestReference,
+      p_repair_id: repairPickupPaymentTestRepairId,
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'confirm_repair_pickup_payment',
+      expect.anything()
+    );
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
-    expect(update).toHaveBeenCalledWith({ pickup_payment_status: 'review' });
-    expect(neq).toHaveBeenCalledWith('pickup_payment_status', 'booked');
-    expect(thirdEq).not.toHaveBeenCalled();
   });
 
-  it('does not confirm a pickup claim with an invalid signature', async () => {
+  it('asks Paystack to retry when mismatch ledger persistence fails', async () => {
     const { client, rpc } = createRepairPickupPaymentSupabase();
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'offline' } });
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: createRepairPickupPaymentMetadata(),
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8000,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 503,
+      body: {
+        message: 'Repair pickup payment mismatch will retry until durable',
+      },
+    });
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('ledgers an invalid signature claim using unsigned metadata ids', async () => {
+    const { client, rpc } = createRepairPickupPaymentSupabase();
+    rpc.mockResolvedValueOnce({ data: [{ recorded: true }], error: null });
     const metadata = createRepairPickupPaymentMetadata();
 
     const result = await handleRepairPickupPayment({
@@ -123,8 +158,42 @@ describe('handleRepairPickupPayment claim confirmation', () => {
     });
 
     expect(result).toMatchObject({ handled: true, status: 200 });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      'record_repair_pickup_payment_mismatch',
+      expect.objectContaining({
+        p_mismatch_reason: 'claim_missing_or_invalid',
+        p_merchant_id: repairPickupPaymentTestMerchantId,
+        p_repair_id: repairPickupPaymentTestRepairId,
+      })
+    );
     expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when an invalid claim has no merchant id to ledger', async () => {
+    const { client, rpc } = createRepairPickupPaymentSupabase();
+
+    const result = await handleRepairPickupPayment({
+      gateway: 'paystack',
+      gatewayResponse: {
+        currency: 'NGN',
+        metadata: {
+          transaction_type: 'repair_pickup',
+          pickup_claim_version: 1,
+        },
+      },
+      reference: repairPickupPaymentTestReference,
+      supabase: client,
+      verifiedAmount: 8250,
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      status: 503,
+      body: {
+        message: 'Repair pickup payment mismatch will retry until durable',
+      },
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('asks Paystack to retry when atomic payment confirmation fails', async () => {

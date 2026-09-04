@@ -42,6 +42,7 @@ export const repairRow = {
   shipment_id: null,
   pickup_fee: 3500,
   pickup_payment_status: 'paid',
+  pickup_payment_reference: 'RPU-ABC123DEF45678',
   quoted_price: 45_000,
   status: 'confirmed',
 };

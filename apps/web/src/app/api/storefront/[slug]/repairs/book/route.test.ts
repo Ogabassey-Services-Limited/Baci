@@ -115,7 +115,7 @@ describe('POST /api/storefront/[slug]/repairs/book', () => {
     expect(mocks.createRepairBooking).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when pickup is requested without payment', async () => {
+  it('returns 409 when pickup is requested because mobile must pay before booking', async () => {
     const response = await POST(
       buildRequest({
         ...validBody,

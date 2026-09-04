@@ -9,6 +9,7 @@ export interface RepairPickupRow {
   pickup_address: string | null;
   pickup_fee: number | string | null;
   pickup_payment_status: string | null;
+  pickup_payment_reference: string | null;
   shipment_id: string | null;
   quoted_price: number | string | null;
   status: string | null;
