@@ -55,7 +55,11 @@ function emptyServices(): Record<MetricName, number> {
 function readProjectId(row: FocusRow) {
   if (!isRecord(row.Tags)) return undefined;
   const value = row.Tags[PROJECT_TAG];
-  return typeof value === 'string' ? value : undefined;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') {
+    throw new Error('billing row has a non-string ProjectId tag');
+  }
+  return value;
 }
 
 function assertSafeAggregate(total: number, field: string) {

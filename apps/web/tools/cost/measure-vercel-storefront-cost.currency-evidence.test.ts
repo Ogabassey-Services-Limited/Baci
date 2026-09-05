@@ -122,4 +122,39 @@ describe('bugfix: USD currency and billing evidence reuse', () => {
       'before and after DB traces must not reuse the same evidence'
     );
   });
+
+  it('rejects present non-string ProjectId tags', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vercel-cost-projectid-'));
+    roots.push(root);
+    const path = join(root, 'bad-tag.jsonl');
+    await writeFile(
+      path,
+      `${JSON.stringify({
+        BillingCurrency: 'USD',
+        ChargePeriodStart: '2026-08-01T00:00:00.000Z',
+        ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
+        ConsumedQuantity: 1,
+        EffectiveCost: 1,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
+      })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
+        ChargePeriodStart: '2026-08-01T00:00:00.000Z',
+        ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
+        ConsumedQuantity: 9,
+        EffectiveCost: 9,
+        ServiceName: 'Function Invocations',
+        Tags: { ProjectId: 42 },
+      })}\n`
+    );
+    await expect(
+      measureVercelStorefrontCost({
+        before: {
+          inputPath: path,
+          window: { deploymentSha: MEASUREMENT_BEFORE_SHA, label: 'before' },
+        },
+        projectId: MEASUREMENT_PROJECT_ID,
+      })
+    ).rejects.toThrow('billing row has a non-string ProjectId tag');
+  });
 });
