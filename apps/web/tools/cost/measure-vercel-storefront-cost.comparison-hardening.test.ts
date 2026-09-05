@@ -232,7 +232,54 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     expect(result.comparisonStatus).toBe('incomplete');
     expect(result.comparison?.dbCalls).toBeUndefined();
     expect(result.limitations).toContain(
-      'Comparison is incomplete because before and after DB traces do not share the same row count and cohort set; raw DB totals are suppressed until comparable route samples are supplied.'
+      'Comparison is incomplete because before and after DB traces do not share matching per-cohort sample sizes; raw DB totals are suppressed until comparable route samples are supplied.'
+    );
+  });
+
+  it('bugfix: marks reversed cohort mix incomplete even when totals match', async () => {
+    const { afterPath, beforePath, root } =
+      await createMeasurementFixtureFiles(roots);
+    const beforeDbTracePath = join(root, 'before-mix-db.jsonl');
+    const afterDbTracePath = join(root, 'after-mix-db.jsonl');
+    const beforeRows = [
+      ...Array.from({ length: 99 }, () =>
+        JSON.stringify({ cohort: 'pdp', dbCalls: 1, dbTimeouts: 0 })
+      ),
+      JSON.stringify({ cohort: 'blog', dbCalls: 1, dbTimeouts: 0 }),
+    ];
+    const afterRows = [
+      JSON.stringify({ cohort: 'pdp', dbCalls: 1, dbTimeouts: 0 }),
+      ...Array.from({ length: 99 }, () =>
+        JSON.stringify({ cohort: 'blog', dbCalls: 1, dbTimeouts: 0 })
+      ),
+    ];
+    await writeFile(beforeDbTracePath, `${beforeRows.join('\n')}\n`);
+    await writeFile(afterDbTracePath, `${afterRows.join('\n')}\n`);
+
+    const result = await measureVercelStorefrontCost({
+      after: {
+        inputPath: afterPath,
+        window: {
+          deploymentSha: MEASUREMENT_AFTER_SHA,
+          dbTracePath: afterDbTracePath,
+          label: 'after',
+        },
+      },
+      before: {
+        inputPath: beforePath,
+        window: {
+          deploymentSha: MEASUREMENT_BEFORE_SHA,
+          dbTracePath: beforeDbTracePath,
+          label: 'before',
+        },
+      },
+      projectId: MEASUREMENT_PROJECT_ID,
+    });
+
+    expect(result.comparisonStatus).toBe('incomplete');
+    expect(result.comparison?.dbCalls).toBeUndefined();
+    expect(result.limitations).toContain(
+      'Comparison is incomplete because before and after DB traces do not share matching per-cohort sample sizes; raw DB totals are suppressed until comparable route samples are supplied.'
     );
   });
 });

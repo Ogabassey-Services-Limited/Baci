@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { areDbTracesComparable } from './are-db-traces-comparable';
 import { compareStorefrontCostWindows } from './compare-storefront-cost-windows';
 import {
   type CostWindowMeasurement,
@@ -80,18 +81,6 @@ function comparableWindowDurationMs(window: {
 }) {
   const bounds = window.requestedWindow ?? window.observedChargePeriod;
   return Date.parse(bounds.end) - Date.parse(bounds.start);
-}
-
-function areDbTracesComparable(
-  before: CostWindowMeasurement,
-  after: CostWindowMeasurement
-): boolean {
-  if (!before.dbTrace || !after.dbTrace) return false;
-  if (before.dbTrace.rows !== after.dbTrace.rows) return false;
-  const beforeCohorts = Object.keys(before.dbTrace.byCohort).sort();
-  const afterCohorts = Object.keys(after.dbTrace.byCohort).sort();
-  if (beforeCohorts.length !== afterCohorts.length) return false;
-  return beforeCohorts.every((cohort, index) => cohort === afterCohorts[index]);
 }
 
 function withoutDbTrace(window: CostWindowMeasurement): CostWindowMeasurement {
@@ -276,7 +265,7 @@ export async function measureVercelStorefrontCost(options: {
         ? []
         : hasDbTracePair
           ? [
-              'Comparison is incomplete because before and after DB traces do not share the same row count and cohort set; raw DB totals are suppressed until comparable route samples are supplied.',
+              'Comparison is incomplete because before and after DB traces do not share matching per-cohort sample sizes; raw DB totals are suppressed until comparable route samples are supplied.',
             ]
           : [
               'Comparison is incomplete without both before and after DB traces; Vercel billing exports do not contain database-call counts. Provide bounded DB trace JSONL inputs or collect the same fields from Supabase telemetry.',
