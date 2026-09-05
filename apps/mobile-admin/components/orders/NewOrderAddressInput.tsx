@@ -63,6 +63,7 @@ export function NewOrderAddressInput({
               if (__DEV__) {
                 console.log('Google Places Error:', error);
               }
+              setDetailsRecovery(true);
               Alert.alert(
                 'Address search failed',
                 'Try entering the address manually.'
@@ -72,6 +73,7 @@ export function NewOrderAddressInput({
               if (__DEV__) {
                 console.log('Google Places: No results');
               }
+              setDetailsRecovery(true);
               Alert.alert(
                 'Address not found',
                 'Try refining the address or enter it manually.'

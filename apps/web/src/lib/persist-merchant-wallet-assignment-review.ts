@@ -32,7 +32,13 @@ export async function persistMerchantWalletAssignmentReview(
       : customerMetadata?.source === 'merchant_wallet_funding'
         ? customerMetadata
         : (directMetadata ?? customerMetadata ?? {});
-  const merchantId = readString(metadata.merchant_id);
+  const merchantIdRaw = readString(metadata.merchant_id);
+  const merchantId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      merchantIdRaw
+    )
+      ? merchantIdRaw
+      : '';
   const requestId = readString(metadata.request_id);
   const account =
     data.dedicated_account && typeof data.dedicated_account === 'object'
@@ -54,6 +60,7 @@ export async function persistMerchantWalletAssignmentReview(
       account_number: accountNumber || null,
       currency: readString(account.currency) || null,
       event: readString(payload.event) || null,
+      merchant_id_raw: merchantIdRaw || null,
       request_id: requestId || null,
       source: readString(metadata.source) || null,
     },

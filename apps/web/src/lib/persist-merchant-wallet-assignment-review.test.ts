@@ -14,7 +14,7 @@ describe('persistMerchantWalletAssignmentReview', () => {
       data: {
         metadata: {
           source: 'merchant_wallet_funding',
-          merchant_id: 'merchant-1',
+          merchant_id: '11111111-1111-4111-8111-111111111111',
           request_id: 'request-1',
         },
         dedicated_account: {
@@ -29,11 +29,39 @@ describe('persistMerchantWalletAssignmentReview', () => {
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'merchant_wallet_assignment_review',
-        merchant_id: 'merchant-1',
+        merchant_id: '11111111-1111-4111-8111-111111111111',
         paystack_ref: 'evt_1',
         metadata: expect.objectContaining({
           account_number: '0123456789',
           request_id: 'request-1',
+        }),
+      })
+    );
+  });
+
+  it('bugfix: stores null merchant_id for malformed UUID values', async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const supabase = {
+      from: vi.fn(() => ({ insert })),
+    };
+
+    await persistMerchantWalletAssignmentReview(supabase as never, {
+      event: 'dedicatedaccount.assign.success',
+      id: 'evt_2',
+      data: {
+        metadata: {
+          source: 'merchant_wallet_funding',
+          merchant_id: 'merchant-1',
+          request_id: 'request-2',
+        },
+      },
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: null,
+        metadata: expect.objectContaining({
+          merchant_id_raw: 'merchant-1',
         }),
       })
     );
