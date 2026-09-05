@@ -9,7 +9,9 @@ import {
 import {
   type CostWindowMeasurement,
   type MetricName,
+  SERVICE_CONSUMED_UNITS,
   SERVICE_METRICS,
+  type ServiceName,
   type StorefrontCostMeasurement,
   type WindowOptions,
 } from './measure-vercel-storefront-cost-types';
@@ -139,9 +141,16 @@ async function summarizeBillingWindow(
       typeof row.ServiceName === 'string' ? row.ServiceName : undefined;
     const metric =
       serviceName && Object.hasOwn(SERVICE_METRICS, serviceName)
-        ? SERVICE_METRICS[serviceName as keyof typeof SERVICE_METRICS]
+        ? SERVICE_METRICS[serviceName as ServiceName]
         : undefined;
     if (metric) {
+      const expectedUnit = SERVICE_CONSUMED_UNITS[serviceName as ServiceName];
+      const consumedUnit = row.ConsumedUnit;
+      if (typeof consumedUnit !== 'string' || consumedUnit !== expectedUnit) {
+        throw new Error(
+          `billing row has an unexpected ConsumedUnit for ${serviceName}`
+        );
+      }
       services[metric] += quantity;
       assertSafeAggregate(services[metric], metric);
     }
@@ -225,6 +234,11 @@ export async function measureVercelStorefrontCost(options: {
       throw new Error(
         'before and after measurement windows must have equal durations'
       );
+    }
+    const beforeBounds = before.requestedWindow ?? before.observedChargePeriod;
+    const afterBounds = after.requestedWindow ?? after.observedChargePeriod;
+    if (beforeBounds.end > afterBounds.start) {
+      throw new Error('before and after measurement windows must not overlap');
     }
   }
   return {

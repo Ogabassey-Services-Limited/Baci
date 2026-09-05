@@ -16,7 +16,23 @@ export const SERVICE_METRICS = {
   'Runtime Cache Writes': 'runtimeCacheWrites',
 } as const;
 
+/** FOCUS ConsumedUnit expected for each recognized ServiceName metric. */
+export const SERVICE_CONSUMED_UNITS = {
+  'Drains Volume': 'GB',
+  'Fast Origin Transfer': 'GB',
+  'Fluid Active CPU': 'Hours',
+  'Fluid Provisioned Memory': 'GB-Hours',
+  'Function Duration': 'GB-Hours',
+  'Function Invocations': 'Count',
+  'Global Config Reads (formerly known as Edge Config Reads)': 'Count',
+  'ISR Reads': 'Count',
+  'ISR Writes': 'Count',
+  'Runtime Cache Reads': 'Count',
+  'Runtime Cache Writes': 'Count',
+} as const satisfies Record<keyof typeof SERVICE_METRICS, string>;
+
 export type MetricName = (typeof SERVICE_METRICS)[keyof typeof SERVICE_METRICS];
+export type ServiceName = keyof typeof SERVICE_METRICS;
 
 export type StorefrontBillingMetrics = Readonly<{
   projectEffectiveCostUsd: number;

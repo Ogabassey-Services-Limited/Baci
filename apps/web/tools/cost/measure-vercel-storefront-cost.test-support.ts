@@ -15,12 +15,13 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
   const afterCachePath = join(root, 'after-cache.jsonl');
   const beforeDbTracePath = join(root, 'before-db.jsonl');
   const afterDbTracePath = join(root, 'after-db.jsonl');
-  const rows = [
+  const beforeRows = [
     {
       BillingCurrency: 'USD',
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 10,
+      ConsumedUnit: 'Hours',
       EffectiveCost: 2.5,
       ServiceName: 'Fluid Active CPU',
       Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
@@ -30,6 +31,7 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 100,
+      ConsumedUnit: 'Count',
       EffectiveCost: 1,
       ServiceName: 'Function Invocations',
       Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
@@ -39,18 +41,35 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 900,
+      ConsumedUnit: 'Hours',
       EffectiveCost: 9,
       ServiceName: 'Fluid Active CPU',
       Tags: { ProjectId: 'prj_other' },
     },
   ];
+  const afterRows = [
+    {
+      ...beforeRows[0],
+      ChargePeriodStart: '2026-08-02T00:00:00.000Z',
+      ChargePeriodEnd: '2026-08-03T00:00:00.000Z',
+      ConsumedQuantity: 4,
+      EffectiveCost: 1,
+    },
+    {
+      ...beforeRows[1],
+      ChargePeriodStart: '2026-08-02T00:00:00.000Z',
+      ChargePeriodEnd: '2026-08-03T00:00:00.000Z',
+      ConsumedQuantity: 40,
+      EffectiveCost: 0.4,
+    },
+  ];
   await writeFile(
     beforePath,
-    `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`
+    `${beforeRows.map((row) => JSON.stringify(row)).join('\n')}\n`
   );
   await writeFile(
     afterPath,
-    `${JSON.stringify({ ...rows[0], ConsumedQuantity: 4, EffectiveCost: 1 })}\n${JSON.stringify({ ...rows[1], ConsumedQuantity: 40, EffectiveCost: 0.4 })}\n`
+    `${afterRows.map((row) => JSON.stringify(row)).join('\n')}\n`
   );
   await writeFile(
     cachePath,
