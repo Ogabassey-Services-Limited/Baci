@@ -7,13 +7,13 @@ import { GIGL_WALLET_SHIPPING_PENDING_SOURCES } from './supabase-history-replay-
 describe('GIGL wallet replay sources', () => {
   it('keeps every branch migration in the explicit pending registry input', () => {
     const migrations = GIGL_WALLET_SHIPPING_PENDING_SOURCES.split('\n');
-    expect(migrations).toHaveLength(77);
+    expect(migrations).toHaveLength(79);
     expect(migrations.at(-1)).toContain(
-      '20260905110000_bind_topship_metadata_lookup_to_order_session.sql'
+      '20260905112100_invalidate_quote_on_admin_transactional_edit.sql'
     );
     const filenames = migrations.map((entry) => entry.split(' ')[1]);
     expect(filenames).toEqual([...filenames].sort());
-    expect(new Set(filenames).size).toBe(77);
+    expect(new Set(filenames).size).toBe(79);
 
     for (const entry of migrations) {
       const [digest, filename] = entry.split(' ');
