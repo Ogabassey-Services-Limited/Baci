@@ -43,6 +43,27 @@ describe('isFundedCheckoutGiglAddressLocked', () => {
       'merchant-1',
       'order-1'
     );
+    expect(loadOrderGiglInternalCreditRetainedAmount).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: skips internal-credit RPC when settlements lock without a tariff stamp', async () => {
+    vi.mocked(loadOrderGiglSettledRetainedAmount).mockResolvedValue(2500);
+
+    await expect(
+      isFundedCheckoutGiglAddressLocked(
+        { from: vi.fn() } as never,
+        'merchant-1',
+        'order-1',
+        {
+          shipping_provider: 'GIGL',
+          payment_status: 'paid',
+          shipping_funding_source: 'customer_checkout',
+          selected_quote_id: 'quote-1',
+        }
+      )
+    ).resolves.toBe(true);
+
+    expect(loadOrderGiglInternalCreditRetainedAmount).not.toHaveBeenCalled();
   });
 
   it('bugfix: locks when only internal-credit funding retains shipping', async () => {

@@ -48,19 +48,24 @@ export async function isFundedCheckoutGiglAddressLocked(
     merchantId,
     orderId
   );
-  const fromInternalCredit =
-    fromSettlements >= requiredRetained && requiredRetained > 0
-      ? 0
-      : await loadOrderGiglInternalCreditRetainedAmount(
-          supabase,
-          merchantId,
-          orderId,
-          {
-            shipping_funding_source: order.shipping_funding_source,
-            shipping_platform_retained_amount:
-              order.shipping_platform_retained_amount,
-          }
-        );
+  // Skip the internal-credit RPC when settlements alone already prove the lock
+  // (any positive retention with no tariff cap, or full cover of a positive
+  // retained amount). Avoids failing closed on clients that only mock `.from`.
+  const settlementsAlreadyLock =
+    fromSettlements > 0 &&
+    (requiredRetained <= 0 || fromSettlements >= requiredRetained);
+  const fromInternalCredit = settlementsAlreadyLock
+    ? 0
+    : await loadOrderGiglInternalCreditRetainedAmount(
+        supabase,
+        merchantId,
+        orderId,
+        {
+          shipping_funding_source: order.shipping_funding_source,
+          shipping_platform_retained_amount:
+            order.shipping_platform_retained_amount,
+        }
+      );
   const settledRetained =
     requiredRetained > 0
       ? Math.min(requiredRetained, fromSettlements + fromInternalCredit)
