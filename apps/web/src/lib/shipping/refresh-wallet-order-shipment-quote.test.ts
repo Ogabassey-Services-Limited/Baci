@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   resolveBookingMerchantSender: vi.fn(),
   getShippingQuoteBookingMetadata: vi.fn(),
   getShippingQuoteBookingEconomics: vi.fn(),
+  hasActiveMerchantShippingCharge: vi.fn(),
 }));
 
 vi.mock('./refresh-order-shipment-quote', () => ({
@@ -24,6 +25,9 @@ vi.mock('./shipping-quote-booking-economics', () => ({
     quote: Record<string, unknown>,
     economics: Record<string, unknown> | null
   ) => (economics ? { ...quote, ...economics } : quote),
+}));
+vi.mock('./book-wallet-funded-reservation-cleanup', () => ({
+  hasActiveMerchantShippingCharge: mocks.hasActiveMerchantShippingCharge,
 }));
 
 import { refreshWalletOrderShipmentQuote } from './refresh-wallet-order-shipment-quote';
@@ -143,6 +147,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
       ...storedQuote,
       id: quoteId,
     });
+    mocks.hasActiveMerchantShippingCharge.mockResolvedValue(false);
   });
 
   it.each([
@@ -349,6 +354,31 @@ describe('refreshWalletOrderShipmentQuote', () => {
       code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
     });
     expect(updates).toEqual([{ selected_quote_id: 'quote-refreshed' }]);
+  });
+
+  it('bugfix: requires reconfirm without rebinding when an active wallet charge exists', async () => {
+    mocks.refreshOrderShipmentQuote.mockResolvedValue({
+      ...storedQuote,
+      id: 'quote-refreshed',
+      price: 3200,
+    });
+    mocks.hasActiveMerchantShippingCharge.mockResolvedValue(true);
+    const updates: unknown[] = [];
+
+    await expect(
+      refresh(
+        createSupabase({ onOrderUpdate: (payload) => updates.push(payload) })
+      )
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
+    });
+    expect(updates).toEqual([]);
+    expect(mocks.hasActiveMerchantShippingCharge).toHaveBeenCalledWith(
+      expect.anything(),
+      orderId,
+      quoteId
+    );
   });
 
   it('throws QUOTE_REFRESH_ORDER_UPDATE_FAILED when the order cannot be updated', async () => {

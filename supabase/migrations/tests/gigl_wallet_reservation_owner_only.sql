@@ -1,5 +1,5 @@
--- REGRESSION TEST: wallet-funded GIGL reservation must remain merchant-owner
--- only even though surrounding order edit/fulfill operations allow staff.
+-- REGRESSION TEST: new wallet-funded GIGL reservations require the merchant
+-- owner, while staff may still resume an existing reserved charge.
 -- Run against a database after the ordered migration replay:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/tests/gigl_wallet_reservation_owner_only.sql
 
@@ -13,8 +13,9 @@ WITH function_def AS (
   ) AS definition
 )
 SELECT ok(
-  strpos(definition, 'merchant.user_id = (SELECT auth.uid())') > 0,
-  'reservation function requires the authenticated merchant owner'
+  strpos(definition, 'merchant.user_id = (SELECT auth.uid())') > 0
+    AND strpos(definition, 'wallet_reservation_owner_required') > 0,
+  'new reservations require the authenticated merchant owner'
 )
 FROM function_def;
 
@@ -43,16 +44,16 @@ WITH function_def AS (
   ) AS definition
 ), positions AS (
   SELECT
-    strpos(definition, 'merchant.user_id = (SELECT auth.uid())') AS owner_position,
-    strpos(definition, 'FROM public.shipping_quotes') AS quote_position,
+    strpos(definition, 'IF v_existing.id IS NOT NULL THEN') AS existing_position,
+    strpos(definition, 'wallet_reservation_owner_required') AS owner_gate_position,
     strpos(definition, 'FROM public.merchant_wallets') AS wallet_position
   FROM function_def
 )
 SELECT ok(
-  owner_position > 0
-    AND quote_position > owner_position
-    AND wallet_position > owner_position,
-  'staff authorization cannot reach quote or wallet debit work'
+  existing_position > 0
+    AND owner_gate_position > existing_position
+    AND wallet_position > owner_gate_position,
+  'owner-only gate sits after existing-charge recovery and before wallet debit'
 )
 FROM positions;
 
@@ -62,8 +63,10 @@ WITH function_def AS (
   ) AS definition
 )
 SELECT ok(
-  strpos(definition, 'check_staff_permission') = 0,
-  'reservation does not use staff order permissions as wallet authority'
+  strpos(definition, 'check_staff_permission') > 0
+    AND strpos(definition, '''orders'', ''fulfill''') > 0
+    AND strpos(definition, '''orders'', ''edit''') > 0,
+  'staff fulfill/edit may resume existing reserved charges'
 )
 FROM function_def;
 
@@ -74,8 +77,9 @@ WITH function_def AS (
 )
 SELECT ok(
   strpos(definition, 'FOR UPDATE') > 0
-    AND strpos(definition, 'RAISE EXCEPTION ''order_not_owned''') > 0,
-  'unauthorized reservations fail with order_not_owned after the row lock'
+    AND strpos(definition, 'RAISE EXCEPTION ''order_not_owned''') > 0
+    AND strpos(definition, 'RAISE EXCEPTION ''wallet_reservation_owner_required''') > 0,
+  'unauthorized new reservations fail closed after the row lock'
 )
 FROM function_def;
 

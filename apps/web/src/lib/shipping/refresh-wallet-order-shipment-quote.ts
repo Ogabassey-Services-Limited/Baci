@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hasActiveMerchantShippingCharge } from './book-wallet-funded-reservation-cleanup';
 import { assertQuoteItemsMatchOrder } from './international-quote-items-match';
 import { assertQuoteReceiverMatchesOrder } from './international-quote-order-guard';
 import {
@@ -139,6 +140,22 @@ export async function refreshWalletOrderShipmentQuote(
       Number.isFinite(nextPrice) &&
       previousPrice !== nextPrice);
   if (!quoteChanged) return quoteId;
+
+  // Active reserved/provider_submitting charges block selected_quote_id changes.
+  // Prefer the shared reconfirm path so callers refund the reserved charge instead
+  // of surfacing QUOTE_REFRESH_ORDER_UPDATE_FAILED from the DB guard.
+  const activeCharge = await hasActiveMerchantShippingCharge(
+    supabase,
+    orderId,
+    quoteId
+  );
+  if (activeCharge !== false) {
+    throw new OrderShipmentBookingError(
+      'The shipping quote changed or expired. Please get a new quote and confirm shipping before booking.',
+      409,
+      'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED'
+    );
+  }
 
   const { error: updateError } = await supabase
     .from('orders')
