@@ -147,10 +147,16 @@ export async function getCachedCategoryPageShellData(
     hiddenCategoryState?.is_active === false;
   const category: CachedCategoryRecord | null =
     categoryRow && categoryRow.is_active !== false
-      ? ({
+      ? {
           ...categoryRow,
+          name: categoryRow.name || getCategoryFallbackName(categorySlug),
+          slug: categoryRow.slug || categorySlug,
+          parent:
+            categoryRow.parent?.name && categoryRow.parent.slug
+              ? { name: categoryRow.parent.name, slug: categoryRow.parent.slug }
+              : null,
           is_active: categoryRow.is_active ?? true,
-        } as CachedCategoryRecord)
+        }
       : null;
   const categoryName =
     categoryRow?.name || getCategoryFallbackName(categorySlug);

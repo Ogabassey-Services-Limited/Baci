@@ -52,12 +52,13 @@ function uniqueStable(values: readonly string[]): string[] {
 }
 
 function purgeVercelWithTimeout(
+  claimKey: string,
   tags: readonly string[],
   timeoutMs: number,
   mode: 'delete' | 'invalidate' = 'delete'
 ) {
   const uniqueTags = uniqueStable(tags);
-  const key = `${mode}:${timeoutMs}:${[...uniqueTags].sort().join('|')}`;
+  const key = `${claimKey}:${mode}:${timeoutMs}:${[...uniqueTags].sort().join('|')}`;
   return vercelPurgeSingleFlight.run(key, async () => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
@@ -83,6 +84,13 @@ export async function drainStorefrontCacheInvalidation(
   { vercelTimeoutMs = DEFAULT_VERCEL_TIMEOUT_MS } = {}
 ): Promise<CacheInvalidationDrainResult> {
   const identity = targetIdentity(claim);
+  const claimKey = JSON.stringify([
+    claim.merchant_id,
+    claim.target_kind,
+    claim.target_id,
+    claim.generation,
+    claim.claim_token,
+  ]);
   const productIdentifiers =
     claim.target_kind === 'storefront_product'
       ? [claim.target_id]
@@ -109,6 +117,7 @@ export async function drainStorefrontCacheInvalidation(
       return { errorCode: 'next_revalidation_failed', ok: false };
     }
     const exactVercelResult = await purgeVercelWithTimeout(
+      claimKey,
       exactProductTags,
       vercelTimeoutMs,
       'invalidate'
@@ -149,6 +158,7 @@ export async function drainStorefrontCacheInvalidation(
   }
 
   const vercelResult = await purgeVercelWithTimeout(
+    claimKey,
     [
       ...dataTags,
       ...productTags,
@@ -173,10 +183,9 @@ export async function drainStorefrontCacheInvalidation(
     ...productTags,
     ...buildStorefrontPublicationCacheTags(identity),
   ]);
-  // Key Cloudflare coalescing on the same upstream invalidation set that just
-  // finished on Vercel so a later claim with different tags cannot join an
-  // earlier hostname-only purge that raced ahead of its own Vercel delete.
-  const key = `${[...hostnames].sort().join('|')}::${[...vercelTags].sort().join('|')}`;
+  // Only duplicate work for the same claim may share a purge. A newer mutation
+  // must purge again even if the older provider response is still pending.
+  const key = `${claimKey}:${[...hostnames].sort().join('|')}::${[...vercelTags].sort().join('|')}`;
   return cloudflarePurgeSingleFlight.run(key, () =>
     strictCloudflareHostnamePurge(hostnames)
   );

@@ -11,6 +11,12 @@ export function areDbTracesComparable(
   const afterTrace = after.dbTrace;
   const beforeCohorts = Object.keys(beforeTrace.byCohort).sort();
   const afterCohorts = Object.keys(afterTrace.byCohort).sort();
+  if (
+    beforeCohorts.length === 0 ||
+    beforeCohorts.includes('unknown') ||
+    afterCohorts.includes('unknown')
+  )
+    return false;
   if (beforeCohorts.length !== afterCohorts.length) return false;
   return beforeCohorts.every((cohort, index) => {
     if (cohort !== afterCohorts[index]) return false;

@@ -9,5 +9,5 @@ export function getCategoryFallbackName(categorySlug: string): string {
 
   return decodedSlug
     .replace(/-/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    .replace(/(^|\s)\p{L}/gu, (letter) => letter.toUpperCase());
 }

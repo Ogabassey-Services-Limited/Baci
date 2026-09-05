@@ -45,6 +45,40 @@ function windowWithTrace(
 }
 
 describe('bugfix: reversed cohort mix looked comparable', () => {
+  it('rejects unlabeled samples even when their counts match', () => {
+    const sample = windowWithTrace(
+      {
+        unknown: {
+          rows: 1,
+          dbCalls: 1,
+          dbCallsPerRequest: 1,
+          dbTimeouts: 0,
+          dbTimeoutRate: 0,
+        },
+      },
+      1
+    );
+    expect(areDbTracesComparable(sample, sample)).toBe(false);
+  });
+
+  it('accepts matching explicit cohorts and rejects missing traces', () => {
+    const sample = windowWithTrace(
+      {
+        pdp: {
+          rows: 1,
+          dbCalls: 1,
+          dbCallsPerRequest: 1,
+          dbTimeouts: 0,
+          dbTimeoutRate: 0,
+        },
+      },
+      1
+    );
+    expect(areDbTracesComparable(sample, sample)).toBe(true);
+    expect(
+      areDbTracesComparable(sample, { ...sample, dbTrace: undefined })
+    ).toBe(false);
+  });
   it('returns false when totals match but per-cohort rows differ', () => {
     const before = windowWithTrace(
       {

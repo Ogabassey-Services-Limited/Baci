@@ -22,6 +22,36 @@ describe('getCachedCategoryPageShellData', () => {
     vi.clearAllMocks();
   });
 
+  it('normalizes nullable category fields and omits incomplete parents', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'category-1',
+          name: null,
+          slug: null,
+          is_active: true,
+          parent: { name: null, slug: null },
+        },
+        error: null,
+      }),
+      or: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    mocks.getPublicSupabaseClient.mockReturnValue({ from: () => query });
+    await expect(
+      getCachedCategoryPageShellData('merchant-1', 'phones')
+    ).resolves.toMatchObject({
+      category: {
+        id: 'category-1',
+        name: 'Phones',
+        slug: 'phones',
+        parent: null,
+      },
+      productScope: { kind: 'category', categoryId: 'category-1' },
+    });
+  });
+
   it('returns special-collection shell data without querying Supabase', async () => {
     await expect(
       getCachedCategoryPageShellData('merchant-1', 'new-arrivals')

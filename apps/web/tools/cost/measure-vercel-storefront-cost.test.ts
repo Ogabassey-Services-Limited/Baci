@@ -80,18 +80,8 @@ describe('measureVercelStorefrontCost comparisons', () => {
       relativeChangePct: -60,
     });
     expect(result.comparison?.functionInvocations.absoluteDelta).toBe(-60);
-    expect(result.comparison?.cacheStatusRows).toEqual({
-      absoluteDelta: -2,
-      after: 2,
-      before: 4,
-      relativeChangePct: -50,
-    });
-    expect(result.comparison?.cacheHitRows).toEqual({
-      absoluteDelta: -2,
-      after: 1,
-      before: 3,
-      relativeChangePct: -66.666667,
-    });
+    expect(result.comparison).not.toHaveProperty('cacheStatusRows');
+    expect(result.comparison).not.toHaveProperty('cacheHitRows');
     expect(result.comparison?.cacheHitRatio).toEqual({
       absoluteDelta: -0.25,
       after: 0.5,

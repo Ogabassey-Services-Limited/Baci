@@ -27,10 +27,7 @@ export function compareStorefrontCostWindows(
     afterValues.dbCallsPerRequest = after.dbTrace.dbCallsPerRequest;
   }
   if (before.cacheProbe && after.cacheProbe) {
-    values.cacheStatusRows = before.cacheProbe.cacheStatusRows;
-    afterValues.cacheStatusRows = after.cacheProbe.cacheStatusRows;
-    values.cacheHitRows = before.cacheProbe.cacheHitRows;
-    afterValues.cacheHitRows = after.cacheProbe.cacheHitRows;
+    // Sample sizes are provenance, not performance changes. Compare ratios.
     if (
       before.cacheProbe.cacheHitRatio !== null &&
       after.cacheProbe.cacheHitRatio !== null
