@@ -33,7 +33,7 @@ jest.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({ colors: { text: '#fff', primary: '#f90' } }),
 }));
 
-import QuizRoute from './index';
+import QuizRoute from '@/app/quiz';
 
 describe('QuizRoute sign-in handoff', () => {
   beforeEach(() => mockPush.mockClear());
