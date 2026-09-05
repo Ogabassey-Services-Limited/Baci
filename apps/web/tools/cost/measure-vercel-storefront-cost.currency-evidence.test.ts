@@ -74,4 +74,52 @@ describe('bugfix: USD currency and billing evidence reuse', () => {
       'before and after billing exports must not reuse the same evidence'
     );
   });
+
+  it('rejects target-project rows outside the requested billing window', async () => {
+    const { beforePath } = await createMeasurementFixtureFiles(roots);
+    await expect(
+      measureVercelStorefrontCost({
+        before: {
+          inputPath: beforePath,
+          window: {
+            deploymentSha: MEASUREMENT_BEFORE_SHA,
+            label: 'before',
+            requestedWindowEnd: '2026-07-31T00:00:00.000Z',
+            requestedWindowStart: '2026-07-01T00:00:00.000Z',
+          },
+        },
+        projectId: MEASUREMENT_PROJECT_ID,
+      })
+    ).rejects.toThrow(
+      'billing row ChargePeriod falls outside the requested window'
+    );
+  });
+
+  it('rejects reused before/after DB trace evidence', async () => {
+    const { beforePath, afterPath, beforeDbTracePath } =
+      await createMeasurementFixtureFiles(roots);
+    await expect(
+      measureVercelStorefrontCost({
+        after: {
+          inputPath: afterPath,
+          window: {
+            dbTracePath: beforeDbTracePath,
+            deploymentSha: MEASUREMENT_AFTER_SHA,
+            label: 'after',
+          },
+        },
+        before: {
+          inputPath: beforePath,
+          window: {
+            dbTracePath: beforeDbTracePath,
+            deploymentSha: MEASUREMENT_BEFORE_SHA,
+            label: 'before',
+          },
+        },
+        projectId: MEASUREMENT_PROJECT_ID,
+      })
+    ).rejects.toThrow(
+      'before and after DB traces must not reuse the same evidence'
+    );
+  });
 });

@@ -40,7 +40,10 @@ export async function summarizeCacheProbe(
   for (const candidate of rows) {
     if (!isRecord(candidate))
       throw new Error('cache probe row is not an object');
-    if (typeof candidate.cacheStatus === 'string') {
+    if (candidate.cacheStatus !== undefined && candidate.cacheStatus !== null) {
+      if (typeof candidate.cacheStatus !== 'string') {
+        throw new Error('cache probe row has a non-string cacheStatus');
+      }
       cacheStatusRows += 1;
       if (CACHE_HIT_STATUSES.has(candidate.cacheStatus.trim().toUpperCase())) {
         cacheHitRows += 1;

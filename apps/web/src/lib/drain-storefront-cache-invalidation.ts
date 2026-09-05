@@ -53,9 +53,9 @@ function uniqueStable(values: readonly string[]): string[] {
 
 /** Generation-fenced merchant mutation identity for provider SingleFlight. */
 function purgeCausalKey(claim: CacheInvalidationClaim): string {
-  // claim_token and target tuples differ across slug/hostname rows emitted by
-  // one enqueue_storefront_cache_targets call, so they must not partition keys
-  // when the resulting provider work is identical.
+  // enqueue_storefront_cache_targets shares related_identifiers and syncs
+  // generation across slug/hostname rows from one mutation. claim_token and
+  // target tuples still differ, so they must not partition provider keys.
   return JSON.stringify([claim.merchant_id, claim.generation]);
 }
 

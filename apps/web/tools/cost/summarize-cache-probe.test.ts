@@ -42,4 +42,18 @@ describe('summarizeCacheProbe', () => {
       'cache probe row is not an object'
     );
   });
+
+  it('rejects present non-string cacheStatus samples', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'cache-probe-status-'));
+    roots.push(root);
+    const path = join(root, 'probe.jsonl');
+    await writeFile(
+      path,
+      '{"cacheStatus":"HIT","ttfbMs":12}\n{"cacheStatus":0,"ttfbMs":40}\n'
+    );
+
+    await expect(summarizeCacheProbe(path)).rejects.toThrow(
+      'cache probe row has a non-string cacheStatus'
+    );
+  });
 });

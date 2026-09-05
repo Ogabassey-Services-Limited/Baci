@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { areDbTracesComparable } from './are-db-traces-comparable';
 import { compareStorefrontCostWindows } from './compare-storefront-cost-windows';
 import {
+  dateString,
+  finiteNonnegative,
+  finiteSigned,
+} from './focus-billing-row-fields';
+import {
   type CostWindowMeasurement,
   type MetricName,
   SERVICE_METRICS,
@@ -21,58 +26,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function sha256(bytes: Uint8Array) {
   return createHash('sha256').update(bytes).digest('hex');
-}
-
-function finiteNonnegative(value: unknown, field: string) {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > Number.MAX_SAFE_INTEGER
-  )
-    throw new Error(`billing row has an invalid ${field}`);
-  return value;
-}
-
-/** FOCUS EffectiveCost may be negative for credits/corrections. */
-function finiteSigned(value: unknown, field: string) {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    Math.abs(value) > Number.MAX_SAFE_INTEGER
-  )
-    throw new Error(`billing row has an invalid ${field}`);
-  return value;
-}
-
-function dateString(value: unknown, field: string) {
-  if (typeof value !== 'string')
-    throw new Error(`billing row has an invalid ${field}`);
-  const match = value.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/
-  );
-  if (!match) throw new Error(`billing row has an invalid ${field}`);
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = Number(match[6]);
-  const probe = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-  if (
-    probe.getUTCFullYear() !== year ||
-    probe.getUTCMonth() !== month - 1 ||
-    probe.getUTCDate() !== day ||
-    probe.getUTCHours() !== hour ||
-    probe.getUTCMinutes() !== minute ||
-    probe.getUTCSeconds() !== second
-  ) {
-    throw new Error(`billing row has an invalid ${field}`);
-  }
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp))
-    throw new Error(`billing row has an invalid ${field}`);
-  return new Date(timestamp).toISOString();
 }
 
 function comparableWindowDurationMs(window: {
@@ -125,6 +78,26 @@ async function summarizeBillingWindow(
   let ignoredRows = 0;
   let observedStart = '';
   let observedEnd = '';
+  const hasRequestedWindowStart = Boolean(options.requestedWindowStart);
+  const hasRequestedWindowEnd = Boolean(options.requestedWindowEnd);
+  if (hasRequestedWindowStart !== hasRequestedWindowEnd) {
+    throw new Error('requested billing window requires both start and end');
+  }
+  const requestedWindow =
+    hasRequestedWindowStart && hasRequestedWindowEnd
+      ? {
+          start: dateString(
+            options.requestedWindowStart,
+            'requestedWindowStart'
+          ),
+          end: dateString(options.requestedWindowEnd, 'requestedWindowEnd'),
+        }
+      : undefined;
+  if (
+    requestedWindow &&
+    Date.parse(requestedWindow.end) <= Date.parse(requestedWindow.start)
+  )
+    throw new Error('requested billing window must be positive');
   for (const candidate of rows) {
     if (!isRecord(candidate)) throw new Error('billing row is not an object');
     const row = candidate;
@@ -140,6 +113,14 @@ async function summarizeBillingWindow(
     if (readProjectId(row) !== projectId) {
       ignoredRows += 1;
       continue;
+    }
+    if (
+      requestedWindow &&
+      (start < requestedWindow.start || end > requestedWindow.end)
+    ) {
+      throw new Error(
+        'billing row ChargePeriod falls outside the requested window'
+      );
     }
     const currency = row.BillingCurrency;
     if (typeof currency !== 'string' || currency.toUpperCase() !== 'USD') {
@@ -163,26 +144,6 @@ async function summarizeBillingWindow(
   }
   if (!observedStart || !observedEnd)
     throw new Error(`billing export has no rows for project ${projectId}`);
-  const hasRequestedWindowStart = Boolean(options.requestedWindowStart);
-  const hasRequestedWindowEnd = Boolean(options.requestedWindowEnd);
-  if (hasRequestedWindowStart !== hasRequestedWindowEnd) {
-    throw new Error('requested billing window requires both start and end');
-  }
-  const requestedWindow =
-    hasRequestedWindowStart && hasRequestedWindowEnd
-      ? {
-          start: dateString(
-            options.requestedWindowStart,
-            'requestedWindowStart'
-          ),
-          end: dateString(options.requestedWindowEnd, 'requestedWindowEnd'),
-        }
-      : undefined;
-  if (
-    requestedWindow &&
-    Date.parse(requestedWindow.end) <= Date.parse(requestedWindow.start)
-  )
-    throw new Error('requested billing window must be positive');
   const cacheProbe = options.cacheProbePath
     ? await summarizeCacheProbe(options.cacheProbePath)
     : undefined;
@@ -236,6 +197,15 @@ export async function measureVercelStorefrontCost(options: {
     if (before.sourceSha256 === after.sourceSha256) {
       throw new Error(
         'before and after billing exports must not reuse the same evidence'
+      );
+    }
+    if (
+      before.dbTrace &&
+      after.dbTrace &&
+      before.dbTrace.sourceSha256 === after.dbTrace.sourceSha256
+    ) {
+      throw new Error(
+        'before and after DB traces must not reuse the same evidence'
       );
     }
     const beforeHasRequestedWindow = Boolean(before.requestedWindow);

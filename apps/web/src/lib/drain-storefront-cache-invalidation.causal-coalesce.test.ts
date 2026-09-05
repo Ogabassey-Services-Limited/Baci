@@ -23,16 +23,31 @@ vi.mock('@/lib/vercel-storefront-publication-cache', () => ({
 
 import { drainStorefrontCacheInvalidation } from './drain-storefront-cache-invalidation';
 
-const claim = {
-  attempts: 1,
-  claim_token: '11111111-1111-4111-8111-111111111111',
-  generation: 2,
-  merchant_id: '22222222-2222-4222-8222-222222222222',
-  product_slugs: ['cache-phone', '33333333-3333-4333-8333-333333333333'],
-  related_identifiers: ['ogabassey', 'ogabassey.com'],
-  target_id: 'ogabassey',
-  target_kind: 'storefront_slug' as const,
-};
+/** Mirrors enqueue_storefront_cache_targets after shared related_identifiers + generation sync. */
+function productionPairClaims() {
+  const relatedIdentifiers = ['ogabassey', 'ogabassey.com'];
+  const shared = {
+    attempts: 1,
+    generation: 6,
+    merchant_id: '22222222-2222-4222-8222-222222222222',
+    product_slugs: ['cache-phone'],
+    related_identifiers: relatedIdentifiers,
+  };
+  return {
+    hostnameClaim: {
+      ...shared,
+      claim_token: '22222222-2222-4222-8222-222222222222',
+      target_id: 'ogabassey.com',
+      target_kind: 'storefront_hostname' as const,
+    },
+    slugClaim: {
+      ...shared,
+      claim_token: '11111111-1111-4111-8111-111111111111',
+      target_id: 'ogabassey',
+      target_kind: 'storefront_slug' as const,
+    },
+  };
+}
 
 describe('bugfix: causal purge coalescing across target rows', () => {
   beforeEach(() => {
@@ -43,25 +58,14 @@ describe('bugfix: causal purge coalescing across target rows', () => {
     mocks.cloudflare.mockResolvedValue({ ok: true });
   });
 
-  it('coalesces slug and hostname rows from the same merchant generation', async () => {
+  it('coalesces production slug and hostname claims that share causal identity', async () => {
     let releaseVercel!: (value: { ok: true; reason: 'deleted' }) => void;
     mocks.vercel.mockReturnValue(
       new Promise((resolve) => {
         releaseVercel = resolve;
       })
     );
-    const slugClaim = {
-      ...claim,
-      claim_token: '11111111-1111-4111-8111-111111111111',
-      target_id: 'ogabassey',
-      target_kind: 'storefront_slug' as const,
-    };
-    const hostnameClaim = {
-      ...claim,
-      claim_token: '22222222-2222-4222-8222-222222222222',
-      target_id: 'ogabassey.com',
-      target_kind: 'storefront_hostname' as const,
-    };
+    const { hostnameClaim, slugClaim } = productionPairClaims();
     const first = drainStorefrontCacheInvalidation(slugClaim);
     const second = drainStorefrontCacheInvalidation(hostnameClaim);
     await Promise.resolve();
