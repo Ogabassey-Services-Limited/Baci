@@ -62,6 +62,7 @@ interface QuizStore extends QuizV2StoreActions {
     retryOptionId?: string
   ) => Promise<void>;
   setError: (message: string) => void;
+  dismissRecovery: () => Promise<void>;
   reset: () => void;
   resetForAccountChange: () => void;
 }
@@ -205,6 +206,14 @@ export const useQuizStore = create<QuizStore>((set, get) => {
       await performLegacySubmit(submitter);
     },
     setError: (message) => set({ status: 'error', error: message }),
+    dismissRecovery: async () => {
+      const state = get();
+      if (!state.recoveryUserId || !state.selectedEventId) return;
+      await clearQuizRecoveryEnvelope(
+        state.recoveryUserId,
+        state.selectedEventId
+      ).catch(() => undefined);
+    },
     reset: () => {
       const state = get();
       generation += 1;
