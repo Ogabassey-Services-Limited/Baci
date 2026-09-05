@@ -17,6 +17,7 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
   const afterDbTracePath = join(root, 'after-db.jsonl');
   const rows = [
     {
+      BillingCurrency: 'USD',
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 10,
@@ -25,6 +26,7 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
       Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
     },
     {
+      BillingCurrency: 'USD',
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 100,
@@ -33,6 +35,7 @@ export async function createMeasurementFixtureFiles(roots: string[]) {
       Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
     },
     {
+      BillingCurrency: 'USD',
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 900,

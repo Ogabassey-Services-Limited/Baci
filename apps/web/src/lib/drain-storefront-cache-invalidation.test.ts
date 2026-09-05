@@ -96,6 +96,7 @@ describe('drainStorefrontCacheInvalidation', () => {
     expect(mocks.vercel).toHaveBeenCalledTimes(2);
     expect(mocks.cloudflare).toHaveBeenCalledTimes(2);
   });
+
   it('bugfix: does not coalesce Cloudflare behind a different Vercel tag set', async () => {
     let releaseFirstCloudflare!: (value: { ok: true }) => void;
     let firstCloudflareStarted = false;

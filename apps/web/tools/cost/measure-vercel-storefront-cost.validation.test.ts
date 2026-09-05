@@ -26,6 +26,7 @@ describe('measureVercelStorefrontCost validation', () => {
     await writeFile(
       offsetPath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T01:00:00+01:00',
         ChargePeriodEnd: '2026-08-01T02:00:00+01:00',
         ConsumedQuantity: 1,
@@ -33,6 +34,7 @@ describe('measureVercelStorefrontCost validation', () => {
         ServiceName: 'Function Invocations',
         Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
       })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:30:00Z',
         ChargePeriodEnd: '2026-08-01T01:30:00Z',
         ConsumedQuantity: 1,
@@ -112,6 +114,7 @@ describe('measureVercelStorefrontCost validation', () => {
 
     const oversizedPath = join(root, 'oversized.jsonl');
     const validRow = JSON.stringify({
+      BillingCurrency: 'USD',
       ChargePeriodStart: '2026-08-01T00:00:00.000Z',
       ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
       ConsumedQuantity: 1,
@@ -141,6 +144,7 @@ describe('measureVercelStorefrontCost validation', () => {
     await writeFile(
       creditPath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 10,
@@ -148,6 +152,7 @@ describe('measureVercelStorefrontCost validation', () => {
         ServiceName: 'Function Invocations',
         Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
       })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 0,
@@ -176,6 +181,7 @@ describe('measureVercelStorefrontCost validation', () => {
     await writeFile(
       invalidPath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: -1,
@@ -203,6 +209,7 @@ describe('measureVercelStorefrontCost validation', () => {
     await writeFile(
       invalidPath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00',
         ChargePeriodEnd: '2026-08-02T00:00:00',
         ConsumedQuantity: 1,
@@ -230,6 +237,7 @@ describe('measureVercelStorefrontCost validation', () => {
     await writeFile(
       path,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 1,
@@ -237,6 +245,7 @@ describe('measureVercelStorefrontCost validation', () => {
         ServiceName: 'constructor',
         Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
       })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 2,

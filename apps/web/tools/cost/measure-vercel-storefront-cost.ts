@@ -141,6 +141,10 @@ async function summarizeBillingWindow(
       ignoredRows += 1;
       continue;
     }
+    const currency = row.BillingCurrency;
+    if (typeof currency !== 'string' || currency.toUpperCase() !== 'USD') {
+      throw new Error('billing row has a non-USD BillingCurrency');
+    }
     projectEffectiveCostUsd += effectiveCost;
     assertSafeAggregate(projectEffectiveCostUsd, 'EffectiveCost');
     observedStart =
@@ -229,6 +233,11 @@ export async function measureVercelStorefrontCost(options: {
   const hasComparableDbTraces =
     after !== null && areDbTracesComparable(before, after);
   if (after) {
+    if (before.sourceSha256 === after.sourceSha256) {
+      throw new Error(
+        'before and after billing exports must not reuse the same evidence'
+      );
+    }
     const beforeHasRequestedWindow = Boolean(before.requestedWindow);
     const afterHasRequestedWindow = Boolean(after.requestedWindow);
     if (beforeHasRequestedWindow !== afterHasRequestedWindow) {

@@ -56,6 +56,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     await writeFile(
       beforePath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 0,
@@ -67,6 +68,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     await writeFile(
       afterPath,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 0,
@@ -103,6 +105,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     await writeFile(
       path,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 0,
@@ -110,6 +113,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
         ServiceName: 'Function Invocations',
         Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
       })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 0,
@@ -139,6 +143,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     await writeFile(
       path,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: Number.MAX_SAFE_INTEGER,
@@ -146,6 +151,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
         ServiceName: 'Function Invocations',
         Tags: { ProjectId: MEASUREMENT_PROJECT_ID },
       })}\n${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-08-01T00:00:00.000Z',
         ChargePeriodEnd: '2026-08-02T00:00:00.000Z',
         ConsumedQuantity: 2,
@@ -175,6 +181,7 @@ describe('measureVercelStorefrontCost comparison hardening', () => {
     await writeFile(
       path,
       `${JSON.stringify({
+        BillingCurrency: 'USD',
         ChargePeriodStart: '2026-02-31T00:00:00Z',
         ChargePeriodEnd: '2026-03-01T00:00:00Z',
         ConsumedQuantity: 1,

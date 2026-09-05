@@ -51,6 +51,14 @@ function uniqueStable(values: readonly string[]): string[] {
   return Array.from(new Set(values));
 }
 
+/** Generation-fenced merchant mutation identity for provider SingleFlight. */
+function purgeCausalKey(claim: CacheInvalidationClaim): string {
+  // claim_token and target tuples differ across slug/hostname rows emitted by
+  // one enqueue_storefront_cache_targets call, so they must not partition keys
+  // when the resulting provider work is identical.
+  return JSON.stringify([claim.merchant_id, claim.generation]);
+}
+
 function purgeVercelWithTimeout(
   claimKey: string,
   tags: readonly string[],
@@ -84,13 +92,7 @@ export async function drainStorefrontCacheInvalidation(
   { vercelTimeoutMs = DEFAULT_VERCEL_TIMEOUT_MS } = {}
 ): Promise<CacheInvalidationDrainResult> {
   const identity = targetIdentity(claim);
-  const claimKey = JSON.stringify([
-    claim.merchant_id,
-    claim.target_kind,
-    claim.target_id,
-    claim.generation,
-    claim.claim_token,
-  ]);
+  const claimKey = purgeCausalKey(claim);
   const productIdentifiers =
     claim.target_kind === 'storefront_product'
       ? [claim.target_id]
@@ -183,8 +185,9 @@ export async function drainStorefrontCacheInvalidation(
     ...productTags,
     ...buildStorefrontPublicationCacheTags(identity),
   ]);
-  // Only duplicate work for the same claim may share a purge. A newer mutation
-  // must purge again even if the older provider response is still pending.
+  // Only duplicate work for the same merchant generation may share a purge.
+  // A newer mutation must purge again even if the older provider response is
+  // still pending. Equivalent slug/hostname rows from one enqueue share work.
   const key = `${claimKey}:${[...hostnames].sort().join('|')}::${[...vercelTags].sort().join('|')}`;
   return cloudflarePurgeSingleFlight.run(key, () =>
     strictCloudflareHostnamePurge(hostnames)
