@@ -6,12 +6,21 @@ const calculatePlatformFee = vi.hoisted(() =>
   vi.fn(() => ({ platformFee: 1500 }))
 );
 const resolveOrderGiglSettlementRpc = vi.hoisted(() =>
-  vi.fn(() => ({
-    hasEconomicsSnapshot: true,
-    retainedShippingAmount: 1200,
-    settlementRpc: 'record_merchant_settlement_gigl_v1' as const,
-    useGiglSettlementRpc: true,
-  }))
+  vi.fn(
+    (): {
+      hasEconomicsSnapshot: boolean;
+      retainedShippingAmount: number;
+      settlementRpc:
+        | 'record_merchant_settlement_gigl_v1'
+        | 'record_merchant_settlement';
+      useGiglSettlementRpc: boolean;
+    } => ({
+      hasEconomicsSnapshot: true,
+      retainedShippingAmount: 1200,
+      settlementRpc: 'record_merchant_settlement_gigl_v1',
+      useGiglSettlementRpc: true,
+    })
+  )
 );
 
 vi.mock('@/lib/payments/verified-gateway-fee', () => ({

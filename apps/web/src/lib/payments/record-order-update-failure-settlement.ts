@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOrderGiglSettlementRpc } from '@/lib/payments/resolve-order-gigl-settlement-rpc';
-import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
+import {
+  extractVerifiedGatewayFeeNgn,
+  type SupportedGateway,
+} from '@/lib/payments/verified-gateway-fee';
 import { calculatePlatformFee } from '@/lib/paystack';
 
 export type OrderUpdateFailureSettlementResult =
@@ -9,7 +12,7 @@ export type OrderUpdateFailureSettlementResult =
   | { kind: 'settlement_failed'; error: unknown };
 
 type RecordOrderUpdateFailureSettlementArgs = {
-  gateway: string;
+  gateway: SupportedGateway;
   gatewayResponse: unknown;
   merchantId: string;
   orderId: string | null;
