@@ -1,4 +1,3 @@
-import { QuoteAggregator } from './aggregator';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 import {
   type ShippingProvider,
@@ -14,6 +13,7 @@ import {
   isGiglRuntimeConfigured,
 } from './providers/gigl.constants';
 import { TopshipProvider } from './providers/topship';
+import { QuoteAggregator } from './quote-aggregator';
 import type {
   BookingRequest,
   CancellationResult,
@@ -281,5 +281,6 @@ export {
   type ShippingProvider,
   ShippingProviderRegistry,
 } from './providers/base';
+export { QuoteAggregator } from './quote-aggregator';
 export * from './status-mapper';
 export * from './types';

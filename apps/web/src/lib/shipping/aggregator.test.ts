@@ -1,13 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  QuoteAggregator,
-  rankQuotes,
-  selectFeaturedQuotes,
-} from './aggregator';
+import { rankQuotes, selectFeaturedQuotes } from './aggregator';
 import {
   type ShippingProvider,
   ShippingProviderRegistry,
 } from './providers/base';
+import { QuoteAggregator } from './quote-aggregator';
 import type { QuoteRequest, ShippingQuote } from './types';
 
 const quoteRequest: QuoteRequest = {

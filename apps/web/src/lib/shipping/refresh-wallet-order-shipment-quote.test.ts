@@ -356,7 +356,7 @@ describe('refreshWalletOrderShipmentQuote', () => {
     expect(updates).toEqual([{ selected_quote_id: 'quote-refreshed' }]);
   });
 
-  it('bugfix: requires reconfirm without rebinding when an active wallet charge exists', async () => {
+  it('bugfix: skips quote refresh when an active wallet charge already holds funds', async () => {
     mocks.refreshOrderShipmentQuote.mockResolvedValue({
       ...storedQuote,
       id: 'quote-refreshed',
@@ -369,10 +369,8 @@ describe('refreshWalletOrderShipmentQuote', () => {
       refresh(
         createSupabase({ onOrderUpdate: (payload) => updates.push(payload) })
       )
-    ).rejects.toMatchObject({
-      status: 409,
-      code: 'MERCHANT_WALLET_QUOTE_RECONFIRM_REQUIRED',
-    });
+    ).resolves.toBe(quoteId);
+    expect(mocks.refreshOrderShipmentQuote).not.toHaveBeenCalled();
     expect(updates).toEqual([]);
     expect(mocks.hasActiveMerchantShippingCharge).toHaveBeenCalledWith(
       expect.anything(),
