@@ -83,6 +83,35 @@ describe('chat tool runtime', () => {
     );
   });
 
+  it('reports trusted product tool results to the presentation collector', async () => {
+    const onToolResult = vi.fn();
+    const tools = createAiSdkAgenticChatTools('session-1', { onToolResult });
+
+    await tools.searchProducts.execute({ query: 'iPhone' });
+
+    expect(onToolResult).toHaveBeenCalledWith('searchProducts', {
+      products: [{ id: 'p1', name: 'iPhone 11' }],
+      total: 1,
+    });
+  });
+
+  it('passes the validated cart quantity with add-to-cart presentation data', async () => {
+    mocks.handleAddToCart.mockResolvedValueOnce({
+      id: 'p1',
+      name: 'iPhone 11',
+    });
+    const onToolResult = vi.fn();
+    const tools = createAiSdkAgenticChatTools('session-1', { onToolResult });
+
+    await tools.addToCart.execute({ productId: 'p1', quantity: 2 });
+
+    expect(onToolResult).toHaveBeenCalledWith(
+      'addToCart',
+      { id: 'p1', name: 'iPhone 11' },
+      { quantity: 2 }
+    );
+  });
+
   it('executes order cancellation through the AI SDK tools', async () => {
     const tools = createAiSdkAgenticChatTools('session-1');
     const response = await tools.cancelOrder.execute({

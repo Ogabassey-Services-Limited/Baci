@@ -22,6 +22,8 @@ import crypto from 'node:crypto';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { checkRateLimit } from '@/ai/provider';
+import { createChatPresentationEventCollector } from '@/app/api/chat/create-chat-presentation-event-collector';
+import { negotiateChatAgentUiResponse } from '@/app/api/chat/negotiate-chat-agent-ui-response';
 import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
@@ -211,7 +213,8 @@ export async function POST(req: Request) {
           signal: req.signal,
           timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
-        return await bufferTextResponse(llmResponse);
+        const bufferedResponse = await bufferTextResponse(llmResponse);
+        return await negotiateChatAgentUiResponse(req, bufferedResponse);
       } catch (error) {
         if (isChatAbortError(error, req.signal)) {
           return createClientClosedRequestResponse();
@@ -227,6 +230,7 @@ export async function POST(req: Request) {
     if (!triedLlmServer && shouldTryOllama) {
       const ollamaBaseUrl = getOllamaBaseUrl();
       if (ollamaBaseUrl) {
+        const presentationCollector = createChatPresentationEventCollector();
         const chatModel = getAiChatModel();
         const basicAuth = getOllamaBasicAuth();
         let ollamaSideEffectingToolExecuted = false;
@@ -265,6 +269,7 @@ export async function POST(req: Request) {
               return result;
             },
             onToolExecuted: (call, result) => {
+              presentationCollector.capture(call.function.name, result);
               if (
                 isSideEffectingOllamaToolCall(call) &&
                 didOllamaToolCreateSideEffect(call.function.name, result)
@@ -275,7 +280,12 @@ export async function POST(req: Request) {
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
-          return await bufferTextResponse(ollamaResponse);
+          const bufferedResponse = await bufferTextResponse(ollamaResponse);
+          return await negotiateChatAgentUiResponse(
+            req,
+            bufferedResponse,
+            presentationCollector.getEvents()
+          );
         } catch (error) {
           if (isChatAbortError(error, req.signal)) {
             return createClientClosedRequestResponse();
@@ -287,7 +297,11 @@ export async function POST(req: Request) {
               '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
               safeErrorMessage
             );
-            return createStaticChatFallbackResponse();
+            return await negotiateChatAgentUiResponse(
+              req,
+              createStaticChatFallbackResponse(),
+              presentationCollector.getEvents()
+            );
           }
 
           console.warn(
@@ -298,7 +312,7 @@ export async function POST(req: Request) {
       }
     }
 
-    let result: { text: string } | null = null;
+    let result: Awaited<ReturnType<typeof runChatProviderChain>> | null = null;
     try {
       result = await runChatProviderChain({
         messages: sanitizedMessages,
@@ -317,12 +331,19 @@ export async function POST(req: Request) {
     }
 
     if (!result?.text.trim()) {
-      return createStaticChatFallbackResponse();
+      return await negotiateChatAgentUiResponse(
+        req,
+        createStaticChatFallbackResponse()
+      );
     }
 
-    return new Response(result.text, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    });
+    return await negotiateChatAgentUiResponse(
+      req,
+      new Response(result.text, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      }),
+      result.events
+    );
   } catch (error) {
     if (isChatAbortError(error, req.signal)) {
       return createClientClosedRequestResponse();
