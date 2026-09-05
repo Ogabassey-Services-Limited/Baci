@@ -19,6 +19,20 @@ function product(index: number) {
 }
 
 describe('createChatPresentationEventCollector', () => {
+  it('carries canonical selection metadata into the card', () => {
+    const collector = createChatPresentationEventCollector();
+    collector.capture('getProductDetails', {
+      ...product(1),
+      has_condition_offers: true,
+      variant_model: 'sku_matrix',
+      available_conditions: ['New', 'Used'],
+    });
+    expect(collector.getEvents()[0]?.products[0]).toMatchObject({
+      hasConditionOffers: true,
+      variantModel: 'sku_matrix',
+      availableConditions: ['New', 'Used'],
+    });
+  });
   it('maps trusted product search results into a bounded UI event', () => {
     const collector = createChatPresentationEventCollector();
     const result = collector.capture('searchProducts', {

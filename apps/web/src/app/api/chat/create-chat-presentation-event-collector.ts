@@ -68,6 +68,15 @@ function createProduct(
 
   const product = parsed.data;
   const candidate = {
+    ...(product.available_conditions !== undefined
+      ? { availableConditions: product.available_conditions }
+      : {}),
+    ...(product.has_condition_offers !== undefined
+      ? { hasConditionOffers: product.has_condition_offers }
+      : {}),
+    ...(product.variant_model !== undefined
+      ? { variantModel: product.variant_model }
+      : {}),
     brand: normalizeNullableText(product.brand, 120),
     category: normalizeNullableText(product.category, 120),
     description: normalizeNullableText(product.description, 320),

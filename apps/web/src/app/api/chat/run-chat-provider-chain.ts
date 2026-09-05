@@ -47,17 +47,20 @@ export async function runChatProviderChain({
   let sideEffectExecuted = false;
   let activeProviderName: string | null = null;
   let presentationProviderName: string | null = null;
-  const presentationCollector = createChatPresentationEventCollector();
-  const tools = createAiSdkAgenticChatTools(sessionId, {
-    onSideEffect: () => {
-      sideEffectExecuted = true;
-    },
-    onToolResult: (toolName, toolResult, context) => {
-      if (presentationCollector.capture(toolName, toolResult, context)) {
-        presentationProviderName = activeProviderName;
-      }
-    },
-  });
+  let presentationCollector = createChatPresentationEventCollector();
+  const createToolsForAttempt = (providerName: string) => {
+    const collector = createChatPresentationEventCollector();
+    presentationCollector = collector;
+    presentationProviderName = providerName;
+    return createAiSdkAgenticChatTools(sessionId, {
+      onSideEffect: () => {
+        sideEffectExecuted = true;
+      },
+      onToolResult: (toolName, toolResult, context) => {
+        collector.capture(toolName, toolResult, context);
+      },
+    });
+  };
 
   const providerChain = getTextProviderChain();
   const geminiChain = providerChain.filter((provider) =>
@@ -117,7 +120,7 @@ export async function runChatProviderChain({
       perProviderTimeoutMs: GEMINI_PROVIDER_TIMEOUT_MS,
       shouldStopWalk: () => sideEffectExecuted,
       system: AGENTIC_SYSTEM_PROMPT,
-      tools,
+      createToolsForAttempt,
     });
   } catch (error) {
     geminiError = error;
@@ -175,7 +178,7 @@ export async function runChatProviderChain({
         surface: 'agentic_chat',
       })
     );
-    return withPresentationEvents(fallbackResult);
+    return fallbackResult;
   } catch (fallbackError) {
     const presentationOnlyResult = getPresentationOnlyResult();
     if (presentationOnlyResult) return presentationOnlyResult;

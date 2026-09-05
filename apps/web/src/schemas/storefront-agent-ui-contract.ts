@@ -10,6 +10,13 @@ const httpImageUrlSchema = z
 
 const productSchema = z
   .object({
+    availableConditions: z
+      .array(z.string().max(120))
+      .max(20)
+      .nullable()
+      .optional(),
+    hasConditionOffers: z.boolean().nullable().optional(),
+    variantModel: z.string().max(120).nullable().optional(),
     brand: z.string().trim().min(1).max(120).nullable(),
     category: z.string().trim().min(1).max(120).nullable(),
     description: z.string().trim().max(320).nullable(),

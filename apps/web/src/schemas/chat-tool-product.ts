@@ -3,6 +3,9 @@ import z from 'zod';
 /** Raw catalog tool result, validated before presentation normalization. */
 export const chatToolProductSchema = z
   .object({
+    available_conditions: z.array(z.string()).nullable().optional(),
+    has_condition_offers: z.boolean().nullable().optional(),
+    variant_model: z.string().nullable().optional(),
     brand: z.string().nullable(),
     category: z.string().nullable(),
     description: z.string().nullable(),

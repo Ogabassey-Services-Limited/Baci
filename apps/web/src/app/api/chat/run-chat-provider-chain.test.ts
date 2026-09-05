@@ -91,6 +91,52 @@ describe('runChatProviderChain', () => {
     ]);
   });
 
+  it.each([
+    false,
+    true,
+  ])('isolates failed-attempt cards when the successful provider emits cards: %s', async (withCards) => {
+    const product = (id: string) => ({
+      brand: null,
+      category: null,
+      description: null,
+      has_variants: false,
+      id,
+      image_url: null,
+      manage_stock: false,
+      name: id,
+      price: 10,
+      slug: null,
+      status: 'active',
+      stock: null,
+    });
+    let failedReport: typeof reportToolResult;
+    vi.mocked(generateText).mockImplementation((async (options: {
+      model: { id: string };
+    }) => {
+      if (options.model.id === 'google:gemini-2.5-flash') {
+        failedReport = reportToolResult;
+        for (const id of ['failed-1', 'failed-2', 'failed-3']) {
+          reportToolResult?.('getProductDetails', product(id));
+        }
+        throw new Error('failed after tool');
+      }
+      // A late result from the failed attempt must not affect the active one.
+      failedReport?.('getProductDetails', product('late'));
+      if (withCards)
+        reportToolResult?.('getProductDetails', product('successful'));
+      return { text: 'Successful response' };
+    }) as unknown as typeof generateText);
+    const result = await runChatProviderChain({
+      abortSignal: new AbortController().signal,
+      messages: [{ role: 'user', content: 'Show phones' }],
+      sessionId: 'session-1',
+    });
+    expect(
+      result.events?.flatMap((event) => event.products.map(({ id }) => id)) ??
+        []
+    ).toEqual(withCards ? ['successful'] : []);
+  });
+
   it('uses a configured reliable provider without tools when both Gemini pools fail', async () => {
     mocks.getTextProviderChain.mockReturnValue([
       provider('cerebras:gemma-4-31b'),

@@ -69,6 +69,30 @@ function event(
 }
 
 describe('AgentUiEventRenderer', () => {
+  it.each([
+    { hasConditionOffers: true },
+    { variantModel: 'sku_matrix' },
+    { availableConditions: ['New', 'Used'] },
+  ])('requires PDP selection without variants for %j', (metadata) => {
+    const base = event();
+    render(
+      <AgentUiEventRenderer
+        events={[
+          {
+            ...base,
+            products: base.products.map((product) => ({
+              ...product,
+              ...metadata,
+            })),
+          },
+        ]}
+      />
+    );
+    expect(
+      screen.getByRole('link', { name: 'Choose options' })
+    ).toHaveAttribute('href');
+    expect(screen.queryByRole('button', { name: /Add.*cart/ })).toBeNull();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cart = [];

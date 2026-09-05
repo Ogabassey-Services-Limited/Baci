@@ -1,4 +1,9 @@
-interface ChatProductRow {
+import {
+  getEffectiveProductStock,
+  type ProductSelectionRequiredInput,
+} from '@baci/shared/lib';
+
+interface ChatProductRow extends ProductSelectionRequiredInput {
   brand: string | null;
   category: string | null;
   description: string | null;
@@ -11,9 +16,10 @@ interface ChatProductRow {
   slug?: string | null;
   status: string | null;
   stock: number | null;
+  stock_quantity?: number | null;
 }
 
-export interface ChatProductResult {
+export interface ChatProductResult extends ProductSelectionRequiredInput {
   brand: string | null;
   category: string | null;
   description: string | null;
@@ -52,6 +58,15 @@ export function createChatProductResult(
     brand: product.brand,
     category: product.category,
     description: product.description,
+    ...(product.available_conditions !== undefined
+      ? { available_conditions: product.available_conditions }
+      : {}),
+    ...(product.has_condition_offers !== undefined
+      ? { has_condition_offers: product.has_condition_offers }
+      : {}),
+    ...(product.variant_model !== undefined
+      ? { variant_model: product.variant_model }
+      : {}),
     ...(product.has_variants !== undefined
       ? { has_variants: product.has_variants === true }
       : {}),
@@ -64,6 +79,6 @@ export function createChatProductResult(
     price: product.price,
     ...(product.slug !== undefined ? { slug: product.slug } : {}),
     status: product.status,
-    stock: product.stock,
+    stock: getEffectiveProductStock(product),
   };
 }

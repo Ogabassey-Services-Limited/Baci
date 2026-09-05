@@ -51,4 +51,29 @@ describe('createChatProductResult', () => {
 
     expect(result.image_url).toBeNull();
   });
+
+  it('uses positive canonical stock when legacy stock is zero', () => {
+    const row = {
+      brand: null,
+      category: null,
+      description: null,
+      id: 'stocked',
+      images: [],
+      name: 'Phone',
+      price: 100,
+      status: 'active',
+      stock: 0,
+      stock_quantity: 4,
+      manage_stock: true,
+      has_condition_offers: true,
+      variant_model: 'sku_matrix',
+      available_conditions: ['New', 'Used'],
+    };
+    expect(createChatProductResult(row)).toMatchObject({
+      stock: 4,
+      has_condition_offers: true,
+      variant_model: 'sku_matrix',
+      available_conditions: ['New', 'Used'],
+    });
+  });
 });

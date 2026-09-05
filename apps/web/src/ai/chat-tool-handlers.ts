@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CHAT_PRODUCT_PROJECTION } from '@/ai/chat-product-projection';
 import {
   type ChatProductResult,
   createChatProductResult,
@@ -91,9 +92,7 @@ export async function handleSearchProducts(
 
   let query = supabase
     .from('products')
-    .select(
-      'id, name, slug, price, description, brand, category, images, stock, manage_stock, has_variants, status'
-    )
+    .select(CHAT_PRODUCT_PROJECTION)
     .eq('merchant_id', OGABASSEY_MERCHANT_ID)
     .eq('status', 'active')
     .order('price', { ascending: false })
@@ -141,9 +140,7 @@ export async function handleGetProductDetails(
   try {
     const { data, error } = await supabase
       .from('products')
-      .select(
-        'id, name, slug, price, description, brand, category, images, stock, manage_stock, has_variants, status'
-      )
+      .select(CHAT_PRODUCT_PROJECTION)
       .eq('id', params.productId)
       .eq('merchant_id', OGABASSEY_MERCHANT_ID)
       .eq('status', 'active')
@@ -373,9 +370,7 @@ export async function handleGetRecommendations(
 
     let query = supabase
       .from('products')
-      .select(
-        'id, name, slug, price, description, brand, category, images, stock, manage_stock, has_variants, status'
-      )
+      .select(CHAT_PRODUCT_PROJECTION)
       .eq('merchant_id', OGABASSEY_MERCHANT_ID)
       .eq('status', 'active')
       .neq('id', params.productId)

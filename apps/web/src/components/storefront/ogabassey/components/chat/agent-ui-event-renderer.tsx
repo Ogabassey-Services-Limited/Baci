@@ -1,5 +1,6 @@
 'use client';
 
+import { requiresProductSelection } from '@baci/shared/lib';
 import { Check, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
@@ -19,8 +20,17 @@ const PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
   style: 'currency',
 });
 
+function needsSelection(product: StorefrontAgentUiProduct): boolean {
+  return requiresProductSelection({
+    available_conditions: product.availableConditions,
+    has_condition_offers: product.hasConditionOffers,
+    has_variants: product.hasVariants,
+    variant_model: product.variantModel,
+  });
+}
+
 function canAddProduct(product: StorefrontAgentUiProduct): boolean {
-  if (product.hasVariants) return false;
+  if (needsSelection(product)) return false;
   return !product.manageStock || (product.stock ?? 0) > 0;
 }
 
@@ -150,7 +160,7 @@ export function AgentUiEventRenderer({ events }: AgentUiEventRendererProps) {
                     >
                       View product
                     </Link>
-                    {product.hasVariants ? (
+                    {needsSelection(product) ? (
                       <Link
                         className="flex items-center justify-center rounded-lg bg-[var(--store-primary)] px-2 py-2 text-center text-xs font-semibold text-[var(--store-primary-foreground)]"
                         href={href}
