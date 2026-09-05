@@ -31,6 +31,34 @@ describe('loadOrderGiglSettledRetainedAmount', () => {
     expect(eqSourceId).toHaveBeenCalledWith('source_id', 'order-1');
   });
 
+  it('bugfix: float fragments still cover stamped retention totals in kobo', async () => {
+    const eqSourceId = vi.fn().mockResolvedValue({
+      data: [
+        { metadata: { retained_shipping_amount: 1000 }, status: 'completed' },
+        {
+          metadata: { retained_shipping_amount: 1000.14 },
+          status: 'completed',
+        },
+      ],
+      error: null,
+    });
+    const from = vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({ eq: eqSourceId })),
+        })),
+      })),
+    }));
+
+    await expect(
+      loadOrderGiglSettledRetainedAmount(
+        { from } as never,
+        'merchant-1',
+        'order-1'
+      )
+    ).resolves.toBe(2000.14);
+  });
+
   it('bugfix: cancelled settlements do not reduce cumulative retention coverage', async () => {
     const eqSourceId = vi.fn().mockResolvedValue({
       data: [

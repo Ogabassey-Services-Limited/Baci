@@ -38,14 +38,18 @@ export async function loadOrderGiglSettledRetainedAmount(
   }
 
   const rows = Array.isArray(data) ? data : [];
-  return rows.reduce((sum, row) => {
-    if (!row || typeof row !== 'object') return sum;
+  // Sum in integer kobo so float fragments like 1000 + 1000.14 still cover
+  // a stamped retained amount of 2000.14 (JS Number cannot sum those in NGN).
+  const totalKobo = rows.reduce((sumKobo, row) => {
+    if (!row || typeof row !== 'object') return sumKobo;
     const status =
       'status' in row && typeof row.status === 'string' ? row.status : null;
     // Match SQL: status IS DISTINCT FROM 'cancelled' (null status counts).
-    if (status === 'cancelled') return sum;
-    return (
-      sum + parseRetainedShippingAmount('metadata' in row ? row.metadata : null)
+    if (status === 'cancelled') return sumKobo;
+    const amount = parseRetainedShippingAmount(
+      'metadata' in row ? row.metadata : null
     );
+    return sumKobo + Math.round(amount * 100);
   }, 0);
+  return totalKobo / 100;
 }

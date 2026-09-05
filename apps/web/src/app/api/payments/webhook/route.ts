@@ -46,9 +46,8 @@ import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gatew
 import { isMerchantInvoicePartialBalanceReview } from '@/lib/payments/is-merchant-invoice-partial-balance-review';
 import { processMerchantInvoicePartialPayment } from '@/lib/payments/process-merchant-invoice-partial-payment';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
-import { resolveOrderGiglSettlementRpc } from '@/lib/payments/resolve-order-gigl-settlement-rpc';
+import { recordOrderUpdateFailureSettlement } from '@/lib/payments/record-order-update-failure-settlement';
 import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
-import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
@@ -2768,74 +2767,38 @@ export async function POST(request: NextRequest) {
         // flip, unlike the historical swallow-to-200 behavior that wedged
         // ORD-260711-00NT-5.
         try {
-          const grossAmount = Number(transaction.amount) || 0;
-          const gatewayFee = extractVerifiedGatewayFeeNgn(
+          const fallbackSettlement = await recordOrderUpdateFailureSettlement({
             gateway,
-            gatewayResponse
-          );
-          const platformFee =
-            Number(transaction.platform_fee) ||
-            calculatePlatformFee(grossAmount * 100).platformFee / 100;
-          let orderEconomics = null;
-          if (transaction.order_id) {
-            const { data: order, error: orderEconomicsLoadError } =
-              await supabase
-                .from('orders')
-                .select(
-                  'shipping_provider, shipping_funding_source, shipping_platform_retained_amount'
-                )
-                .eq('id', transaction.order_id)
-                .maybeSingle();
-            if (orderEconomicsLoadError) {
-              logger.error({
-                message:
-                  'Failed to load order economics for completion-failure settlement fallback',
-                error: orderEconomicsLoadError,
-                orderId: transaction.order_id,
-                reference,
-              });
-              return NextResponse.json(
-                {
-                  code: 'ORDER_PAYMENT_COMPLETION_FAILED',
-                  error: 'Order payment completion failed',
-                },
-                { status: 500 }
-              );
-            }
-            orderEconomics = order;
-          }
-          const settlement = resolveOrderGiglSettlementRpc(orderEconomics);
-          const { error: fallbackSettlementError } = await supabase.rpc(
-            settlement.settlementRpc,
-            {
-              p_merchant_id: transaction.merchant_id,
-              p_source_type: 'order',
-              p_source_id: transaction.order_id,
-              p_gateway: gateway,
-              p_gateway_reference: transaction.gateway_reference ?? reference,
-              p_gross_amount: grossAmount,
-              p_gateway_fee: gatewayFee,
-              p_platform_fee: platformFee,
-              p_description: `Order payment via ${gateway} (order update failed)`,
-              p_metadata: {
-                [`${gateway}_reference`]: reference,
-                verified_gateway_fee: gatewayFee,
-                order_update_failed: true,
-                ...(settlement.hasEconomicsSnapshot
-                  ? {
-                      commerce_platform_fee: platformFee,
-                      retained_shipping_amount:
-                        settlement.retainedShippingAmount,
-                    }
-                  : {}),
+            gatewayReference: transaction.gateway_reference,
+            gatewayResponse,
+            grossAmount: Number(transaction.amount) || 0,
+            merchantId: transaction.merchant_id,
+            orderId: transaction.order_id,
+            platformFee: transaction.platform_fee,
+            reference,
+            supabase,
+          });
+          if (fallbackSettlement.kind === 'economics_load_failed') {
+            logger.error({
+              message:
+                'Failed to load order economics for completion-failure settlement fallback',
+              error: fallbackSettlement.error,
+              orderId: transaction.order_id,
+              reference,
+            });
+            return NextResponse.json(
+              {
+                code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+                error: 'Order payment completion failed',
               },
-            }
-          );
-          if (fallbackSettlementError) {
+              { status: 500 }
+            );
+          }
+          if (fallbackSettlement.kind === 'settlement_failed') {
             logger.warn({
               message:
                 'record_merchant_settlement errored on order-update-fail fallback path',
-              error: fallbackSettlementError,
+              error: fallbackSettlement.error,
               orderId: transaction.order_id,
               reference,
             });

@@ -174,6 +174,15 @@ describe('PATCH /api/orders/[id]/edit', () => {
         error: 'Add only one new item per edit.',
       },
     ],
+    [
+      'active_shipping_charge_quote_input_edit_blocked',
+      409,
+      {
+        code: 'active_shipping_charge_quote_input_edit_blocked',
+        error:
+          'Shipping quote inputs cannot change while a wallet shipping charge is active.',
+      },
+    ],
     ['order_total_negative', 400, undefined],
     ['order_notify_customer_invalid', 400, undefined],
     ['order_item_product_forbidden', 403, undefined],
