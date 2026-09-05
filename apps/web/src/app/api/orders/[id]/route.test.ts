@@ -686,6 +686,7 @@ describe('PATCH /api/orders/[id]', () => {
       selected_quote_id: 'quote-1',
       shipping_provider: 'GIGL',
       shipping_funding_source: 'customer_checkout',
+      shipping_platform_retained_amount: 2500,
       tracking_number: null,
       shipment_id: null,
       shipping_address: {
