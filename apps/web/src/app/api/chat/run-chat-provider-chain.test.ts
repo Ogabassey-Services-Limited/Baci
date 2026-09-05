@@ -204,9 +204,13 @@ describe('runChatProviderChain', () => {
     });
   });
 
-  it('uses successful tool UI when the provider returns no final text', async () => {
+  it.each([
+    false,
+    true,
+  ])('uses successful tool UI with recovery provider %s when the provider returns no final text', async (withRecovery) => {
     mocks.getTextProviderChain.mockReturnValue([
       provider('google:gemini-2.5-flash'),
+      ...(withRecovery ? [provider('groq:recovery')] : []),
     ]);
     vi.mocked(generateText).mockImplementation((() => {
       reportToolResult?.('getProductDetails', {
@@ -235,5 +239,6 @@ describe('runChatProviderChain', () => {
     expect(result.text).toBe('I found these live catalog options for you.');
     expect(result.events).toHaveLength(1);
     expect(result.providerName).toBe('google:gemini-2.5-flash');
+    expect(generateText).toHaveBeenCalledTimes(1);
   });
 });

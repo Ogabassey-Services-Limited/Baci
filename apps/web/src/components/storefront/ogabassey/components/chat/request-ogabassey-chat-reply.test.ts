@@ -57,6 +57,35 @@ describe('requestOgabasseyChatReply', () => {
     });
   });
 
+  it('sends product-card references with a follow-up question', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(new Response('Checking.'));
+
+    await requestOgabasseyChatReply(
+      false,
+      [
+        {
+          role: 'model',
+          text: 'I found these live catalog options for you.',
+          uiEvents: [responseEvent],
+        },
+      ],
+      'Add that one'
+    );
+
+    const request = vi.mocked(global.fetch).mock.calls[0]?.[1];
+    expect(JSON.parse(String(request?.body))).toMatchObject({
+      messages: [
+        {
+          role: 'assistant',
+          content: expect.stringContaining(
+            JSON.stringify([[{ id: 'product-1', name: 'iPhone 16' }]])
+          ),
+        },
+        { role: 'user', content: 'Add that one' },
+      ],
+    });
+  });
+
   it('validates and returns server-provided product events', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
       new Response(

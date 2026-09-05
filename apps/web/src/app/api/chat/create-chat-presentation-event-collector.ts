@@ -1,4 +1,4 @@
-import z from 'zod';
+import { chatToolProductSchema } from '@/schemas/chat-tool-product';
 import {
   type StorefrontAgentUiEvent,
   type StorefrontAgentUiProduct,
@@ -6,23 +6,6 @@ import {
 } from '@/schemas/storefront-agent-ui-contract';
 
 const MAX_SERIALIZED_TOOL_RESULT_BYTES = 256_000;
-
-const toolProductSchema = z
-  .object({
-    brand: z.string().nullable(),
-    category: z.string().nullable(),
-    description: z.string().nullable(),
-    has_variants: z.boolean(),
-    id: z.string(),
-    image_url: z.string().nullable(),
-    manage_stock: z.boolean(),
-    name: z.string(),
-    price: z.number(),
-    slug: z.string().nullable(),
-    status: z.literal('active'),
-    stock: z.number().int().nullable(),
-  })
-  .passthrough();
 
 const presentationByToolName = {
   addToCart: { intent: 'add_to_cart', title: 'Ready to add' },
@@ -80,7 +63,7 @@ function createProduct(
   value: unknown,
   quantity: number | undefined
 ): StorefrontAgentUiProduct | null {
-  const parsed = toolProductSchema.safeParse(value);
+  const parsed = chatToolProductSchema.safeParse(value);
   if (!parsed.success) return null;
 
   const product = parsed.data;

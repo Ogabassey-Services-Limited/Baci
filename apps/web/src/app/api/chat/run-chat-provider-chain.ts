@@ -143,9 +143,10 @@ export async function runChatProviderChain({
     throw geminiError ?? new Error('Gemini chat provider chain failed');
   }
 
+  const presentationOnlyResult = getPresentationOnlyResult();
+  if (presentationOnlyResult) return presentationOnlyResult;
+
   if (toollessFallbackChain.length === 0) {
-    const presentationOnlyResult = getPresentationOnlyResult();
-    if (presentationOnlyResult) return presentationOnlyResult;
     throw geminiError ?? new Error('Gemini chat provider chain failed');
   }
 

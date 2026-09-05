@@ -6,13 +6,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { searchStorefrontProducts } from '@/lib/storefront-search';
 import {
   type ChatProductResult,
   createChatProductResult,
-} from './chat-product-result';
+} from '@/ai/chat-product-result';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { searchStorefrontProducts } from '@/lib/storefront-search';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,

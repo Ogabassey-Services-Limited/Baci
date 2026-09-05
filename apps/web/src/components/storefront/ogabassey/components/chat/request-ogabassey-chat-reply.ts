@@ -2,6 +2,7 @@ import {
   storefrontAgentUiContract,
   type StorefrontAgentUiEvent,
 } from '@/schemas/storefront-agent-ui-contract';
+import { chatHistoryContent } from './chat-history-content';
 import type { ChatMessage } from './types';
 
 const OGABASSEY_CHAT_SESSION_STORAGE_KEY = 'ogabassey_chat_session_id';
@@ -71,7 +72,7 @@ export async function requestOgabasseyChatReply(
       messages: [
         ...history.map((message) => ({
           role: message.role === 'model' ? 'assistant' : 'user',
-          content: message.text,
+          content: isSanta ? message.text : chatHistoryContent(message),
         })),
         { role: 'user', content: messageText },
       ],

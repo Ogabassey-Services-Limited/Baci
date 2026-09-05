@@ -2,7 +2,6 @@
 
 import { Check, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/merchant';
@@ -23,6 +22,12 @@ const PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
 function canAddProduct(product: StorefrontAgentUiProduct): boolean {
   if (product.hasVariants) return false;
   return !product.manageStock || (product.stock ?? 0) > 0;
+}
+
+function requestedQuantity(product: StorefrontAgentUiProduct): number {
+  return product.manageStock
+    ? Math.min(product.quantity ?? 1, product.stock ?? 0)
+    : product.quantity ?? 1;
 }
 
 function createCartProduct(product: StorefrontAgentUiProduct): Product {
@@ -57,9 +62,9 @@ interface AgentUiEventRendererProps {
 
 /** Trusted component registry for temporary storefront-agent presentation. */
 export function AgentUiEventRenderer({ events }: AgentUiEventRendererProps) {
-  const { addToCart, setIsCartOpen } = useCart();
+  const { addToCart, cart, setIsCartOpen } = useCart();
   const merchantContext = useMerchantSafe();
-  const [addedProductIds, setAddedProductIds] = useState<string[]>([]);
+  const addedProductIds = cart.map((item) => item.id);
   const validatedEvents = events.flatMap((event) => {
     const parsed = storefrontAgentUiContract.eventSchema.safeParse(event);
     return parsed.success ? [parsed.data] : [];
@@ -68,8 +73,7 @@ export function AgentUiEventRenderer({ events }: AgentUiEventRendererProps) {
   const handleAddToCart = (product: StorefrontAgentUiProduct) => {
     if (!canAddProduct(product) || addedProductIds.includes(product.id)) return;
 
-    addToCart(createCartProduct(product), product.quantity ?? 1);
-    setAddedProductIds((current) => [...current, product.id]);
+    addToCart(createCartProduct(product), requestedQuantity(product));
     setIsCartOpen(true);
   };
 
@@ -165,8 +169,8 @@ export function AgentUiEventRenderer({ events }: AgentUiEventRendererProps) {
                           ? 'Added'
                           : isOutOfStock
                             ? 'Out of stock'
-                            : product.quantity && product.quantity > 1
-                              ? `Add ${product.quantity} to cart`
+                            : requestedQuantity(product) > 1
+                              ? `Add ${requestedQuantity(product)} to cart`
                               : 'Add to cart'}
                       </button>
                     )}

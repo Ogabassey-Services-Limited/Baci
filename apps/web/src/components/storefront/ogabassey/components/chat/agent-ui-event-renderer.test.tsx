@@ -7,12 +7,14 @@ import { AgentUiEventRenderer } from './agent-ui-event-renderer';
 
 const mocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
+  cart: [] as { id: string }[],
   setIsCartOpen: vi.fn(),
 }));
 
 vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
     addToCart: mocks.addToCart,
+    cart: mocks.cart,
     setIsCartOpen: mocks.setIsCartOpen,
   }),
 }));
@@ -69,6 +71,7 @@ function event(
 describe('AgentUiEventRenderer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.cart = [];
   });
 
   it('renders product cards and storefront-owned actions', () => {
@@ -99,7 +102,6 @@ describe('AgentUiEventRenderer', () => {
       1
     );
     expect(mocks.setIsCartOpen).toHaveBeenCalledWith(true);
-    expect(screen.getByRole('button', { name: 'Added' })).toBeDisabled();
   });
 
   it('adds the bounded quantity requested through the commerce tool', async () => {
@@ -115,15 +117,37 @@ describe('AgentUiEventRenderer', () => {
   });
 
   it('routes variant products to option selection instead of bypassing it', () => {
-    render(
-      <AgentUiEventRenderer events={[event({ hasVariants: true })]} />
-    );
+    render(<AgentUiEventRenderer events={[event({ hasVariants: true })]} />);
 
-    expect(screen.getByRole('link', { name: 'Choose options' })).toHaveAttribute(
-      'href',
-      '/ogabassey/smartphones/iphone-16'
-    );
+    expect(
+      screen.getByRole('link', { name: 'Choose options' })
+    ).toHaveAttribute('href', '/ogabassey/smartphones/iphone-16');
     expect(screen.queryByRole('button', { name: 'Add to cart' })).toBeNull();
+  });
+
+  it('caps a request for five units at managed stock of two', async () => {
+    render(
+      <AgentUiEventRenderer events={[event({ quantity: 5, stock: 2 })]} />
+    );
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Add 2 to cart' }));
+    expect(mocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'product-1' }),
+      2
+    );
+  });
+
+  it('allows re-adding after the live cart removes the product', async () => {
+    mocks.cart = [{ id: 'product-1' }];
+    const { rerender } = render(<AgentUiEventRenderer events={[event()]} />);
+    expect(screen.getByRole('button', { name: 'Added' })).toBeDisabled();
+    mocks.cart = [];
+    rerender(<AgentUiEventRenderer events={[event()]} />);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(mocks.addToCart).toHaveBeenCalledTimes(1);
   });
 
   it('does not enable add-to-cart for managed products without stock', () => {
