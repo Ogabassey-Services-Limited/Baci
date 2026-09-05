@@ -240,7 +240,14 @@ describe('POST /api/products/bulk-publish', () => {
     ]);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'baci-phone', categorySegment: 'phones' }]
+      [
+        {
+          productId: 'product-1',
+          slug: 'baci-phone',
+          categorySegment: 'phones',
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
     expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]

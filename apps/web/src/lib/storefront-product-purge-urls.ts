@@ -20,6 +20,8 @@ export const PURGE_WHOLE_STOREFRONT_THRESHOLD = 50;
  * storefront actually serves.
  */
 export interface StorefrontProductPurgeEntry {
+  /** Product id used to resolve linked public blog documents for edge purge. */
+  productId?: string | null;
   /** Product slug — original casing preserved (the CDN path is case-sensitive). */
   slug: string;
   categorySegment?: string | null;
@@ -185,12 +187,16 @@ export function countDistinctProductPurgeEntries(
  */
 export function buildStorefrontProductPurgeUrls(
   identifiers: readonly string[],
-  entries: readonly StorefrontProductPurgeEntry[]
+  entries: readonly StorefrontProductPurgeEntry[],
+  blogPostSlugs: readonly string[] = []
 ): string[] {
   const dedupedEntries = dedupeProductPurgeEntries(entries);
   if (dedupedEntries.length === 0) {
     return [];
   }
+
+  const dedupedBlogPostSlugs =
+    dedupePathSegmentsPreservingCasing(blogPostSlugs);
 
   const categorySegments = dedupePathSegmentsPreservingCasing(
     dedupedEntries
@@ -231,6 +237,20 @@ export function buildStorefrontProductPurgeUrls(
       // leaving, or changing within a category must evict them.
       for (const segment of categorySegments) {
         urls.add(`https://${hostname}/${encodeURIComponent(segment)}`);
+      }
+
+      // Related-product prices are rendered in the server document for blog
+      // posts. Evict the affected post documents (and their OG images) when a
+      // linked product changes so the long-lived edge HTML cannot retain an
+      // old amount after the Next cache has been revalidated.
+      if (dedupedBlogPostSlugs.length > 0) {
+        urls.add(`https://${hostname}/blog`);
+        for (const postSlug of dedupedBlogPostSlugs) {
+          urls.add(`https://${hostname}/blog/${encodeURIComponent(postSlug)}`);
+          urls.add(
+            `https://${hostname}/blog/${encodeURIComponent(postSlug)}/opengraph-image`
+          );
+        }
       }
     }
   }

@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
           const purgeSlug = productData.slug.trim() || insertedProduct?.id;
           if (productData.status === 'active' && purgeSlug) {
             publicPurgeEntries.push({
+              productId: insertedProduct?.id,
               slug: purgeSlug,
               categorySegment: resolveProductPurgeCategorySegment({
                 slug: purgeSlug,
@@ -230,7 +231,8 @@ export async function POST(request: NextRequest) {
         );
         scheduleStorefrontProductPurge(
           merchantContext.merchantSlug,
-          publicPurgeEntries
+          publicPurgeEntries,
+          { merchantId }
         );
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk import', {

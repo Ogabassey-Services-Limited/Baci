@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPurgeCloudflareUrls = vi.fn();
 const mockPurgeCloudflareHostnamesConfirmed = vi.fn();
+const mockGetProductBlogPostSlugs = vi.fn();
+const mockCreatePublicClient = vi.fn();
 const mockAfter = vi.fn((callback: () => unknown) => {
   callback();
 });
@@ -15,6 +17,13 @@ vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
   purgeCloudflareHostnamesConfirmed: (...args: unknown[]) =>
     mockPurgeCloudflareHostnamesConfirmed(...args),
+}));
+vi.mock('@/lib/get-product-blog-post-slugs', () => ({
+  getProductBlogPostSlugs: (...args: unknown[]) =>
+    mockGetProductBlogPostSlugs(...args),
+}));
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 // Keep the real URL builder (so purge-URL assertions run against real output)
 // but make it spy-able so one test can force it to throw.
@@ -40,6 +49,8 @@ import { scheduleStorefrontProductPurge } from './storefront-product-purge';
 describe('scheduleStorefrontProductPurge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetProductBlogPostSlugs.mockResolvedValue([]);
+    mockCreatePublicClient.mockReturnValue({});
   });
 
   it('schedules a purge of the built URLs via after()', () => {
@@ -126,6 +137,38 @@ describe('scheduleStorefrontProductPurge', () => {
 
     // Falls back to a detached purge instead of throwing.
     expect(mockPurgeCloudflareUrls).toHaveBeenCalledTimes(1);
+  });
+
+  it('purges linked blog documents after resolving the changed product IDs', async () => {
+    mockGetProductBlogPostSlugs.mockResolvedValue(['iphone-guide']);
+
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [
+        {
+          slug: 'iphone-15',
+          productId: 'product-1',
+          categorySegment: 'smartphones',
+        },
+      ],
+      { merchantId: 'merchant-1' }
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockGetProductBlogPostSlugs).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      ['product-1']
+    );
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        'https://ogabassey.com/blog',
+        'https://ogabassey.com/blog/iphone-guide',
+        'https://ogabassey.com/blog/iphone-guide/opengraph-image',
+      ])
+    );
   });
 
   it('never throws when the purge URL build fails', () => {

@@ -43,7 +43,9 @@ describe('buildPreviousCategoryPurgeEntries', () => {
       new Map([['p1', 'smartphones']]),
       new Map([['p1', 'iphone-15']])
     );
-    expect(result).toEqual([{ slug: 'iphone-15', categorySegment: 'phones' }]);
+    expect(result).toEqual([
+      { productId: 'p1', slug: 'iphone-15', categorySegment: 'phones' },
+    ]);
   });
 
   it('resolves the current segment from flat hints when no authoritative segment is known', () => {
@@ -58,7 +60,9 @@ describe('buildPreviousCategoryPurgeEntries', () => {
       ],
       new Map([['cat-old', 'boots']])
     );
-    expect(result).toEqual([{ slug: 'shoe', categorySegment: 'boots' }]);
+    expect(result).toEqual([
+      { productId: 'p1', slug: 'shoe', categorySegment: 'boots' },
+    ]);
   });
 
   it('falls back to the product id as the slug for legacy null-slug rows', () => {
@@ -68,7 +72,9 @@ describe('buildPreviousCategoryPurgeEntries', () => {
       new Map([['prod-2', 'video']]),
       new Map()
     );
-    expect(result).toEqual([{ slug: 'prod-2', categorySegment: 'audio' }]);
+    expect(result).toEqual([
+      { productId: 'prod-2', slug: 'prod-2', categorySegment: 'audio' },
+    ]);
   });
 
   it('emits nothing when the product did not actually move (old segment === current segment)', () => {

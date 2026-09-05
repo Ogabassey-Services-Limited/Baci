@@ -116,7 +116,8 @@ export async function POST(request: NextRequest) {
       );
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
-        purgeEntries
+        purgeEntries,
+        { merchantId }
       );
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after bulk update', {

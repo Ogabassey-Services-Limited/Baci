@@ -171,7 +171,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
       if (authoritativeMerchantSlug && !purgeWholeStorefront) {
-        scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries);
+        scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries, {
+          merchantId,
+        });
       }
     } catch (purgeError) {
       logger.error({

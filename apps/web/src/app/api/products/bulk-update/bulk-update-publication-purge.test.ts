@@ -156,8 +156,16 @@ describe('bulk update public purge entries', () => {
         afterCategory: 'Books',
       })
     ).resolves.toEqual([
-      { slug: 'slug-product-0', categorySegment: 'electronics' },
-      { slug: 'slug-product-0', categorySegment: 'books' },
+      {
+        productId: 'product-0',
+        slug: 'slug-product-0',
+        categorySegment: 'electronics',
+      },
+      {
+        productId: 'product-0',
+        slug: 'slug-product-0',
+        categorySegment: 'books',
+      },
     ]);
   });
 
@@ -170,7 +178,11 @@ describe('bulk update public purge entries', () => {
         afterStatus: 'archived',
       })
     ).resolves.toEqual([
-      { slug: 'slug-product-0', categorySegment: 'electronics' },
+      {
+        productId: 'product-0',
+        slug: 'slug-product-0',
+        categorySegment: 'electronics',
+      },
     ]);
   });
 });

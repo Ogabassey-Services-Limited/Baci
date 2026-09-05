@@ -27,6 +27,7 @@ export function getBulkPurgeEntries(
 
     return [
       {
+        productId: row.id,
         slug,
         categorySegment: resolveProductPurgeCategorySegmentForRow({
           slug,

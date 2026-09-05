@@ -183,6 +183,7 @@ async function renderBlogPostContent({
           basePath={basePath}
           baseUrl={baseUrl}
           content={content}
+          countryCode={merchant.country}
           locale={locale}
           // Draft preview must keep draft-to-draft links intact: the dead-link
           // resolver only treats published posts as live, so it would unwrap
@@ -190,6 +191,7 @@ async function renderBlogPostContent({
           // short-circuits when merchantId is undefined.
           merchantId={isDraftMode ? undefined : merchant.id}
           merchantSlug={merchant.slug}
+          payoutCurrency={merchant.payout_currency}
           postUrl={postUrl}
           post={{
             author_bio: post.author_bio,

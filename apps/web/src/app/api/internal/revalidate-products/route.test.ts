@@ -148,7 +148,8 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      [{ productId: null, slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { merchantId: MERCHANT_ID }
     );
   });
 
@@ -207,7 +208,14 @@ describe('POST /api/internal/revalidate-products', () => {
     // Authoritative slug + category resolved from the row (not the uuid path).
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      [
+        {
+          productId: 'prod-1',
+          slug: 'iphone-15',
+          categorySegment: 'smartphones',
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
     // Per-slug Next caches busted for the authoritative slug + id, BEFORE the
     // edge purge is scheduled.

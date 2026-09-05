@@ -151,7 +151,8 @@ describe('revalidateProductsReliable', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      [{ productId: null, slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { merchantId: 'merchant-1' }
     );
   });
 
@@ -198,9 +199,10 @@ describe('revalidateProductsReliable', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
       expect.arrayContaining([
-        { slug: 'product-0', categorySegment: 'smartphones' },
-        { slug: 'product-50', categorySegment: 'smartphones' },
-      ])
+        { productId: null, slug: 'product-0', categorySegment: 'smartphones' },
+        { productId: null, slug: 'product-50', categorySegment: 'smartphones' },
+      ]),
+      { merchantId: 'merchant-1' }
     );
   });
 

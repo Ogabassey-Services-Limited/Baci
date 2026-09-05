@@ -14,6 +14,10 @@ describe('related blog products', () => {
     expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain(
       'products!blog_post_products_product_id_fkey'
     );
+    expect(RELATED_BLOG_PRODUCTS_SELECT).toContain('price, compare_at_price');
+    expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain(
+      'price, compare_at_price'
+    );
     expect(RELATED_BLOG_PRODUCTS_SELECT).not.toMatch(/\bcategory_slug\b/);
   });
 
@@ -79,6 +83,48 @@ describe('related blog products', () => {
         name: 'Multi relation',
         slug: 'multi-relation',
         category_slug: 'laptops',
+      },
+    ]);
+  });
+
+  it('normalizes live catalog prices without inventing missing values', () => {
+    // Arrange
+    const products = [
+      {
+        id: 'product-1',
+        name: 'Phone',
+        slug: 'phone',
+        price: '250000.00',
+        compare_at_price: 275000,
+        categories: { slug: 'smartphones' },
+      },
+      {
+        id: 'product-2',
+        name: 'Unpriced item',
+        slug: 'unpriced-item',
+        price: null,
+        categories: { slug: 'accessories' },
+      },
+    ];
+
+    // Act
+    const normalizedProducts = normalizeRelatedBlogProducts(products);
+
+    // Assert
+    expect(normalizedProducts).toEqual([
+      {
+        id: 'product-1',
+        name: 'Phone',
+        slug: 'phone',
+        price: 250000,
+        compare_at_price: 275000,
+        category_slug: 'smartphones',
+      },
+      {
+        id: 'product-2',
+        name: 'Unpriced item',
+        slug: 'unpriced-item',
+        category_slug: 'accessories',
       },
     ]);
   });

@@ -282,7 +282,14 @@ describe('POST /api/cache/revalidate', () => {
       // The staff-scoped product purge still fires for the server-resolved slug.
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
-        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+        [
+          {
+            productId: 'prod-1',
+            slug: 'iphone-15',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -335,7 +342,8 @@ describe('POST /api/cache/revalidate', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
-        [{ slug: 'buds-pro', categorySegment: 'earbuds' }]
+        [{ productId: 'prod-1', slug: 'buds-pro', categorySegment: 'earbuds' }],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -385,7 +393,8 @@ describe('POST /api/cache/revalidate', () => {
       expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
-        [{ slug: 'iphone-15', categorySegment: null }]
+        [{ productId: 'prod-1', slug: 'iphone-15', categorySegment: null }],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -449,7 +458,8 @@ describe('POST /api/cache/revalidate', () => {
       // The purge targets the VERIFIED merchant's server-resolved slug.
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'other-merchant',
-        [{ slug: 'buds-pro', categorySegment: null }]
+        [{ productId: 'prod-1', slug: 'buds-pro', categorySegment: null }],
+        { merchantId: OTHER_MERCHANT_ID }
       );
     });
 
@@ -592,7 +602,14 @@ describe('POST /api/cache/revalidate', () => {
       // The merchant slug is resolved server-side (never trusted from the client).
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
-        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+        [
+          {
+            productId: 'prod-1',
+            slug: 'iphone-15',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -670,7 +687,8 @@ describe('POST /api/cache/revalidate', () => {
         // Fell back to the caller's "Audio" text hint (→ "audio") for the segment.
         expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
           'ogabassey',
-          [{ slug: 'buds-pro', categorySegment: 'audio' }]
+          [{ productId: 'prod-1', slug: 'buds-pro', categorySegment: 'audio' }],
+          { merchantId: MERCHANT_ID }
         );
         expect(consoleErrorSpy).toHaveBeenCalledWith(
           expect.stringContaining(
@@ -722,9 +740,14 @@ describe('POST /api/cache/revalidate', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
         [
-          { slug: 'iphone-15', categorySegment: 'smartphones' },
-          { slug: 'iphone-15', categorySegment: 'phones' },
-        ]
+          {
+            productId: 'prod-1',
+            slug: 'iphone-15',
+            categorySegment: 'smartphones',
+          },
+          { productId: 'prod-1', slug: 'iphone-15', categorySegment: 'phones' },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -751,7 +774,14 @@ describe('POST /api/cache/revalidate', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
-        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+        [
+          {
+            productId: 'prod-1',
+            slug: 'iphone-15',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -783,7 +813,14 @@ describe('POST /api/cache/revalidate', () => {
         // Only the current-location entry — the old-segment append is skipped.
         expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
           'ogabassey',
-          [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+          [
+            {
+              productId: 'prod-1',
+              slug: 'iphone-15',
+              categorySegment: 'smartphones',
+            },
+          ],
+          { merchantId: MERCHANT_ID }
         );
         expect(consoleErrorSpy).toHaveBeenCalledWith(
           expect.stringContaining('Failed to resolve previous category slugs'),

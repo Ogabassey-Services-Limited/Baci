@@ -322,7 +322,9 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
         content: '<p>Content</p>',
+        countryCode: 'NG',
         merchantSlug: 'ogabassey',
+        payoutCurrency: 'NGN',
         post: {
           id: 'post-1',
           slug: 'my-post',
@@ -335,6 +337,7 @@ describe('BlogPostBody', () => {
             name: 'iPhone 16',
             slug: 'iphone-16',
             category_slug: 'smartphones',
+            price: 1250000,
           },
           {
             id: 'product-2',
@@ -353,6 +356,7 @@ describe('BlogPostBody', () => {
       'href',
       '/ogabassey/smartphones/iphone-16'
     );
+    expect(screen.getByText('₦1,250,000.00')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'DualSense Wireless Controller' })
     ).toHaveAttribute(

@@ -37,9 +37,17 @@ describe('scheduleNewProductCaches', () => {
     });
 
     expect(mocks.revalidate).toHaveBeenCalledWith('merchant-1', 'new-product');
-    expect(mocks.purge).toHaveBeenCalledWith('merchant-store', [
-      { slug: 'new-product', categorySegment: 'electronics' },
-    ]);
+    expect(mocks.purge).toHaveBeenCalledWith(
+      'merchant-store',
+      [
+        {
+          productId: 'product-1',
+          slug: 'new-product',
+          categorySegment: 'electronics',
+        },
+      ],
+      { merchantId: 'merchant-1' }
+    );
     expect(mocks.prewarm).toHaveBeenCalledWith(images);
   });
 
@@ -54,9 +62,17 @@ describe('scheduleNewProductCaches', () => {
       images: [],
     });
 
-    expect(mocks.purge).toHaveBeenLastCalledWith(undefined, [
-      { slug: 'product-1', categorySegment: 'electronics' },
-    ]);
+    expect(mocks.purge).toHaveBeenLastCalledWith(
+      undefined,
+      [
+        {
+          productId: 'product-1',
+          slug: 'product-1',
+          categorySegment: 'electronics',
+        },
+      ],
+      { merchantId: 'merchant-1' }
+    );
   });
 
   it('does not turn a cache-purge scheduling error into a failed product creation', () => {

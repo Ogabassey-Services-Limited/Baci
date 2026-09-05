@@ -265,6 +265,23 @@ describe('buildStorefrontProductPurgeUrls', () => {
     expect(urls).toContain('https://www.ogabassey.com/products');
   });
 
+  it('emits linked blog documents when a product price changes', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      ['iphone-guide']
+    );
+
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        'https://ogabassey.com/blog',
+        'https://ogabassey.com/blog/iphone-guide',
+        'https://ogabassey.com/blog/iphone-guide/opengraph-image',
+        'https://www.ogabassey.com/blog/iphone-guide',
+      ])
+    );
+  });
+
   it('emits only the fallback PDP, products listing, and home when the category is unknown', () => {
     const urls = buildStorefrontProductPurgeUrls(
       ['ogabassey'],

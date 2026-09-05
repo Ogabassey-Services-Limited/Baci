@@ -44,6 +44,7 @@ export function buildInternalProductPurgeEntries(
     }
     const authoritative = id ? authoritativeSegmentsById?.get(id) : undefined;
     entries.push({
+      productId: id ?? null,
       slug,
       categorySegment:
         authoritative !== undefined
