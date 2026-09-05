@@ -159,6 +159,7 @@ describe('QuizLobbyEventCard', () => {
   it('closes the card immediately when its countdown reaches zero', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-08-09T18:00:00.000Z'));
+    const onExpire = jest.fn<() => void>();
 
     render(
       <QuizLobbyEventCard
@@ -175,6 +176,7 @@ describe('QuizLobbyEventCard', () => {
         }}
         isResume={false}
         isStarting={false}
+        onExpire={onExpire}
         onOpenRules={jest.fn()}
         onResume={jest.fn()}
         serverNow="2026-08-09T18:00:00.000Z"
@@ -191,9 +193,12 @@ describe('QuizLobbyEventCard', () => {
     expect(screen.queryByText('until quiz ends')).toBeNull();
     expect(screen.queryByText('LIVE')).toBeNull();
     expect(screen.getByText('QUIZ')).toBeTruthy();
+    expect(screen.queryByText(/^Closes /)).toBeNull();
+    expect(screen.getByText(/^Closed /)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Closed Expiring quiz' }).props
         .accessibilityState
     ).toEqual({ disabled: true });
+    expect(onExpire).toHaveBeenCalledTimes(1);
   });
 });

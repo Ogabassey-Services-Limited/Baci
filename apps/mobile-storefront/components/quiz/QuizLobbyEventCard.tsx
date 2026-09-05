@@ -21,22 +21,30 @@ type QuizStyles = ReturnType<typeof createQuizLobbyStyles>;
 
 interface QuizLobbyEventCardProps {
   event: QuizEvent;
+  isSignedIn?: boolean;
   isResume: boolean;
   isStarting: boolean;
   locale?: string;
+  onExpire?: () => void | Promise<void>;
+  onEnterWaitingRoom?: () => void;
   onOpenRules: (requiresAcceptance: boolean) => void;
   onResume: () => void;
+  onSignIn?: () => void;
   serverNow?: string;
   styles: QuizStyles;
 }
 
 export function QuizLobbyEventCard({
   event,
+  isSignedIn = true,
   isResume,
   isStarting,
   locale,
+  onExpire,
+  onEnterWaitingRoom,
   onOpenRules,
   onResume,
+  onSignIn,
   serverNow,
   styles,
 }: QuizLobbyEventCardProps) {
@@ -46,21 +54,25 @@ export function QuizLobbyEventCard({
   const { hasEnded, remainingSeconds } = useQuizEventTimer({
     eventEndsAt: event.endsAt,
     isActive: event.status === 'active',
-    onExpire: () => undefined,
+    onExpire: () => {
+      void onExpire?.();
+    },
     shouldTick: event.status === 'active',
     serverClockOffsetMs: serverClock.offsetMs,
   });
   const deadlineHasEnded = Boolean(event.endsAt) && hasEnded;
   const effectiveStatus = deadlineHasEnded ? 'closed' : event.status;
   const isPlayable = effectiveStatus === 'open' || effectiveStatus === 'active';
+  const isScheduled = effectiveStatus === 'scheduled';
   const isClosed = ['closed', 'completed', 'cancelled', 'finalizing'].includes(
     effectiveStatus
   );
-  const buttonText = getEventStartButtonText(
-    effectiveStatus,
-    isStarting,
-    isResume
-  );
+  const requiresSignIn = !isSignedIn && (isPlayable || isScheduled);
+  const buttonText = requiresSignIn
+    ? 'Sign in to play'
+    : isScheduled
+      ? 'Enter waiting room'
+      : getEventStartButtonText(effectiveStatus, isStarting, isResume);
   const condition = event.prizeProduct?.condition?.replace('_', ' ');
 
   return (
@@ -137,7 +149,8 @@ export function QuizLobbyEventCard({
         </Text>
         <Text style={styles.timingDot}>•</Text>
         <Text style={styles.timingFact}>
-          Closes {formatQuizClock(event.endsAt, locale, event.timeZone)}
+          {isClosed ? 'Closed' : 'Closes'}{' '}
+          {formatQuizClock(event.endsAt, locale, event.timeZone)}
         </Text>
       </View>
 
@@ -147,9 +160,19 @@ export function QuizLobbyEventCard({
         <Pressable
           accessibilityLabel={`${buttonText} ${event.title}`}
           accessibilityRole="button"
-          accessibilityState={{ disabled: isStarting || !isPlayable }}
-          disabled={isStarting || !isPlayable}
-          onPress={isResume ? onResume : () => onOpenRules(true)}
+          accessibilityState={{
+            disabled: isStarting || (!isPlayable && !isScheduled),
+          }}
+          disabled={isStarting || (!isPlayable && !isScheduled)}
+          onPress={
+            requiresSignIn
+              ? onSignIn
+              : isResume
+                ? onResume
+                : isScheduled
+                  ? onEnterWaitingRoom
+                  : () => onOpenRules(true)
+          }
           style={styles.primaryButton}
         >
           <Text
