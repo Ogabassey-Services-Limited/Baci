@@ -1,5 +1,8 @@
 import 'server-only';
-import { createRepairPickupReceiverClient } from './repair-pickup-receiver-client';
+import {
+  createRepairPickupReceiverClient,
+  type RepairPickupReceiverContext,
+} from './repair-pickup-receiver-client';
 
 /**
  * The merchant's repair-center address, shaped for use as a shipping receiver
@@ -40,19 +43,26 @@ function readNullableString(value: unknown): string | null {
  * pickup-receiver RPC. The short-lived, merchant-bound client proves that the
  * request came through this server-only boundary without using service role.
  *
- * Returns `null` when pickup is not configured — unpublished store, pickup
- * explicitly disabled, missing phone, or incomplete address/city/state — so
- * callers can fall back to drop-off only. Only prices, never the raw address,
- * should reach the client.
+ * Returns `null` when pickup is not configured — unpublished store or pickup
+ * explicitly disabled for quote-time callers, missing phone, or incomplete
+ * address/city/state — so callers can fall back to drop-off only. Paid
+ * fulfillment uses `server-fulfillment` so an already-paid pickup can still
+ * book after the storefront is unpublished. Only prices, never the raw
+ * address, should reach the client.
  */
 export async function getRepairCenterAddress(
-  merchantId: string
+  merchantId: string,
+  context: RepairPickupReceiverContext = 'server-quote'
 ): Promise<RepairCenterAddress | null> {
   if (!merchantId) {
     return null;
   }
 
-  const supabase = createRepairPickupReceiverClient(merchantId);
+  const supabase = createRepairPickupReceiverClient(
+    merchantId,
+    new Date(),
+    context
+  );
   const { data, error } = await supabase.rpc(REPAIR_PICKUP_RECEIVER_RPC, {
     p_merchant_id: merchantId,
   });

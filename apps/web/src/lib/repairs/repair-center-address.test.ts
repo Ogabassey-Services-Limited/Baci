@@ -47,7 +47,9 @@ describe('getRepairCenterAddress', () => {
     mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
     expect(await getRepairCenterAddress(merchantId)).toBeNull();
     expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
-      merchantId
+      merchantId,
+      expect.any(Date),
+      'server-quote'
     );
     expect(supabase.rpc).toHaveBeenCalledWith('get_repair_pickup_receiver', {
       p_merchant_id: merchantId,
@@ -94,6 +96,24 @@ describe('getRepairCenterAddress', () => {
       country: 'Nigeria',
       countryCode: 'NG',
     });
+    expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
+      merchantId,
+      expect.any(Date),
+      'server-quote'
+    );
+  });
+
+  it('binds paid fulfillment to the fulfillment receiver context', async () => {
+    const supabase = makeClient({ data: completeProjection, error: null });
+    mocks.createRepairPickupReceiverClient.mockReturnValue(supabase);
+
+    await getRepairCenterAddress(merchantId, 'server-fulfillment');
+
+    expect(mocks.createRepairPickupReceiverClient).toHaveBeenCalledWith(
+      merchantId,
+      expect.any(Date),
+      'server-fulfillment'
+    );
   });
 
   it('returns null and logs when the query errors', async () => {

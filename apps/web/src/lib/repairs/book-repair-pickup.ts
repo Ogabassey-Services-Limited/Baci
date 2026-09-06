@@ -84,7 +84,7 @@ export async function bookRepairPickup(
   }
   let receiver: Awaited<ReturnType<typeof getRepairCenterAddress>>;
   try {
-    receiver = await getRepairCenterAddress(merchantId);
+    receiver = await getRepairCenterAddress(merchantId, 'server-fulfillment');
   } catch (error) {
     if (!(error instanceof RepairCenterLookupError)) {
       throw error;

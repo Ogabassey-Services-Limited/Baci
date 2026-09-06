@@ -32,6 +32,10 @@ describe('bookRepairPickup', () => {
       shipmentId: 'ship-1',
       pickupScheduledAt: '2026-07-10T00:00:00.000Z',
     });
+    expect(mocks.getRepairCenterAddress).toHaveBeenCalledWith(
+      merchantId,
+      'server-fulfillment'
+    );
     expect(mocks.bookShipment).toHaveBeenCalledWith(
       'GIGL',
       expect.objectContaining({
