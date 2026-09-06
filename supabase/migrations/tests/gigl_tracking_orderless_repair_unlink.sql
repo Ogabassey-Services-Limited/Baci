@@ -2,10 +2,7 @@
 
 BEGIN;
 
-SELECT plan(1);
-
-SET LOCAL ROLE service_role;
-SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
 
 DO $test$
 DECLARE
@@ -99,7 +96,4 @@ BEGIN
 END;
 $test$;
 
-SELECT pass('orderless GIGL monitors retire when the linked repair is deleted');
-
-SELECT * FROM finish();
 ROLLBACK;

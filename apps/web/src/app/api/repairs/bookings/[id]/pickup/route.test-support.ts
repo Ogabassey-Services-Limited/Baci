@@ -129,6 +129,7 @@ export function manualPickupClientFailure(stage: 'lookup' | 'update') {
                     shipment_id: null,
                     pickup_booking_lock_token: null,
                     pickup_booking_started_at: null,
+                    service_type: 'pickup',
                   },
                   error: null,
                 }
