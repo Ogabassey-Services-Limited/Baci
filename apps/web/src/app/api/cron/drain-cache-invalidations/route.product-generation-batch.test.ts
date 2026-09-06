@@ -13,29 +13,7 @@ vi.mock('@/lib/supabase/service', () => ({
 
 import { GET } from './route';
 
-const shared = {
-  attempts: 1,
-  generation: 9,
-  merchant_id: '22222222-2222-4222-8222-222222222222',
-  product_slugs: ['cache-phone'],
-  related_identifiers: [
-    'shop-one',
-    'shop-two',
-    'shop-three',
-    'shop.example.com',
-  ],
-};
-
-function claim(targetId: string, tokenSuffix: string) {
-  return {
-    ...shared,
-    claim_token: `11111111-1111-4111-8111-${tokenSuffix}`,
-    target_id: targetId,
-    target_kind: 'storefront_slug' as const,
-  };
-}
-
-describe('bugfix: shared-generation drain repeats provider work across batches', () => {
+describe('bugfix: same-generation product claims must not skip exact purges', () => {
   const rpc = vi.fn();
 
   beforeEach(() => {
@@ -50,8 +28,16 @@ describe('bugfix: shared-generation drain repeats provider work across batches',
         if (claimCalls === 1) {
           return Promise.resolve({
             data: [
-              claim('shop-one', '000000000001'),
-              claim('shop-two', '000000000002'),
+              {
+                attempts: 1,
+                claim_token: '11111111-1111-4111-8111-000000000001',
+                generation: 1,
+                merchant_id: '22222222-2222-4222-8222-222222222222',
+                product_slugs: [],
+                related_identifiers: [],
+                target_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                target_kind: 'storefront_product' as const,
+              },
             ],
             error: null,
           });
@@ -59,8 +45,16 @@ describe('bugfix: shared-generation drain repeats provider work across batches',
         if (claimCalls === 2) {
           return Promise.resolve({
             data: [
-              claim('shop-three', '000000000003'),
-              claim('shop-four', '000000000004'),
+              {
+                attempts: 1,
+                claim_token: '11111111-1111-4111-8111-000000000002',
+                generation: 1,
+                merchant_id: '22222222-2222-4222-8222-222222222222',
+                product_slugs: [],
+                related_identifiers: [],
+                target_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+                target_kind: 'storefront_product' as const,
+              },
             ],
             error: null,
           });
@@ -74,7 +68,7 @@ describe('bugfix: shared-generation drain repeats provider work across batches',
     });
   });
 
-  it('drains one shared generation once then finishes later sibling claims without re-purging', async () => {
+  it('drains each product target even when generation matches across batches', async () => {
     const response = await GET(
       new Request(
         'https://app.usebaci.com/api/cron/drain-cache-invalidations',
@@ -84,19 +78,11 @@ describe('bugfix: shared-generation drain repeats provider work across batches',
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      claimed: 4,
-      completed: 4,
+      claimed: 2,
+      completed: 2,
       failed: 0,
       deadLettersPresent: false,
     });
-    // First batch drains concurrently; later same-generation batch skips purge.
     expect(mocks.drain).toHaveBeenCalledTimes(2);
-    const finishCalls = rpc.mock.calls.filter(
-      ([name]) => name === 'finish_cache_invalidation'
-    );
-    expect(finishCalls).toHaveLength(4);
-    expect(finishCalls.every(([, args]) => args?.p_succeeded === true)).toBe(
-      true
-    );
   });
 });

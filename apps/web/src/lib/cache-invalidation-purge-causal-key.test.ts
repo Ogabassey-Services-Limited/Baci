@@ -92,3 +92,25 @@ describe('cacheInvalidationPurgeCausalKey', () => {
     );
   });
 });
+
+it('canonicalizes duplicate coverage entries so identical sets share a key', () => {
+  expect(
+    cacheInvalidationPurgeCausalKey({
+      generation: 6,
+      merchant_id: merchant,
+      product_slugs: ['phone', 'phone'],
+      related_identifiers: ['shop-one', 'shop-one', 'shop.example.com'],
+      target_id: 'shop-one',
+      target_kind: 'storefront_slug',
+    })
+  ).toBe(
+    cacheInvalidationPurgeCausalKey({
+      generation: 6,
+      merchant_id: merchant,
+      product_slugs: ['phone'],
+      related_identifiers: ['shop.example.com', 'shop-one'],
+      target_id: 'shop-two',
+      target_kind: 'storefront_slug',
+    })
+  );
+});
