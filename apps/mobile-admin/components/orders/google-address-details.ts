@@ -8,7 +8,9 @@ interface GoogleAddressDetails {
   longitude?: number;
 }
 
-function parseGoogleAddressDetails(details: unknown): GoogleAddressDetails {
+export function parseGoogleAddressDetails(
+  details: unknown
+): GoogleAddressDetails {
   const value = details as {
     address_components?: Array<{
       long_name?: string;

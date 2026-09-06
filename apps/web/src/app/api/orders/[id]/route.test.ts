@@ -733,6 +733,124 @@ describe('PATCH /api/orders/[id]', () => {
     );
   });
 
+  it('bugfix: locks partially_paid checkout address edits when retention exists', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'partially_paid',
+      payment_method: 'paystack',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'customer_checkout',
+      shipping_platform_retained_amount: 2500,
+      tracking_number: null,
+      shipment_id: null,
+      shipping_address: {
+        address: '1 Old Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'processing',
+      shipping_provider: 'GIGL',
+      tracking_number: null,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(loadOrderGiglSettledRetainedAmount).mockResolvedValue(2500);
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'FUNDED_CHECKOUT_ADDRESS_LOCKED',
+    });
+    expect(ordersUpdate).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: returns 409 when an active wallet charge blocks address edits', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'GIGL',
+      shipping_funding_source: 'merchant_wallet',
+      tracking_number: null,
+      shipment_id: null,
+      shipping_address: {
+        address: '1 Old Street',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+    const orderSelectBuilder = createSelectBuilder({
+      data: existingOrder,
+      error: null,
+    });
+    const orderUpdateBuilder = createUpdateBuilder({
+      data: null,
+      error: {
+        message: 'active_shipping_charge_address_edit_blocked',
+        code: 'P0001',
+      },
+    });
+    const ordersUpdate = vi.fn(() => orderUpdateBuilder);
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'orders') {
+          return {
+            select: vi.fn(() => orderSelectBuilder),
+            update: ordersUpdate,
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    } as unknown as SupabaseClient;
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        shipping_address: {
+          address: '2 New Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'active_shipping_charge_address_edit_blocked',
+    });
+    expect(ordersUpdate).toHaveBeenCalled();
+  });
+
   it('requires re-quoting instead of shipping after editing a bound address', async () => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

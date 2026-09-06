@@ -109,7 +109,7 @@ describe('isFundedCheckoutGiglAddressLocked', () => {
     ).resolves.toBe(false);
   });
 
-  it('skips settled retention when the order is not a paid checkout-funded GIGL shipment', async () => {
+  it('skips settled retention when the order is not a checkout-funded GIGL shipment', async () => {
     await expect(
       isFundedCheckoutGiglAddressLocked(
         { from: vi.fn() } as never,
@@ -125,5 +125,26 @@ describe('isFundedCheckoutGiglAddressLocked', () => {
     ).resolves.toBe(false);
 
     expect(loadOrderGiglSettledRetainedAmount).not.toHaveBeenCalled();
+  });
+
+  it('bugfix: locks partially_paid checkout orders that already retained shipping', async () => {
+    vi.mocked(loadOrderGiglSettledRetainedAmount).mockResolvedValue(2500);
+
+    await expect(
+      isFundedCheckoutGiglAddressLocked(
+        { from: vi.fn() } as never,
+        'merchant-1',
+        'order-1',
+        {
+          shipping_provider: 'GIGL',
+          payment_status: 'partially_paid',
+          shipping_funding_source: 'customer_checkout',
+          shipping_platform_retained_amount: 2500,
+          selected_quote_id: 'quote-1',
+        }
+      )
+    ).resolves.toBe(true);
+
+    expect(loadOrderGiglSettledRetainedAmount).toHaveBeenCalled();
   });
 });

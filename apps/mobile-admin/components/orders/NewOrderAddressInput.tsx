@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { parseGoogleAddressDetails } from './google-address-details';
 import { NewOrderManualLocalityFields } from './NewOrderManualLocalityFields';
 import { styles } from './new-order.styles';
 
@@ -90,41 +91,21 @@ export function NewOrderAddressInput({
                 return;
               }
 
-              setDetailsRecovery(false);
-              let foundCity = '';
-              let foundState = '';
-              let foundCountry = '';
-              let foundCountryCode = '';
-              let foundPostalCode = '';
-              let latitude: number | undefined;
-              let longitude: number | undefined;
-              details.address_components?.forEach((component) => {
-                if (component.types.includes('locality')) {
-                  foundCity = component.long_name;
-                }
-                if (component.types.includes('administrative_area_level_1')) {
-                  foundState = component.long_name;
-                }
-                if (component.types.includes('country')) {
-                  foundCountry = component.long_name;
-                  foundCountryCode = component.short_name;
-                }
-                if (component.types.includes('postal_code'))
-                  foundPostalCode = component.long_name;
-              });
-              latitude = details.geometry?.location?.lat;
-              longitude = details.geometry?.location?.lng;
-
+              const parsed = parseGoogleAddressDetails(details);
+              const missingLocality = !(
+                parsed.city.trim() && parsed.state.trim()
+              );
+              setDetailsRecovery(missingLocality);
               setDeliveryInfo((previous) => ({
                 ...previous,
                 address: data.description,
-                city: foundCity,
-                state: foundState,
-                country: foundCountry,
-                countryCode: foundCountryCode,
-                postalCode: foundPostalCode,
-                latitude,
-                longitude,
+                city: parsed.city,
+                state: parsed.state,
+                country: parsed.country,
+                countryCode: parsed.countryCode,
+                postalCode: parsed.postalCode,
+                latitude: parsed.latitude,
+                longitude: parsed.longitude,
               }));
             }}
             placeholder="Enter delivery address"

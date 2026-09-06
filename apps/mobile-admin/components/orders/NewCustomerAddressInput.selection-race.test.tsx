@@ -200,4 +200,31 @@ describe('NewCustomerAddressInput selection sequencing', () => {
       applyUpdates(setNewCustomer).some((customer) => customer.city === 'Stale')
     ).toBe(false);
   });
+
+  it('bugfix: invalidates pending details when the address input unmounts', async () => {
+    const detailResolvers = setupGoogleFetch();
+    const setNewCustomer = vi.fn();
+    const view = render(
+      <NewCustomerAddressInput
+        address="same"
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="key"
+        selectedCountryCode="NG"
+        setNewCustomer={setNewCustomer}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search Address');
+    fireEvent.focus(input);
+    await waitFor(() => expect(screen.getAllByRole('button')).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    await waitFor(() => expect(detailResolvers).toHaveLength(1));
+
+    view.unmount();
+    setNewCustomer.mockClear();
+
+    await act(async () => detailResolvers[0](payload('Stale')));
+
+    expect(setNewCustomer).not.toHaveBeenCalled();
+  });
 });

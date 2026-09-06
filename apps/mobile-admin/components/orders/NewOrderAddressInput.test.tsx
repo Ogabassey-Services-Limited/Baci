@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
@@ -240,7 +240,7 @@ describe('NewOrderAddressInput', () => {
     });
   });
 
-  it('clears stale city and state when a selected place omits those components', () => {
+  it('bugfix: enters recovery when Places details omit locality', () => {
     const setDeliveryInfo = vi.fn();
 
     render(
@@ -271,7 +271,20 @@ describe('NewOrderAddressInput', () => {
         ) => void)
       | undefined;
 
-    onPress?.({ description: '42 Marina, Lagos' }, { address_components: [] });
+    act(() => {
+      onPress?.(
+        { description: '42 Marina, Lagos' },
+        { address_components: [] }
+      );
+    });
+
+    expect(
+      screen.getByText(
+        'Could not load full address details. Enter city and state to continue.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByPlaceholderText('City')).toBeTruthy();
+    expect(screen.getByPlaceholderText('State')).toBeTruthy();
 
     const updater = setDeliveryInfo.mock.calls[0][0] as (
       previous: AddressInputController['deliveryInfo']

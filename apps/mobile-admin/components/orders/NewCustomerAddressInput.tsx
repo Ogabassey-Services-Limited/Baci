@@ -60,6 +60,9 @@ export function NewCustomerAddressInput({
   useEffect(() => {
     return () => {
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+      // Invalidate in-flight place-details callbacks so unmount cannot repopulate
+      // the next customer draft after resetNewCustomerForm.
+      selectionSequenceRef.current += 1;
     };
   }, []);
 

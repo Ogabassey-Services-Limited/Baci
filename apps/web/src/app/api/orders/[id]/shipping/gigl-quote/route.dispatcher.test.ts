@@ -32,10 +32,14 @@ describe('Admin order GIGL quote alias dispatcher', () => {
     });
     expect(response.status).toBe(200);
     expect(delegatedPost).toHaveBeenCalledTimes(1);
-    const delegated = delegatedPost.mock.calls[0][0] as Request;
+    const delegated = delegatedPost.mock.calls[0][0] as NextRequest;
+    expect(delegated).toBeInstanceOf(NextRequest);
     expect(delegated.headers.get('x-baci-admin-order-mode')).toBe('1');
     expect(delegated.headers.get('x-baci-admin-order-id')).toBe(
       '11111111-1111-4111-8111-111111111111'
+    );
+    expect(delegated.nextUrl.pathname).toBe(
+      '/api/orders/11111111-1111-4111-8111-111111111111/shipping/gigl-quote'
     );
     expect(await delegated.json()).toEqual(body);
   });

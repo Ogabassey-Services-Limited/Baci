@@ -30,6 +30,7 @@ import {
 import { refreshWalletOrderShipmentQuote } from '@/lib/shipping/refresh-wallet-order-shipment-quote';
 import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
 import { orderUpdateSchema } from '@/schemas/orders';
+import { mapOrderPatchUpdateError } from './map-order-patch-update-error';
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
   return value === 'paid' || value === 'bnpl_approved';
@@ -547,6 +548,10 @@ export async function PATCH(
             transactionId: null,
           });
         }
+      }
+      const mappedUpdateError = mapOrderPatchUpdateError(updateError);
+      if (mappedUpdateError) {
+        return mappedUpdateError;
       }
       return NextResponse.json(
         { error: 'Failed to update order' },

@@ -20,9 +20,11 @@ function parseRetainedShippingAmount(
 }
 
 /**
- * Paid customer-checkout GIGL address edits lock when settlements or completed
- * internal credits retain shipping. Quote-time snapshots alone (quiz vouchers)
- * stay editable. Mirrors private.order_settled_gigl_retained_amount.
+ * Customer-checkout GIGL address edits lock when settlements or completed
+ * internal credits retain shipping — including partially_paid / pending orders
+ * that already retained shipping via invoice or completion fallback. Quote-time
+ * snapshots alone (quiz vouchers) stay editable. Mirrors
+ * private.order_settled_gigl_retained_amount.
  */
 export async function isFundedCheckoutGiglAddressLocked(
   supabase: SupabaseClient,
@@ -33,7 +35,6 @@ export async function isFundedCheckoutGiglAddressLocked(
   const selectedQuoteId = order.selected_quote_id?.trim() ?? '';
   if (
     order.shipping_provider !== 'GIGL' ||
-    (order.payment_status ?? '').trim().toLowerCase() !== 'paid' ||
     order.shipping_funding_source !== 'customer_checkout' ||
     selectedQuoteId === ''
   ) {
