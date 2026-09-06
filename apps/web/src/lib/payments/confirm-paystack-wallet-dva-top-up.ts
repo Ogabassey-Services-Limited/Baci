@@ -17,7 +17,7 @@ export type ConfirmPaystackWalletDvaTopUpResult =
   | {
       body: { code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT'; error: string };
       kind: 'review';
-      status: 409;
+      status: 200 | 409;
     };
 
 function getCustomerEmail(paystackResponse: Record<string, unknown>) {
