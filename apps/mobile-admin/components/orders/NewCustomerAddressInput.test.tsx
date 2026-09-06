@@ -172,7 +172,11 @@ describe('NewCustomerAddressInput', () => {
       );
     });
 
-    expect(screen.getByText('12 Allen Avenue')).toBeInTheDocument();
+    // Wait for the autocomplete response to paint suggestions — fetch being
+    // called is not enough; json() + setState still race on CI.
+    await waitFor(() => {
+      expect(screen.getByText('12 Allen Avenue')).toBeInTheDocument();
+    });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Use address 12 Allen Avenue, Ikeja, Lagos',
