@@ -36,7 +36,7 @@ describe('repair pickup pending replay sources', () => {
       '437fd04810da462ea71ed3dec3f4104db73a37c3231cea9b997ef919b941f8f8 20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql',
       'eed6d935135baa88523d468f1a796bd13655645b29311d30fc55f3a6f327bbc2 20260904190650_claim_gigl_tracking_notifications_repair_id.sql',
       '729f5157d203065cb55ea82bf2f34b1ddcbd3404d8cba8ec626fb97e2557cc19 20260904190700_claim_repair_pickup_booking_manual_fulfilled_guard.sql',
-      'a7f6259a8ebcae2586a8d5882f4e52205deae036001726ed665832ef732acd50 20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql',
+      'a2a8e948ceb8b5dfc4172f54f24acd4ac52a78b62416c3196bf4af9464ed878b 20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql',
       '22402b6953e5aba04b3f1358fd823995bc002347a13633abced3bdccce2562e3 20260905140100_retire_orderless_gigl_monitors_without_repair.sql',
       '078802ea9e418b605b64123622a0375ce4b819da2c0f2699d6bee63cd56bea4a 20260905140200_fulfill_paid_repair_pickup_receiver.sql',
     ]);

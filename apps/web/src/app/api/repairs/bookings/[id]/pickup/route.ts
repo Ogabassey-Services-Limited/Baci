@@ -42,7 +42,7 @@ async function recordManualPickup(
   const { data, error } = await supabase
     .from('repairs')
     .select(
-      'admin_notes, shipment_id, pickup_booking_lock_token, pickup_booking_started_at'
+      'admin_notes, shipment_id, pickup_booking_lock_token, pickup_booking_started_at, service_type'
     )
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
@@ -66,7 +66,11 @@ async function recordManualPickup(
     shipment_id?: unknown;
     pickup_booking_lock_token?: unknown;
     pickup_booking_started_at?: unknown;
+    service_type?: unknown;
   };
+  if (row.service_type !== 'pickup') {
+    return 'not_found';
+  }
   if (typeof row.shipment_id === 'string' && row.shipment_id.length > 0) {
     return 'conflict';
   }
@@ -102,6 +106,7 @@ async function recordManualPickup(
     })
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
+    .eq('service_type', 'pickup')
     .is('shipment_id', null)
     .or(
       'pickup_payment_status.is.null,and(pickup_payment_status.neq.booked,pickup_payment_status.neq.manual_fulfilled)'

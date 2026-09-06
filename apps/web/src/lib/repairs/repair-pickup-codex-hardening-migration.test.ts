@@ -40,15 +40,22 @@ describe('repair pickup Codex review hardenings', () => {
     const sql = readMigration(
       '20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql'
     );
-    expect(sql).toContain("WHEN v_current_status = 'failed'");
+    expect(sql).toContain("WHEN v_current_status = ''failed''");
     expect(sql).toContain(
-      "p_status IN ('picked_up', 'in_transit', 'out_for_delivery')"
+      "p_status IN (''picked_up'', ''in_transit'', ''out_for_delivery'')"
     );
     expect(sql).toContain(
-      "v_should_update_delivery := v_effective_status = 'delivered'"
+      "v_should_update_delivery := v_effective_status = ''delivered''"
     );
     expect(sql).toContain('v_manual_terminal_failed');
     expect(sql).toContain('OR v_manual_terminal_failed');
+    expect(sql).toContain('ON CONFLICT DO NOTHING');
+    expect(sql).toContain(
+      'v_latest_status_event_at <= v_manual_terminal_override_at'
+    );
+    expect(sql).not.toContain(
+      'CREATE OR REPLACE FUNCTION public.apply_gigl_tracking_result'
+    );
   });
 
   it('re-evaluates orderless monitors when the repair link disappears', () => {

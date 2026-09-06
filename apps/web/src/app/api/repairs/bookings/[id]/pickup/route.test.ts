@@ -132,7 +132,19 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
       params: pickupRouteParams,
     });
     expect(mocks.createClient).not.toHaveBeenCalled();
-    expect(client.update).toHaveBeenCalled();
+    expect(client.updateEqCalls).toContainEqual(['service_type', 'pickup']);
+  });
+
+  it('bugfix: does not mark drop-off repairs as manual pickup fulfilled', async () => {
+    const client = manualPickupClient(true, { service_type: 'dropoff' });
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce(
+      authorizedPickupRequest(client)
+    );
+    const res = await POST(pickupRouteRequest({ mode: 'manual' }) as never, {
+      params: pickupRouteParams,
+    });
+    expect(res.status).toBe(404);
+    expect(client.update).not.toHaveBeenCalled();
   });
 
   it('bugfix: allows grandfathered null pickup_payment_status through the manual filter', async () => {

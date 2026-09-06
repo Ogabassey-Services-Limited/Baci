@@ -162,7 +162,7 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql',
-    sha256: 'a7f6259a8ebcae2586a8d5882f4e52205deae036001726ed665832ef732acd50',
+    sha256: 'a2a8e948ceb8b5dfc4172f54f24acd4ac52a78b62416c3196bf4af9464ed878b',
   },
   {
     repositoryPath:

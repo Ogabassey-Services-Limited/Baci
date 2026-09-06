@@ -11,6 +11,7 @@ type ManualRow = {
   shipment_id: string | null;
   pickup_booking_lock_token: string | null;
   pickup_booking_started_at: string | null;
+  service_type: string;
 };
 
 export function manualPickupClient(
@@ -23,11 +24,14 @@ export function manualPickupClient(
     shipment_id: null,
     pickup_booking_lock_token: null,
     pickup_booking_started_at: null,
+    service_type: 'pickup',
     ...overrides,
   };
   const orCalls: string[] = [];
+  const updateEqCalls: [string, unknown][] = [];
   const updateTerminal = {
-    eq() {
+    eq(column: string, value: unknown) {
+      updateEqCalls.push([column, value]);
       return this;
     },
     neq() {
@@ -72,6 +76,7 @@ export function manualPickupClient(
     },
     update,
     orCalls,
+    updateEqCalls,
   };
 }
 

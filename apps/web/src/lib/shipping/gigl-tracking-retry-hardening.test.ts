@@ -105,7 +105,9 @@ describe('GIGL retry and generation hardening migrations', () => {
       readMigration(
         '20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql'
       )
-    ).toContain("v_should_update_delivery := v_effective_status = 'delivered'");
+    ).toContain(
+      "v_should_update_delivery := v_effective_status = ''delivered''"
+    );
   });
 
   it('keeps milestone identities one-time while preserving retry attempt identity', () => {
