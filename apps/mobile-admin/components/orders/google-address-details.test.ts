@@ -77,6 +77,16 @@ describe('fetchGoogleAddressDetails', () => {
     ).rejects.toThrow('offline');
   });
 
+  it('returns null when the Places Details request times out', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError));
+
+    await expect(
+      fetchGoogleAddressDetails({ googleMapsApiKey: 'key', placeId: 'place' })
+    ).resolves.toBeNull();
+  });
+
   it('bugfix: requests plural address_components so locality/coords are returned', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

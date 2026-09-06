@@ -61,6 +61,18 @@ function buildGoogleDetailsUrl({
   return `https://maps.googleapis.com/maps/api/place/details/json?${params.toString()}`;
 }
 
+export const GOOGLE_ADDRESS_DETAILS_TIMEOUT_MS = 10_000;
+
+function createDetailsTimeoutSignal(timeoutMs: number): AbortSignal {
+  const nativeTimeout = AbortSignal.timeout;
+  if (typeof nativeTimeout === 'function') {
+    return nativeTimeout(timeoutMs);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeoutMs);
+  return controller.signal;
+}
+
 export async function fetchGoogleAddressDetails({
   googleMapsApiKey,
   placeId,
@@ -68,14 +80,26 @@ export async function fetchGoogleAddressDetails({
   googleMapsApiKey: string;
   placeId: string;
 }): Promise<GoogleAddressDetails | null> {
-  const response = await fetch(
-    buildGoogleDetailsUrl({ googleMapsApiKey, placeId })
-  );
-  if (!response.ok) return null;
-  const payload = (await response.json()) as {
-    result?: unknown;
-    status?: string;
-  };
-  if (payload.status !== 'OK' || !payload.result) return null;
-  return parseGoogleAddressDetails(payload.result);
+  try {
+    const response = await fetch(
+      buildGoogleDetailsUrl({ googleMapsApiKey, placeId }),
+      { signal: createDetailsTimeoutSignal(GOOGLE_ADDRESS_DETAILS_TIMEOUT_MS) }
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as {
+      result?: unknown;
+      status?: string;
+    };
+    if (payload.status !== 'OK' || !payload.result) return null;
+    return parseGoogleAddressDetails(payload.result);
+  } catch (error) {
+    // Timeouts and aborts are recoverable: callers enter manual locality recovery.
+    if (
+      error instanceof Error &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError')
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }

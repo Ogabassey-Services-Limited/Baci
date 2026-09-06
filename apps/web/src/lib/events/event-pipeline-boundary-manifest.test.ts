@@ -157,12 +157,12 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking/route.ts',
-      'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
+      'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ]);
@@ -247,6 +247,10 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/app/api/integrations/ads/tiktok/sync/route.ts',
         'apps/web/src/lib/ads/server-credential-client.ts',
       ],
+      [
+        'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
+        'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+      ],
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
@@ -289,6 +293,30 @@ describe('event pipeline authority manifest', () => {
         `${route}: service factory requires event-pipeline sentinel`,
         `${route}: privileged route client construction is forbidden`,
       ])
+    );
+  });
+
+  it('allows the wallet funding-recovery HMAC sentinel only in its server helper', () => {
+    const helper =
+      'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts';
+    const allowed = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('wallet-funding-recovery');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, allowed)).toEqual([]);
+
+    const wrongSentinel = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, wrongSentinel)).toContain(
+      `${helper}: service factory requires wallet-funding-recovery sentinel`
     );
   });
 

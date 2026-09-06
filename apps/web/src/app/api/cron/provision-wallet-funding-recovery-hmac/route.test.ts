@@ -8,7 +8,7 @@ vi.mock('@/env', () => ({
 
 const mocks = vi.hoisted(() => ({
   provision: vi.fn(),
-  createServiceClient: vi.fn(),
+  createClient: vi.fn(),
   loggerError: vi.fn(),
 }));
 
@@ -16,8 +16,8 @@ vi.mock('@/lib/provision-merchant-wallet-funding-recovery-hmac', () => ({
   provisionMerchantWalletFundingRecoveryHmac: mocks.provision,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: mocks.createServiceClient,
+vi.mock('@/lib/wallet/server-funding-recovery-hmac-client', () => ({
+  createWalletFundingRecoveryHmacServiceClient: mocks.createClient,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -40,7 +40,7 @@ function cronRequest(authHeader?: string): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('CRON_SECRET', SECRET);
-  mocks.createServiceClient.mockReturnValue({ client: true });
+  mocks.createClient.mockReturnValue({ client: true });
   mocks.provision.mockResolvedValue(undefined);
 });
 
@@ -59,10 +59,10 @@ describe('GET /api/cron/provision-wallet-funding-recovery-hmac', () => {
     expect(mocks.provision).not.toHaveBeenCalled();
   });
 
-  it('provisions the shared recovery HMAC with the service client', async () => {
+  it('provisions the shared recovery HMAC with the branded wallet client', async () => {
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     expect(response.status).toBe(200);
-    expect(mocks.createServiceClient).toHaveBeenCalledOnce();
+    expect(mocks.createClient).toHaveBeenCalledOnce();
     expect(mocks.provision).toHaveBeenCalledWith({ client: true });
     await expect(response.json()).resolves.toEqual({
       provisioned: true,

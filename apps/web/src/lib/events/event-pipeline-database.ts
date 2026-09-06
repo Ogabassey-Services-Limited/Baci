@@ -169,19 +169,27 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/orders/route.ts',
       'apps/web/src/lib/platform-admin-auth.ts',
     ],
-    servicePaths: eventPipelineAdsServicePaths,
     serviceImporters: [
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking/route.ts',
-      'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
+      'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
+    ],
+    // Keep Ads spend/credential graphs plus the wallet funding-recovery HMAC
+    // cron → branded helper edge in one allowlist for service-path analysis.
+    servicePaths: [
+      ...eventPipelineAdsServicePaths,
+      [
+        'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
+        'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+      ],
     ],
     operationalServiceImporters: [
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',

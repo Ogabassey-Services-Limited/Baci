@@ -158,6 +158,12 @@ describe('event pipeline credential-path authority', () => {
         'apps/web/src/env.ts',
       ],
       [
+        'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
+        'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+        'apps/web/src/lib/supabase/service.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
         'apps/web/src/app/api/internal/compare-page-status/[identifier]/route.ts',
         'apps/web/src/env.ts',
       ],
