@@ -80,7 +80,7 @@ describe('drainStorefrontCacheInvalidation', () => {
     const first = drainStorefrontCacheInvalidation(claim);
     const second = drainStorefrontCacheInvalidation({
       ...claim,
-      related_identifiers: [...claim.related_identifiers, 'ogabassey'],
+      claim_token: '11111111-1111-4111-8111-111111111112',
     });
     await Promise.resolve();
     expect(mocks.vercel).toHaveBeenCalledTimes(1);
