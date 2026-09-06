@@ -36,7 +36,7 @@ afterEach(async () => {
 });
 
 describe('validateStorefrontEdgeInventory', () => {
-  it('validates the checked-in Task 1A artifact against the live routing tree', async () => {
+  it('keeps the checked-in Task 1A authority valid after a squash merge', async () => {
     // Arrange
     const repoRoot = join(toolDirectory, '../../../..');
     const inputPath = join(
@@ -53,6 +53,16 @@ describe('validateStorefrontEdgeInventory', () => {
       throw new Error('checked-in inventory source authority is missing');
     const sourceSha = artifact.originMainSha;
     // Act
+    await expect(
+      execFileAsync('git', [
+        '-C',
+        repoRoot,
+        'merge-base',
+        '--is-ancestor',
+        sourceSha,
+        'origin/main',
+      ])
+    ).resolves.toBeDefined();
     const result = await validateStorefrontEdgeInventory({
       repoRoot,
       inputPath,
