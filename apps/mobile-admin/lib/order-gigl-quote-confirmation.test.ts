@@ -21,6 +21,16 @@ describe('resolveOrderGiglQuoteConfirmationGate', () => {
     ).toBe('refresh');
   });
 
+  it('bugfix: allows expired quotes when a bound charge needs recovery', () => {
+    expect(
+      resolveOrderGiglQuoteConfirmationGate({
+        ...ready,
+        quoteFresh: false,
+        boundChargeRecovery: true,
+      })
+    ).toBe('allow');
+  });
+
   it('denies preview or unbound quotes even when canBook is true', () => {
     expect(
       resolveOrderGiglQuoteConfirmationGate({ ...ready, preview: true })

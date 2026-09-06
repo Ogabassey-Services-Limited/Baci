@@ -24,6 +24,7 @@ const quoteResultSchema = z.object({
   availableBalance: z.number().nonnegative(),
   shortfall: z.number().nonnegative(),
   canBook: z.boolean(),
+  boundChargeRecovery: z.boolean().optional(),
 });
 
 const fundingAccountSchema = z.object({

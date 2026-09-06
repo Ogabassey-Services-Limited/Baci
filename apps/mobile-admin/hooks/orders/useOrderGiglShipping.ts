@@ -177,6 +177,7 @@ export function useOrderGiglShipping({
       quoteFresh: quoteRef.current
         ? isOrderGiglQuoteFresh(quoteRef.current)
         : false,
+      boundChargeRecovery: Boolean(walletRef.current?.boundChargeRecovery),
     });
     if (gate === 'deny') return false;
     if (gate === 'allow') return true;

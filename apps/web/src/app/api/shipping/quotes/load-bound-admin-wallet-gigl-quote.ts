@@ -178,10 +178,14 @@ export async function loadBoundAdminWalletGiglQuoteResponse(
   // An active reserved/provider_submitting charge already holds funds for this
   // quote — resume booking without requiring available balance again.
   const canBook = hasActiveCharge || funding.canBook;
+  // Expired quotes with an in-flight/booked charge must not bounce the mobile
+  // confirmation gate into a refresh loop — recovery books the same quote.
+  const boundChargeRecovery = hasActiveCharge && isExpired;
   return NextResponse.json({
     quote: toAdminPublicQuote(shippingQuote),
     availableBalance: funding.availableBalance,
     shortfall: hasActiveCharge ? 0 : funding.shortfall,
     canBook,
+    ...(boundChargeRecovery ? { boundChargeRecovery: true } : {}),
   });
 }

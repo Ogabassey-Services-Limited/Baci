@@ -5,6 +5,7 @@ export function resolveOrderGiglQuoteConfirmationGate(input: {
   hasQuote: boolean;
   canBook: boolean;
   quoteFresh: boolean;
+  boundChargeRecovery?: boolean;
 }): 'deny' | 'allow' | 'refresh' {
   if (
     input.confirmationInFlight ||
@@ -15,5 +16,8 @@ export function resolveOrderGiglQuoteConfirmationGate(input: {
   ) {
     return 'deny';
   }
-  return input.quoteFresh ? 'allow' : 'refresh';
+  if (input.boundChargeRecovery || input.quoteFresh) {
+    return 'allow';
+  }
+  return 'refresh';
 }

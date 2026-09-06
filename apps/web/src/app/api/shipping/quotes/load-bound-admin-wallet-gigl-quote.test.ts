@@ -464,6 +464,7 @@ describe('loadBoundAdminWalletGiglQuoteResponse', () => {
       quote: { id: 'quote-1', provider: 'GIGL' },
       canBook: true,
       shortfall: 0,
+      boundChargeRecovery: true,
     });
   });
 
