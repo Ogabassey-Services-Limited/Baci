@@ -7,6 +7,7 @@ import {
 } from '@/lib/events/event-pipeline-frozen-authority-sources';
 import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { eventPipelineLegacySdkImporters } from '@/lib/events/event-pipeline-legacy-sdk-importers';
+import { eventPipelineRepairPickupCredentialPaths } from '@/lib/events/event-pipeline-repair-pickup-credential-paths';
 import {
   eventPipelineAdminAdjacentFunctions,
   eventPipelineExpenseCleanupAdjacentFunctions,
@@ -150,6 +151,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     credentialPaths: [
       ...eventPipelineCredentialPaths,
       ...eventPipelineJumiaCredentialPaths,
+      ...eventPipelineRepairPickupCredentialPaths,
     ],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',

@@ -5,4 +5,5 @@ export const eventPipelineAdminImporters = [
   'apps/web/src/lib/events/record-platform-order-created-event.ts',
   'apps/web/src/lib/expo-push.ts',
   'apps/web/src/lib/insurance/notify-activate-protection.ts',
+  'apps/web/src/lib/repair-notifications.ts',
 ] as const;
