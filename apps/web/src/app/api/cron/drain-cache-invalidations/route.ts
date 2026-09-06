@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
+import { cacheInvalidationPurgeCausalKey } from '@/lib/cache-invalidation-purge-causal-key';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { drainStorefrontCacheInvalidation } from '@/lib/drain-storefront-cache-invalidation';
 import { createServiceClient } from '@/lib/supabase/service';
 import { cacheInvalidationDrainCronResponseSchemas } from '@/schemas/cache-invalidation-drain-cron';
 
 export const maxDuration = 60;
-const BATCH_SIZE = 2;
+const BATCH_SIZE = 5;
 const TARGET_BUDGET = 10;
 const CLAIM_CUTOFF_MS = 30_000;
 // Report current dead-letter presence on every request. The VPS scheduler owns
@@ -22,6 +23,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   let claimed = 0;
   let completed = 0;
   let failed = 0;
+  // Within one cron invocation, a successful purge for merchant+generation
+  // covers every outbox row that shares that causal identity. Later claim
+  // batches must finish siblings without repeating provider work.
+  const completedCausalKeys = new Set<string>();
   while (claimed < TARGET_BUDGET && Date.now() - startedAt < CLAIM_CUTOFF_MS) {
     const { data, error } = await supabase.rpc('claim_cache_invalidations', {
       p_batch_size: Math.min(BATCH_SIZE, TARGET_BUDGET - claimed),
@@ -49,13 +54,21 @@ export async function GET(request: Request): Promise<NextResponse> {
     // coalesce equivalent slug/hostname rows from one merchant mutation.
     const outcomes = await Promise.all(
       parsed.data.map(async (claim) => {
+        const causalKey = cacheInvalidationPurgeCausalKey(claim);
         let result: Awaited<
           ReturnType<typeof drainStorefrontCacheInvalidation>
         >;
-        try {
-          result = await drainStorefrontCacheInvalidation(claim);
-        } catch {
-          result = { errorCode: 'drain_unexpected_failure', ok: false };
+        if (completedCausalKeys.has(causalKey)) {
+          result = { ok: true };
+        } else {
+          try {
+            result = await drainStorefrontCacheInvalidation(claim);
+          } catch {
+            result = { errorCode: 'drain_unexpected_failure', ok: false };
+          }
+          if (result.ok) {
+            completedCausalKeys.add(causalKey);
+          }
         }
         const finish = await supabase.rpc('finish_cache_invalidation', {
           p_claim_token: claim.claim_token,

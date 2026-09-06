@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { revalidateTag } from 'next/cache';
+import { cacheInvalidationPurgeCausalKey } from '@/lib/cache-invalidation-purge-causal-key';
 import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publication-data-cache-tags';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
@@ -51,14 +52,6 @@ function uniqueStable(values: readonly string[]): string[] {
   return Array.from(new Set(values));
 }
 
-/** Generation-fenced merchant mutation identity for provider SingleFlight. */
-function purgeCausalKey(claim: CacheInvalidationClaim): string {
-  // enqueue_storefront_cache_targets shares related_identifiers and syncs
-  // generation across slug/hostname rows from one mutation. claim_token and
-  // target tuples still differ, so they must not partition provider keys.
-  return JSON.stringify([claim.merchant_id, claim.generation]);
-}
-
 function purgeVercelWithTimeout(
   claimKey: string,
   tags: readonly string[],
@@ -92,7 +85,7 @@ export async function drainStorefrontCacheInvalidation(
   { vercelTimeoutMs = DEFAULT_VERCEL_TIMEOUT_MS } = {}
 ): Promise<CacheInvalidationDrainResult> {
   const identity = targetIdentity(claim);
-  const claimKey = purgeCausalKey(claim);
+  const claimKey = cacheInvalidationPurgeCausalKey(claim);
   const productIdentifiers =
     claim.target_kind === 'storefront_product'
       ? [claim.target_id]
