@@ -250,5 +250,10 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '2999879d1a4127e4b703c8cb18a88f276ced6b2512331c1383402fdf36fff76d',
   },
   ...EXPECTED_GIGL_WALLET_SHIPPING_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260905183000_share_storefront_cache_invalidation_causal_identity.sql',
+    sha256: 'e87f8b3e8fecf098cc148d4efc75c75f62a96e0b4bdc98cdb904a91157a33c42',
+  },
   ...EXPECTED_REPAIR_PICKUP_PENDING_SOURCES,
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
