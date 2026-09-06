@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type * as TypeScript from '@typescript/typescript6';
 import { describe, expect, it } from 'vitest';
 import { CACHE_LIFE_PROFILES } from '@/config/cache-life-profiles';
+import { getFunctionSourceFrom } from './get-function-source-from';
 
 const require = createRequire(import.meta.url);
 // The classic compiler API used below is gone from typescript@7 (native
@@ -33,33 +34,6 @@ const HYDRATE_PUBLIC_PRODUCTS_AST = ts.createSourceFile(
   true,
   ts.ScriptKind.TS
 );
-
-function getFunctionSourceFrom(
-  functionName: string,
-  source: string,
-  sourceFile: TypeScript.SourceFile
-): string {
-  let match: TypeScript.FunctionDeclaration | undefined;
-
-  function visit(node: TypeScript.Node): void {
-    if (match) return;
-    if (ts.isFunctionDeclaration(node) && node.name?.text === functionName) {
-      match = node;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-
-  if (!match) {
-    throw new Error(
-      `Unable to locate ${functionName} in ${sourceFile.fileName}`
-    );
-  }
-
-  return source.slice(match.getStart(sourceFile), match.end);
-}
 
 function getFunctionSource(functionName: string): string {
   return getFunctionSourceFrom(
