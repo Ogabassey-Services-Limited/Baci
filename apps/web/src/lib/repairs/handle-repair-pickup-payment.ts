@@ -32,7 +32,7 @@ function getConfirmed(value: unknown): boolean | null {
 async function readPickupPaymentStatus(
   supabase: SupabaseClient,
   claim: { merchantId: string; repairId: string }
-): Promise<string | null> {
+): Promise<{ ok: true; status: string | null } | { ok: false }> {
   const { data, error } = await supabase
     .from('repairs')
     .select('pickup_payment_status')
@@ -41,13 +41,16 @@ async function readPickupPaymentStatus(
     .maybeSingle();
   if (error) {
     console.error('Repair pickup payment status lookup failed:', error);
-    return null;
+    return { ok: false };
   }
   const status =
     data && typeof data === 'object'
       ? (data as { pickup_payment_status?: unknown }).pickup_payment_status
       : null;
-  return typeof status === 'string' ? status : null;
+  return {
+    ok: true,
+    status: typeof status === 'string' ? status : null,
+  };
 }
 
 export async function handleRepairPickupPayment({
@@ -163,9 +166,16 @@ export async function handleRepairPickupPayment({
   }
 
   const pickupPaymentStatus = await readPickupPaymentStatus(supabase, claim);
+  if (!pickupPaymentStatus.ok) {
+    return {
+      handled: true,
+      status: 503,
+      body: { message: 'Repair pickup payment status lookup will retry' },
+    };
+  }
   return fulfillRepairPickupAfterPayment({
     merchantId: claim.merchantId,
-    pickupPaymentStatus,
+    pickupPaymentStatus: pickupPaymentStatus.status,
     reference,
     repairId: claim.repairId,
     supabase,

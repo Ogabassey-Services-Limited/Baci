@@ -24,12 +24,24 @@ export function createRepairPickupPaymentMetadata() {
 export function createRepairPickupPaymentSupabase(
   options:
     | boolean
-    | { confirmed?: boolean; pickupPaymentStatus?: string | null } = true
+    | {
+        confirmed?: boolean;
+        pickupPaymentStatus?: string | null;
+        pickupPaymentStatusError?: { message: string };
+      } = true
 ) {
   const normalized =
     typeof options === 'boolean' ? { confirmed: options } : options;
   const confirmed = normalized.confirmed ?? true;
   const pickupPaymentStatus = normalized.pickupPaymentStatus ?? 'paid';
+  const maybeSingle = vi.fn().mockResolvedValue(
+    normalized.pickupPaymentStatusError
+      ? { data: null, error: normalized.pickupPaymentStatusError }
+      : {
+          data: { pickup_payment_status: pickupPaymentStatus },
+          error: null,
+        }
+  );
   const rpc = vi.fn().mockResolvedValue({
     data: [{ confirmed }],
     error: null,
@@ -41,10 +53,6 @@ export function createRepairPickupPaymentSupabase(
   const secondEq = vi.fn().mockReturnValue({ eq: thirdEq, neq: bookedNeq });
   const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
   const update = vi.fn().mockReturnValue({ eq: firstEq });
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: { pickup_payment_status: pickupPaymentStatus },
-    error: null,
-  });
   const selectSecondEq = vi.fn().mockReturnValue({ maybeSingle });
   const selectFirstEq = vi.fn().mockReturnValue({ eq: selectSecondEq });
   const select = vi.fn().mockReturnValue({ eq: selectFirstEq });

@@ -1,7 +1,7 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
 This feature ships **16 append-only July catalog migrations**, then a **paid GIGL
-pickup follow-on** set (29 September migrations, including security hardenings).
+pickup follow-on** set (36 September migrations, including security hardenings).
 Operators must apply both catalogs in order. SQL verification scripts live under
 `supabase/migrations/tests/` for the paid-pickup path and under `supabase/tests/`
 for the original July catalog. Follow this order exactly, verify each gate, then
@@ -71,6 +71,10 @@ July catalog:
 30. `20260904190600_defer_repair_pickup_pending_consume_until_fulfilled.sql` — keep pending RPU history until booked/manual_fulfilled so Paystack redelivery can bind after secret-key rotation while GIGL booking is still retrying
 31. `20260904190650_claim_gigl_tracking_notifications_repair_id.sql` — project `repair_id` on GIGL notification claims for orderless pickups (no privileged `repairs` table read in the worker)
 32. `20260904190700_claim_repair_pickup_booking_manual_fulfilled_guard.sql` — refuse claims when `pickup_payment_status = manual_fulfilled` and return `terminal=true` (merchant offline fulfillment race)
+33. `20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql` — restore failed-event recovery, delivered_at, and manual-failed terminality without recreating the orderless apply RPC
+34. `20260905140100_retire_orderless_gigl_monitors_without_repair.sql` — retire orderless GIGL monitors when the linked repair is deleted
+35. `20260905140200_fulfill_paid_repair_pickup_receiver.sql` — paid-fulfillment JWT still projects unpublished or pickup-disabled repair centers
+36. `20260905140300_gigl_monitor_fast_path_merchant_identity.sql` — include merchant ownership on the orderless monitor fast path
 
 ## 2. Run the SQL verification scripts (after all 16 July migrations apply)
 
@@ -91,6 +95,8 @@ Run these after the September paid-pickup migrations:
 - `supabase/migrations/tests/normalize_nigerian_repair_pickup_receiver_phone.sql` — local trunk phones like `09070007000` normalize and pass the usable-phone gate
 - `supabase/migrations/tests/claim_repair_pickup_booking_terminal.sql` — claim RPC refuses terminal repairs and reports `terminal=true`
 - `supabase/migrations/tests/claim_repair_pickup_booking_manual_fulfilled.sql` — claim RPC refuses `manual_fulfilled` (non-terminal repair status) and reports `terminal=true`
+- `supabase/migrations/tests/repair_pickup_receiver_fulfillment.sql` — fulfillment JWT still projects unpublished or pickup-disabled receivers; quote JWT does not
+- `supabase/migrations/tests/gigl_tracking_orderless_repair_unlink.sql` — deleting the linked repair retires the orderless GIGL monitor
 
 ### Manual smoke checks (do these on the branch too)
 - **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).
