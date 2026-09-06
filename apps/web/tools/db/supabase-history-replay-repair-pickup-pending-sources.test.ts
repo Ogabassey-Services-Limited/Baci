@@ -39,6 +39,7 @@ describe('repair pickup pending replay sources', () => {
       'a2a8e948ceb8b5dfc4172f54f24acd4ac52a78b62416c3196bf4af9464ed878b 20260905140000_restore_gigl_repair_pickup_tracking_hardening.sql',
       '22402b6953e5aba04b3f1358fd823995bc002347a13633abced3bdccce2562e3 20260905140100_retire_orderless_gigl_monitors_without_repair.sql',
       '078802ea9e418b605b64123622a0375ce4b819da2c0f2699d6bee63cd56bea4a 20260905140200_fulfill_paid_repair_pickup_receiver.sql',
+      '93b58684a23f79656f82654cd0b325469375ebfcb0ab57833213e3ec91153fa9 20260905140300_gigl_monitor_fast_path_merchant_identity.sql',
     ]);
   });
 });

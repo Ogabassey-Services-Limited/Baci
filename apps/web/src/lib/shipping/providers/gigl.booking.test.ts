@@ -282,4 +282,20 @@ describe('GiglProvider booking requests', () => {
     ).rejects.toThrow('Selected GIGL station was not found');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('bugfix: classifies token-acquisition timeouts as pre-provider errors', async () => {
+    const abortError = new Error('The operation was aborted');
+    abortError.name = 'TimeoutError';
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(AbortSignal.abort());
+    vi.spyOn(GiglApiClient.prototype, 'getApiToken').mockRejectedValue(
+      abortError
+    );
+
+    const provider = buildBookingHarness();
+
+    await expect(provider.bookShipment(bookingRequest)).rejects.toMatchObject({
+      code: 'GIGL_AUTHENTICATION_FAILED',
+      message: 'GIGL API authentication timed out',
+    });
+  });
 });

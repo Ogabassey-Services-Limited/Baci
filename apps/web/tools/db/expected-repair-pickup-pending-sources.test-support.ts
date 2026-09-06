@@ -174,4 +174,9 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
       'supabase/migrations/20260905140200_fulfill_paid_repair_pickup_receiver.sql',
     sha256: '078802ea9e418b605b64123622a0375ce4b819da2c0f2699d6bee63cd56bea4a',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260905140300_gigl_monitor_fast_path_merchant_identity.sql',
+    sha256: '93b58684a23f79656f82654cd0b325469375ebfcb0ab57833213e3ec91153fa9',
+  },
 ];

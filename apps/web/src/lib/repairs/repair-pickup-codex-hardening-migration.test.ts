@@ -66,9 +66,14 @@ describe('repair pickup Codex review hardenings', () => {
       'AND (NEW.order_id IS NOT NULL OR v_is_repair_linked) THEN'
     );
     expect(
-      readMigrationTest('gigl_tracking_orderless_repair_unlink.sql')
-    ).toContain(
-      'deleted repair must retire its orderless GIGL tracking monitor'
-    );
+      readMigration(
+        '20260905140300_gigl_monitor_fast_path_merchant_identity.sql'
+      )
+    ).toContain('AND NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id');
+    expect(
+      readMigration(
+        '20260905140300_gigl_monitor_fast_path_merchant_identity.sql'
+      )
+    ).toContain('AND (v_order_is_owned OR v_is_repair_linked) THEN');
   });
 });

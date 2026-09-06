@@ -55,12 +55,15 @@ export async function bookGiglShipment(
     try {
       tokenData = await apiClient.getApiToken(GIGL_BOOKING_TIMEOUT_MS, signal);
     } catch (error) {
-      if (
-        signal.aborted ||
-        isGiglAbortError(error) ||
-        error instanceof OrderShipmentBookingError
-      ) {
+      if (error instanceof OrderShipmentBookingError) {
         throw error;
+      }
+      if (signal.aborted || isGiglAbortError(error)) {
+        throw new OrderShipmentBookingError(
+          'GIGL API authentication timed out',
+          504,
+          'GIGL_AUTHENTICATION_FAILED'
+        );
       }
       throw new OrderShipmentBookingError(
         error instanceof Error
@@ -254,6 +257,9 @@ export async function bookGiglShipment(
       rawResponse: bookingData,
     };
   } catch (error) {
+    if (error instanceof OrderShipmentBookingError) {
+      throw error;
+    }
     if (signal.aborted || isGiglAbortError(error)) {
       io.log('warn', 'GIGL booking timed out', {
         timeoutMs: GIGL_BOOKING_TIMEOUT_MS,
