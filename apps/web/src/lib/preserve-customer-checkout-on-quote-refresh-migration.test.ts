@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  '../../supabase/migrations/20260904150000_preserve_customer_checkout_on_quote_refresh.sql'
+  '../../supabase/migrations/20260904123300_preserve_customer_checkout_on_quote_refresh.sql'
 );
 
 describe('preserve customer checkout on quote refresh migration', () => {

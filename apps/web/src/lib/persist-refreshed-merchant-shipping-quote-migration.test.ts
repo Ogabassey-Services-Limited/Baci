@@ -18,7 +18,7 @@ describe('refreshed quote persistence migrations', () => {
 
   it('provides an order-scoped authenticated refresh that binds economics server-side', () => {
     const orderSql = readFileSync(
-      `${process.cwd()}/../../supabase/migrations/20260903130000_authenticated_order_quote_refresh.sql`,
+      `${process.cwd()}/../../supabase/migrations/20260903130500_authenticated_order_quote_refresh.sql`,
       'utf8'
     );
     expect(orderSql).toContain('persist_refreshed_order_shipping_quote');

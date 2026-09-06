@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  '../../supabase/migrations/20260904160000_order_gigl_internal_credit_retained_amount_projection.sql'
+  '../../supabase/migrations/20260904153400_order_gigl_internal_credit_retained_amount_projection.sql'
 );
 
 describe('order gigl internal credit retained amount projection migration', () => {

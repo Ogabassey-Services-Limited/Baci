@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const sql = readFileSync(
-  `${process.cwd()}/../../supabase/migrations/20260903120000_guard_merchant_wallet_paystack_dva_alias.sql`,
+  `${process.cwd()}/../../supabase/migrations/20260903120500_guard_merchant_wallet_paystack_dva_alias.sql`,
   'utf8'
 );
 

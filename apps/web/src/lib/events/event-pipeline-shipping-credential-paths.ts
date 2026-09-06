@@ -9,6 +9,13 @@ const refreshPath = 'apps/web/src/lib/shipping/refresh-order-shipment-quote.ts';
 const refreshWalletPath =
   'apps/web/src/lib/shipping/refresh-wallet-order-shipment-quote.ts';
 const bookShipmentPath = 'apps/web/src/lib/shipping/book-order-shipment.ts';
+const claimedBookingPath =
+  'apps/web/src/lib/shipping/run-claimed-order-wallet-or-checkout-booking.ts';
+const bookingEconomicsPath =
+  'apps/web/src/lib/shipping/shipping-quote-booking-economics.ts';
+const bookingEconomicsClientPath =
+  'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts';
+const servicePath = 'apps/web/src/lib/supabase/service.ts';
 const resolveBookingPath =
   'apps/web/src/app/api/shipping/book/resolve-booking-quote-for-sender.ts';
 const executeDirectPath =
@@ -64,6 +71,70 @@ export const eventPipelineShippingCredentialPaths = [
     refreshPath,
     persistRefreshedPath,
     proofPath,
+    envPath,
+  ],
+  [
+    claimedBookingPath,
+    bookShipmentPath,
+    refreshPath,
+    persistRefreshedPath,
+    proofPath,
+    envPath,
+  ],
+  [
+    claimedBookingPath,
+    refreshWalletPath,
+    refreshPath,
+    persistRefreshedPath,
+    proofPath,
+    envPath,
+  ],
+  [
+    claimedBookingPath,
+    bookingEconomicsPath,
+    bookingEconomicsClientPath,
+    servicePath,
+    envPath,
+  ],
+  [
+    bookShipmentPath,
+    bookingEconomicsPath,
+    bookingEconomicsClientPath,
+    servicePath,
+    envPath,
+  ],
+  [
+    orderRoutePath,
+    claimedBookingPath,
+    bookShipmentPath,
+    refreshPath,
+    persistRefreshedPath,
+    proofPath,
+    envPath,
+  ],
+  [
+    orderRoutePath,
+    claimedBookingPath,
+    refreshWalletPath,
+    refreshPath,
+    persistRefreshedPath,
+    proofPath,
+    envPath,
+  ],
+  [
+    orderRoutePath,
+    claimedBookingPath,
+    bookingEconomicsPath,
+    bookingEconomicsClientPath,
+    servicePath,
+    envPath,
+  ],
+  [
+    orderRoutePath,
+    bookShipmentPath,
+    bookingEconomicsPath,
+    bookingEconomicsClientPath,
+    servicePath,
     envPath,
   ],
 ] as const;
