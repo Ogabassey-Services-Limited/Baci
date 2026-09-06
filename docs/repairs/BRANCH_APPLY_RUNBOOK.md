@@ -45,7 +45,7 @@ July catalog:
 4. `20260903080000_repair_pickup_receiver_projection.sql` — repair-center destination projection RPC
 5. `20260903090000_repair_pickup_terminal_payment_capture.sql` — terminal payment capture hardening
 6. `20260903095000_repair_pickup_receiver_server_only.sql` — revoke storefront-facing receiver access
-7. `20260903100000_repair_pickup_receiver_storefront_grants.sql` — role/grant scaffolding for the receiver capability
+7. `20260903101000_repair_pickup_receiver_storefront_grants.sql` — role/grant scaffolding for the receiver capability
 8. `20260903101500_secure_repair_pickup_receiver_capability.sql` — JWT merchant-bound capability gate for `get_repair_pickup_receiver`
 9. `20260903120000_exclude_repair_pickup_from_merchant_sales.sql` — exclude pickup fee captures from merchant sales totals
 10. `20260903130000_validate_repair_pickup_receiver_phone.sql` — require a usable repair-center phone on the projection

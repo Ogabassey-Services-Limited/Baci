@@ -31,7 +31,7 @@ export const EXPECTED_REPAIR_PICKUP_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260903100000_repair_pickup_receiver_storefront_grants.sql',
+      'supabase/migrations/20260903101000_repair_pickup_receiver_storefront_grants.sql',
     sha256: '773f87796d2a77154a80327be336c05b8d847c4c1230000eb1e78a65e8552627',
   },
   {
