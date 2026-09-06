@@ -150,7 +150,9 @@ export async function assertGiglCustomerCheckoutPrepaid(
             );
       settledRetained = Math.min(
         requiredRetained,
-        fromSettlements + fromInternalCredit
+        (Math.round(fromSettlements * 100) +
+          Math.round(fromInternalCredit * 100)) /
+          100
       );
     } catch {
       throwPrepaidRequired();

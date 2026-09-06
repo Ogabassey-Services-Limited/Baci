@@ -112,7 +112,7 @@ describe('buildOrderGiglQuoteRequest', () => {
         : null
     ).toBe(2);
   });
-  it('falls back for unsupported units and rejects invalid quantities', async () => {
+  it('converts supported imperial units and rejects invalid quantities', async () => {
     const unsupported = await buildOrderGiglQuoteRequest(
       {
         ...base,
@@ -122,7 +122,10 @@ describe('buildOrderGiglQuoteRequest', () => {
       },
       sender
     );
-    expect(unsupported.ok && unsupported.request.items[0].weight).toBe(1);
+    expect(unsupported.ok && unsupported.request.items[0].weight).toBeCloseTo(
+      0.90718474,
+      8
+    );
     const invalid = await buildOrderGiglQuoteRequest(
       { ...base, order_items: [{ ...base.order_items[0], quantity: 1.5 }] },
       sender

@@ -1,4 +1,5 @@
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+import { productWeightToKg } from './product-weight-to-kg';
 import type { ShipmentItem } from './types';
 
 export type ProductShippingMetadata = {
@@ -74,12 +75,9 @@ function readProductMetadata(
 function readSupportedProductWeightKg(
   product: ProductShippingMetadata | null
 ): number | undefined {
-  const weight = readPositiveNumber(product?.weight_value);
-  if (!weight) return undefined;
-
-  const unit = String(product?.weight_unit ?? 'kg').toLowerCase();
-  if (unit !== 'kg' && unit !== 'g') return undefined;
-  return unit === 'g' ? weight * 0.001 : weight;
+  return (
+    productWeightToKg(product?.weight_value, product?.weight_unit) ?? undefined
+  );
 }
 
 function normalizeWeightKg(product: ProductShippingMetadata | null): number {

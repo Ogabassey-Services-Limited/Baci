@@ -197,6 +197,50 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
     ).rejects.toMatchObject({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' });
   });
 
+  it('bugfix: covers stamped retention when settlement and internal credit sum only in kobo', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'merchant_settlements') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({
+                  data: [
+                    {
+                      status: 'completed',
+                      metadata: { retained_shipping_amount: 1000.14 },
+                    },
+                  ],
+                  error: null,
+                }),
+              })),
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const rpc = vi.fn().mockResolvedValue({ data: 1000, error: null });
+
+    await expect(
+      assertGiglCustomerCheckoutPrepaid(
+        {
+          shipping_provider: 'GIGL',
+          shipping_funding_source: 'customer_checkout',
+          payment_status: 'paid',
+          payment_method: 'wallet',
+          shipping_platform_retained_amount: 2000.14,
+        },
+        {
+          supabase: { from, rpc } as never,
+          merchantId: 'merchant-1',
+          orderId: 'order-1',
+        }
+      )
+    ).resolves.toBeUndefined();
+  });
+
   it('rejects paid gateway orders with null funding source even when retained amount is positive', async () => {
     await expect(
       assertGiglCustomerCheckoutPrepaid({

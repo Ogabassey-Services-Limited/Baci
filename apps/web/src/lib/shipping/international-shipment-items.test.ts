@@ -5,7 +5,7 @@ import {
 } from './international-shipment-items';
 
 describe('toInternationalShipmentItemsFromOrder', () => {
-  it('falls back to 1 kilogram for unsupported weight units', () => {
+  it('converts supported imperial weights instead of defaulting to 1 kg', () => {
     expect(
       toInternationalShipmentItemsFromOrder([
         {
@@ -24,11 +24,28 @@ describe('toInternationalShipmentItemsFromOrder', () => {
         name: 'Phone',
         description: 'Phone',
         quantity: 1,
-        weight: 1,
+        weight: 0.90718474,
         value: 100_000,
         hsCode: '851712',
       },
     ]);
+  });
+
+  it('falls back to 1 kilogram for unsupported weight units', () => {
+    expect(
+      toInternationalShipmentItemsFromOrder([
+        {
+          name: 'Phone',
+          quantity: 1,
+          price: 100_000,
+          product: {
+            weight_value: 2,
+            weight_unit: 'stone',
+            commodity_code: '851712',
+          },
+        },
+      ])[0]?.weight
+    ).toBe(1);
   });
 
   it('matches buildOrderGiglQuoteRequest for a 2 lb product weight', async () => {
@@ -82,8 +99,11 @@ describe('toInternationalShipmentItemsFromOrder', () => {
       quoteResult.ok ? quoteResult.request.items : []
     );
 
-    expect(quoteResult.ok && quoteResult.request.items[0].weight).toBe(1);
-    expect(bookedItems[0]?.weight).toBe(1);
+    expect(quoteResult.ok && quoteResult.request.items[0].weight).toBeCloseTo(
+      0.90718474,
+      8
+    );
+    expect(bookedItems[0]?.weight).toBeCloseTo(0.90718474, 8);
   });
 
   it('derives international package metadata from the linked product', () => {

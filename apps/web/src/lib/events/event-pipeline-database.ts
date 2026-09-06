@@ -1,5 +1,5 @@
-import { eventPipelineAdsServicePaths } from '@/lib/events/event-pipeline-ads-service-paths';
 import { eventPipelineAdminImporters } from '@/lib/events/event-pipeline-authority-paths';
+import { eventPipelineAuthorityServicePaths } from '@/lib/events/event-pipeline-authority-service-paths';
 import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-credential-paths';
 import {
   eventPipelineFrozenRoutes,
@@ -182,15 +182,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ],
-    // Keep Ads spend/credential graphs plus the wallet funding-recovery HMAC
-    // cron → branded helper edge in one allowlist for service-path analysis.
-    servicePaths: [
-      ...eventPipelineAdsServicePaths,
-      [
-        'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
-        'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
-      ],
-    ],
+    servicePaths: eventPipelineAuthorityServicePaths,
     operationalServiceImporters: [
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
     ],

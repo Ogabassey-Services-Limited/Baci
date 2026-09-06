@@ -92,6 +92,17 @@ describe('matchesQuoteDestination', () => {
     ).toBe(true);
   });
 
+  it('rejects a domestic quote when the street only shares a prefix', () => {
+    expect(
+      matchesQuoteDestination(
+        makeOrderAddress({
+          address: '12 Admiralty Way, Block B',
+        }),
+        makeQuoteRequest()
+      )
+    ).toBe(false);
+  });
+
   it('rejects a domestic quote when city or state differ', () => {
     expect(
       matchesQuoteDestination(

@@ -1,4 +1,5 @@
 import { readPackageDimensionsCm } from './package-dimensions';
+import { productWeightToKg } from './product-weight-to-kg';
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from './types';
 
 const DEFAULT_ORDER_ITEM_WEIGHT_KG = 1;
@@ -45,12 +46,7 @@ export type OrderGiglQuoteBuildResult =
     };
 
 function weightKg(value: unknown, unit: unknown): number | null {
-  const n = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const u = String(unit ?? 'kg').toLowerCase();
-  if (u !== 'kg' && u !== 'g') return null;
-  const factor = u === 'g' ? 0.001 : 1;
-  return n * factor;
+  return productWeightToKg(value, unit);
 }
 
 function finiteCoordinate(

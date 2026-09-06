@@ -55,12 +55,7 @@ function matchesDomesticGiglQuoteAddress(
     shippingAddress.city,
     shippingAddress.state
   );
-  if (orderStreet === quoteStreet) {
-    return true;
-  }
-
-  const normalizedOrderAddress = normalizeText(shippingAddress.address);
-  return normalizedOrderAddress.startsWith(`${quoteStreet},`);
+  return orderStreet === quoteStreet;
 }
 
 export function matchesQuoteDestination(
