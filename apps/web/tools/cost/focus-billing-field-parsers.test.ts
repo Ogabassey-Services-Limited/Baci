@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import {
-  dateString,
-  finiteNonnegative,
-  finiteSigned,
-} from './focus-billing-row-fields';
+import { finiteNonnegative } from './finite-nonnegative';
+import { finiteSigned } from './finite-signed';
+import { dateString } from './focus-billing-date-string';
 
-describe('focus-billing-row-fields', () => {
+describe('FOCUS billing field parsers', () => {
   it('normalizes valid charge-period timestamps', () => {
     expect(dateString('2026-08-01T00:00:00.000Z', 'ChargePeriodStart')).toBe(
       '2026-08-01T00:00:00.000Z'

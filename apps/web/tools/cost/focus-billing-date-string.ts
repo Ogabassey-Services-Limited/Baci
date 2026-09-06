@@ -1,27 +1,4 @@
-/** Parses FOCUS billing scalar fields used by storefront cost measurement. */
-
-export function finiteNonnegative(value: unknown, field: string) {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > Number.MAX_SAFE_INTEGER
-  )
-    throw new Error(`billing row has an invalid ${field}`);
-  return value;
-}
-
-/** FOCUS EffectiveCost may be negative for credits/corrections. */
-export function finiteSigned(value: unknown, field: string) {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    Math.abs(value) > Number.MAX_SAFE_INTEGER
-  )
-    throw new Error(`billing row has an invalid ${field}`);
-  return value;
-}
-
+/** Parses a FOCUS ISO-8601 charge/window timestamp and rejects impossible calendars. */
 export function dateString(value: unknown, field: string) {
   if (typeof value !== 'string')
     throw new Error(`billing row has an invalid ${field}`);

@@ -1,11 +1,9 @@
 import { createHash } from 'node:crypto';
 import { areDbTracesComparable } from './are-db-traces-comparable';
 import { compareStorefrontCostWindows } from './compare-storefront-cost-windows';
-import {
-  dateString,
-  finiteNonnegative,
-  finiteSigned,
-} from './focus-billing-row-fields';
+import { finiteNonnegative } from './finite-nonnegative';
+import { finiteSigned } from './finite-signed';
+import { dateString } from './focus-billing-date-string';
 import {
   type CostWindowMeasurement,
   type MetricName,
@@ -210,6 +208,11 @@ export async function measureVercelStorefrontCost(options: {
     if (before.sourceSha256 === after.sourceSha256) {
       throw new Error(
         'before and after billing exports must not reuse the same evidence'
+      );
+    }
+    if (before.deploymentSha === after.deploymentSha) {
+      throw new Error(
+        'before and after measurement windows must use different deployment SHAs'
       );
     }
     if (
