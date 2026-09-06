@@ -11,6 +11,7 @@ import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-sup
 import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 import { EXPECTED_QUIZ_LIVE_PENDING_SOURCES } from './expected-quiz-live-pending-sources.test-support';
+import { EXPECTED_REPAIR_PICKUP_PENDING_SOURCES } from './expected-repair-pickup-pending-sources.test-support';
 import { EXPECTED_SEARCH_PENDING_SOURCES } from './expected-search-pending-sources.test-support';
 import { EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES } from './expected-storefront-order-pending-sources.test-support';
 import { ORDER_NOTIFICATION_OUTBOX_PENDING_SOURCES } from './order-notification-outbox-pending-sources.test-fixture';
@@ -249,4 +250,5 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '2999879d1a4127e4b703c8cb18a88f276ced6b2512331c1383402fdf36fff76d',
   },
   ...EXPECTED_GIGL_WALLET_SHIPPING_PENDING_SOURCES,
+  ...EXPECTED_REPAIR_PICKUP_PENDING_SOURCES,
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

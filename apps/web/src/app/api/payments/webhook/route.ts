@@ -54,6 +54,7 @@ import {
 } from '@/lib/paystack';
 import { handlePaystackMerchantWalletAssignmentFailure } from '@/lib/paystack-merchant-wallet-assignment-failure-webhook';
 import { handlePaystackMerchantWalletAssignmentSuccess } from '@/lib/paystack-merchant-wallet-assignment-success-webhook';
+import { dispatchRepairPickupPayment } from '@/lib/repairs/dispatch-repair-pickup-payment';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -796,6 +797,19 @@ export async function POST(request: NextRequest) {
         { error: 'Payment amount verification failed' },
         { status: 422 }
       );
+    }
+
+    if (verifiedAmount) {
+      const repairPickupPayment = await dispatchRepairPickupPayment({
+        gateway,
+        gatewayResponse,
+        reference,
+        supabase,
+        verifiedAmount: verifiedAmount.amount,
+      });
+      if (repairPickupPayment) {
+        return repairPickupPayment;
+      }
     }
 
     let resolvedAgenticTransaction: AgenticPaystackDvaTransaction | null = null;

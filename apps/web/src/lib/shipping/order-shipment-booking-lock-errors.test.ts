@@ -39,6 +39,7 @@ describe('shouldReleaseBookingLock', () => {
       'MERCHANT_WALLET_CHARGE_REFUNDED',
       'MERCHANT_WALLET_BOOKED_SHIPMENT_MISSING',
       'GIGL_STATION_RESOLUTION_FAILED',
+      'GIGL_AUTHENTICATION_FAILED',
     ]) {
       expect(
         shouldReleaseBookingLock(
