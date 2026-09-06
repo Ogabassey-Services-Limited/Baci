@@ -14,9 +14,6 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
-import { bookWalletOrCustomerCheckout } from '@/lib/shipping/book-wallet-or-customer-checkout';
-import { findReusableOrderShipment } from '@/lib/shipping/find-reusable-order-shipment';
 import { isFundedCheckoutGiglAddressLocked } from '@/lib/shipping/is-funded-checkout-gigl-address-locked';
 import {
   claimOrderShipmentBooking,
@@ -27,8 +24,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import { refreshWalletOrderShipmentQuote } from '@/lib/shipping/refresh-wallet-order-shipment-quote';
-import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
+import { runClaimedOrderWalletOrCheckoutBooking } from '@/lib/shipping/run-claimed-order-wallet-or-checkout-booking';
 import { orderUpdateSchema } from '@/schemas/orders';
 import { mapOrderPatchUpdateError } from './map-order-patch-update-error';
 
@@ -401,58 +397,20 @@ export async function PATCH(
         shipmentBookingLockToken = bookingClaim.lockToken;
 
         try {
-          const selectedQuoteId = existingOrder.selected_quote_id ?? '';
-          const bookingEconomics = selectedQuoteId
-            ? await getShippingQuoteBookingEconomics(
-                supabase,
-                merchantId,
-                id,
-                selectedQuoteId
-              )
-            : null;
-          const booking = await bookWalletOrCustomerCheckout(
+          const booking = await runClaimedOrderWalletOrCheckoutBooking(
             supabase,
             merchantId,
             id,
-            selectedQuoteId,
-            existingOrder.shipping_funding_source,
-            (quoteId) => bookOrderShipment(supabase, merchantId, id, quoteId),
-            shipmentBookingLockToken
-              ? () =>
-                  clearOrderShipmentBookingLock(
-                    supabase,
-                    merchantId,
-                    id,
-                    shipmentBookingLockToken as string
-                  )
-              : undefined,
-            () =>
-              refreshWalletOrderShipmentQuote(
-                supabase,
-                merchantId,
-                id,
-                selectedQuoteId
-              ),
-            async () => {
-              const existing = await findReusableOrderShipment(
-                supabase,
-                merchantId,
-                id
-              );
-              return existing
-                ? {
-                    ...existing,
-                    quoteId: existing.quoteId || selectedQuoteId,
-                  }
-                : null;
+            {
+              selected_quote_id: existingOrder.selected_quote_id,
+              shipping_funding_source: existingOrder.shipping_funding_source,
+              shipping_provider: existingOrder.shipping_provider,
+              payment_status: existingOrder.payment_status,
+              payment_method: existingOrder.payment_method,
             },
             {
-              shipping_provider: existingOrder.shipping_provider,
-              payment_status: payment_status ?? existingOrder.payment_status,
-              payment_method: existingOrder.payment_method,
-              shipping_funding_source: existingOrder.shipping_funding_source,
-              shipping_platform_retained_amount:
-                bookingEconomics?.shipping_platform_retained_amount ?? null,
+              paymentStatus: payment_status ?? existingOrder.payment_status,
+              lockToken: shipmentBookingLockToken,
             }
           );
           updates.shipping_provider = booking.provider;

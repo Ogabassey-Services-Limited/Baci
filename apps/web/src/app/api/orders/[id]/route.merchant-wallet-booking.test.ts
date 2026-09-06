@@ -6,20 +6,19 @@ const source = readFileSync(
   'utf8'
 );
 describe('order PATCH merchant wallet booking', () => {
-  it('uses the wallet-funded orchestration wrapper', () => {
-    expect(source).toContain('bookWalletOrCustomerCheckout');
+  it('uses the extracted claimed-order wallet/checkout booking helper', () => {
+    expect(source).toContain('runClaimedOrderWalletOrCheckoutBooking');
     expect(source).toContain('existingOrder.shipping_funding_source');
+    expect(source).not.toContain('bookWalletOrCustomerCheckout(');
   });
 
   it('passes the requested payment status into prepaid GIGL booking', () => {
-    expect(source).toContain('payment_status ?? existingOrder.payment_status');
+    expect(source).toContain(
+      'paymentStatus: payment_status ?? existingOrder.payment_status'
+    );
   });
 
-  it('loads retained shipping via booking economics instead of revoked order columns', () => {
-    expect(source).toContain('getShippingQuoteBookingEconomics');
-    expect(source).toContain(
-      'bookingEconomics?.shipping_platform_retained_amount'
-    );
+  it('keeps funded-checkout address lock and omits revoked retained columns', () => {
     expect(source).toContain('isFundedCheckoutGiglAddressLocked');
     expect(source).toContain('settled retention only');
     expect(source).not.toContain(

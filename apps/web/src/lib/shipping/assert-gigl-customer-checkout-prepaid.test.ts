@@ -241,14 +241,36 @@ describe('assertGiglCustomerCheckoutPrepaid', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('rejects paid gateway orders with null funding source even when retained amount is positive', async () => {
+  it('bugfix: allows paid legacy GIGL orders when funding snapshot is absent', async () => {
     await expect(
       assertGiglCustomerCheckoutPrepaid({
         shipping_provider: 'GIGL',
         shipping_funding_source: null,
         payment_status: 'paid',
         payment_method: 'paystack',
-        shipping_platform_retained_amount: 2500,
+        shipping_platform_retained_amount: null,
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('still rejects unpaid legacy GIGL orders with a null funding snapshot', async () => {
+    await expect(
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: null,
+        payment_status: 'unpaid',
+        payment_method: 'paystack',
+      })
+    ).rejects.toMatchObject({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' });
+  });
+
+  it('still rejects pay-on-delivery legacy GIGL orders with a null funding snapshot', async () => {
+    await expect(
+      assertGiglCustomerCheckoutPrepaid({
+        shipping_provider: 'GIGL',
+        shipping_funding_source: null,
+        payment_status: 'paid',
+        payment_method: 'pay_on_delivery',
       })
     ).rejects.toMatchObject({ code: 'GIGL_REQUIRES_PREPAID_OR_WALLET' });
   });

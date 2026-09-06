@@ -48,12 +48,8 @@ vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
   fileInventoryConfirmationFailureReview: vi.fn(),
 }));
 
-vi.mock('@/lib/shipping/book-order-shipment', () => ({
-  bookOrderShipment: vi.fn(),
-}));
-
-vi.mock('@/lib/shipping/shipping-quote-booking-economics', () => ({
-  getShippingQuoteBookingEconomics: vi.fn(),
+vi.mock('@/lib/shipping/run-claimed-order-wallet-or-checkout-booking', () => ({
+  runClaimedOrderWalletOrCheckoutBooking: vi.fn(),
 }));
 
 vi.mock('@/lib/shipping/load-order-gigl-settled-retained-amount', () => ({
@@ -114,14 +110,13 @@ import {
   SerializedInventoryUnavailableError,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
-import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import { loadOrderGiglSettledRetainedAmount } from '@/lib/shipping/load-order-gigl-settled-retained-amount';
 import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
 } from '@/lib/shipping/order-shipment-booking-lock';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
-import { getShippingQuoteBookingEconomics } from '@/lib/shipping/shipping-quote-booking-economics';
+import { runClaimedOrderWalletOrCheckoutBooking } from '@/lib/shipping/run-claimed-order-wallet-or-checkout-booking';
 import { PATCH } from './route';
 
 type ExistingOrder = {
@@ -275,16 +270,6 @@ describe('PATCH /api/orders/[id]', () => {
     vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
       status: 'claimed',
       lockToken: 'lock-1',
-    });
-    vi.mocked(getShippingQuoteBookingEconomics).mockResolvedValue({
-      provider_cost: 5000,
-      platform_margin: 1500,
-      platform_margin_bps: 3000,
-      pricing_version: 'v1',
-      shipping_provider_cost: 5000,
-      shipping_platform_margin: 1500,
-      shipping_pricing_version: 'v1',
-      shipping_platform_retained_amount: 1500,
     });
   });
 
@@ -444,7 +429,7 @@ describe('PATCH /api/orders/[id]', () => {
       error: 'Order must be processing before it can be marked as shipped.',
       code: 'ORDER_NOT_READY_TO_SHIP',
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
   });
 
   it('rejects provider shipping when the order has no saved quote', async () => {
@@ -487,7 +472,7 @@ describe('PATCH /api/orders/[id]', () => {
         'This provider order does not have a saved shipping quote. Please re-quote before marking it as shipped.',
       code: 'MISSING_SHIPPING_QUOTE',
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
   });
 
   it('books a provider shipment when the order is marked as shipped', async () => {
@@ -519,15 +504,11 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockResolvedValue({
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockResolvedValue({
       shipmentId: 'shipment-1',
       provider: 'TOPSHIP',
-      providerShipmentId: 'provider-shipment-1',
-      trackingNumber: 'TRACK-1',
-      carrierName: 'Topship',
       quoteId: 'quote-2',
-      estimatedDays: 2,
-      shipmentStatus: 'booked',
+      trackingNumber: 'TRACK-1',
     });
 
     const response = await PATCH(
@@ -544,11 +525,14 @@ describe('PATCH /api/orders/[id]', () => {
       'merchant-1',
       'order-1'
     );
-    expect(bookOrderShipment).toHaveBeenCalledWith(
+    expect(runClaimedOrderWalletOrCheckoutBooking).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
       'order-1',
-      'quote-1'
+      expect.objectContaining({
+        selected_quote_id: 'quote-1',
+      }),
+      expect.any(Object)
     );
     expect(ordersUpdate).toHaveBeenCalledWith({
       selected_quote_id: 'quote-2',
@@ -616,7 +600,7 @@ describe('PATCH /api/orders/[id]', () => {
         state: 'Lagos',
       },
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
   });
 
   it('clears merchant-wallet funding when invalidating a bound GIGL quote', async () => {
@@ -671,7 +655,7 @@ describe('PATCH /api/orders/[id]', () => {
         state: 'Lagos',
       },
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
   });
 
   it('bugfix: rejects funded checkout address edits before clearing the quote', async () => {
@@ -725,7 +709,7 @@ describe('PATCH /api/orders/[id]', () => {
       code: 'FUNDED_CHECKOUT_ADDRESS_LOCKED',
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
     expect(loadOrderGiglSettledRetainedAmount).toHaveBeenCalledWith(
       expect.anything(),
       'merchant-1',
@@ -893,7 +877,7 @@ describe('PATCH /api/orders/[id]', () => {
       code: 'SHIPPING_QUOTE_INVALIDATED',
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
   });
 
   it('persists paid provider shipment status before inventory confirmation and booking', async () => {
@@ -925,15 +909,11 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockResolvedValue({
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockResolvedValue({
       shipmentId: 'shipment-1',
       provider: 'TOPSHIP',
-      providerShipmentId: 'provider-shipment-1',
-      trackingNumber: 'TRACK-1',
-      carrierName: 'Topship',
       quoteId: 'quote-2',
-      estimatedDays: 2,
-      shipmentStatus: 'booked',
+      trackingNumber: 'TRACK-1',
     });
 
     const response = await PATCH(
@@ -961,7 +941,10 @@ describe('PATCH /api/orders/[id]', () => {
     ).toBeGreaterThan(ordersUpdate.mock.invocationCallOrder[0]);
     expect(
       vi.mocked(ensurePaidOrderInventoryConfirmed).mock.invocationCallOrder[0]
-    ).toBeLessThan(vi.mocked(bookOrderShipment).mock.invocationCallOrder[0]);
+    ).toBeLessThan(
+      vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mock
+        .invocationCallOrder[0]
+    );
     expect(ordersUpdate).toHaveBeenNthCalledWith(2, {
       selected_quote_id: 'quote-2',
       shipment_id: 'shipment-1',
@@ -1004,15 +987,11 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockResolvedValue({
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockResolvedValue({
       shipmentId: 'shipment-1',
       provider: 'GIGL',
-      providerShipmentId: 'provider-shipment-1',
-      trackingNumber: 'TRACK-1',
-      carrierName: 'GIGL',
       quoteId: 'quote-1',
-      estimatedDays: 2,
-      shipmentStatus: 'booked',
+      trackingNumber: 'TRACK-1',
     });
 
     const response = await PATCH(
@@ -1026,11 +1005,17 @@ describe('PATCH /api/orders/[id]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(bookOrderShipment).toHaveBeenCalledWith(
+    expect(runClaimedOrderWalletOrCheckoutBooking).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
       'order-1',
-      'quote-1'
+      expect.objectContaining({
+        selected_quote_id: 'quote-1',
+        shipping_provider: 'GIGL',
+      }),
+      expect.objectContaining({
+        paymentStatus: 'paid',
+      })
     );
     expect(ordersUpdate).toHaveBeenNthCalledWith(1, {
       payment_status: 'paid',
@@ -1193,7 +1178,7 @@ describe('PATCH /api/orders/[id]', () => {
       code: 'serialized_inventory_unavailable',
       error: 'serialized_inventory_unavailable',
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
     expect(claimOrderShipmentBooking).not.toHaveBeenCalled();
     expect(ordersUpdate).toHaveBeenCalledWith({ payment_status: 'paid' });
     expect(
@@ -1315,15 +1300,11 @@ describe('PATCH /api/orders/[id]', () => {
       status: 'claimed',
       lockToken: null,
     });
-    vi.mocked(bookOrderShipment).mockResolvedValue({
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockResolvedValue({
       shipmentId: 'shipment-1',
       provider: 'TOPSHIP',
-      providerShipmentId: 'provider-shipment-1',
-      trackingNumber: 'TRACK-1',
-      carrierName: 'Topship',
       quoteId: 'quote-2',
-      estimatedDays: 2,
-      shipmentStatus: 'booked',
+      trackingNumber: 'TRACK-1',
     });
 
     const response = await PATCH(
@@ -1374,7 +1355,7 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockRejectedValue(
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockRejectedValue(
       new OrderShipmentBookingError(
         'Quote is already being used for shipping.',
         409,
@@ -1395,11 +1376,14 @@ describe('PATCH /api/orders/[id]', () => {
       'merchant-1',
       'order-1'
     );
-    expect(bookOrderShipment).toHaveBeenCalledWith(
+    expect(runClaimedOrderWalletOrCheckoutBooking).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
       'order-1',
-      'quote-1'
+      expect.objectContaining({
+        selected_quote_id: 'quote-1',
+      }),
+      expect.any(Object)
     );
     expect(response.status).toBe(409);
     expect(payload).toEqual({
@@ -1435,7 +1419,7 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockRejectedValue(
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockRejectedValue(
       new OrderShipmentBookingError(
         'Insufficient merchant wallet balance.',
         409,
@@ -1499,7 +1483,7 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
-    vi.mocked(bookOrderShipment).mockRejectedValue(
+    vi.mocked(runClaimedOrderWalletOrCheckoutBooking).mockRejectedValue(
       new Error('Topship wallet unavailable')
     );
 
@@ -1516,11 +1500,14 @@ describe('PATCH /api/orders/[id]', () => {
       'merchant-1',
       'order-1'
     );
-    expect(bookOrderShipment).toHaveBeenCalledWith(
+    expect(runClaimedOrderWalletOrCheckoutBooking).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
       'order-1',
-      'quote-1'
+      expect.objectContaining({
+        selected_quote_id: 'quote-1',
+      }),
+      expect.any(Object)
     );
     expect(response.status).toBe(500);
     expect(payload).toEqual({ error: 'Internal server error' });
@@ -1572,7 +1559,7 @@ describe('PATCH /api/orders/[id]', () => {
       error: 'Shipment booking is already in progress for this order.',
       code: 'SHIPMENT_BOOKING_IN_PROGRESS',
     });
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
     expect(ordersUpdate).not.toHaveBeenCalled();
   });
 
@@ -1618,7 +1605,7 @@ describe('PATCH /api/orders/[id]', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(runClaimedOrderWalletOrCheckoutBooking).not.toHaveBeenCalled();
     expect(ordersUpdate).toHaveBeenCalledWith({
       shipping_status: 'shipped',
     });

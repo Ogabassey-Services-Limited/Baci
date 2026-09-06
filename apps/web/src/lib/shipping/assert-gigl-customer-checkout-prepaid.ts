@@ -63,7 +63,8 @@ export function isGiglCheckoutPaymentWithoutRetainedShipping(
  * Authoritative prepaid shipping intent: customer_checkout funding with a
  * positive retained amount. Never infer retention from Paystack/Korapay/etc.
  * when shipping_funding_source is null — payment method alone is not proof
- * GIGL shipping was retained at checkout.
+ * GIGL shipping was retained at checkout. Null funding is handled as a legacy
+ * booking path in assertGiglCustomerCheckoutPrepaid.
  */
 export function hasGiglCheckoutShippingRetention(
   order: Pick<
@@ -108,6 +109,20 @@ export async function assertGiglCustomerCheckoutPrepaid(
 
   const paymentStatus = (order.payment_status ?? '').trim().toLowerCase();
   const paymentMethod = normalizePaymentMethod(order.payment_method);
+
+  // Legacy GIGL orders created before economics snapshots keep a null funding
+  // source. Preserve the prior paid booking path for those rows; only stamped
+  // customer_checkout orders require settlement-covered retention below.
+  if (order.shipping_funding_source == null) {
+    if (
+      paymentStatus !== 'paid' ||
+      isPayOnDeliveryPaymentMethod(order.payment_method)
+    ) {
+      throwPrepaidRequired();
+    }
+    return;
+  }
+
   const hasRetentionIntent = hasGiglCheckoutShippingRetention(order);
   const requiresPrepaidShipping =
     paymentStatus !== 'paid' ||

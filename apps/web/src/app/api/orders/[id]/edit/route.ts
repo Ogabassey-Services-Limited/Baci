@@ -63,6 +63,17 @@ function mapOrderEditError(error: { code?: string; message?: string }) {
     );
   }
 
+  if (message.includes('active_shipping_charge_address_edit_blocked')) {
+    return NextResponse.json(
+      {
+        code: 'active_shipping_charge_address_edit_blocked',
+        error:
+          'Shipping address cannot change while a wallet shipping charge is active.',
+      },
+      { status: 409 }
+    );
+  }
+
   if (
     message.includes('order_financial_edit_has_payments') ||
     message.includes('order_financial_edit_after_fulfillment') ||
