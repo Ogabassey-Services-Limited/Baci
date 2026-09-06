@@ -3,7 +3,9 @@
  * Fetches quotes from all providers and ranks them for display
  */
 
+import { getEmptyQuoteDiagnostics } from './empty-quote-diagnostics';
 import type { ShippingProviderRegistry } from './providers/base';
+import { quoteProviderFailure } from './quote-provider-failure';
 import type {
   DeliveryTier,
   QuoteRequest,
@@ -212,11 +214,23 @@ export class QuoteAggregator {
 
     const allQuotes: ShippingQuote[] = [];
     const warnings: string[] = [];
+    let failedProviderCount = 0;
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
+        const providerFailure = quoteProviderFailure.get(result.value);
+        if (providerFailure) {
+          failedProviderCount += 1;
+          warnings.push(`${providers[index].name}: ${providerFailure.message}`);
+          console.error('[QuoteAggregator] Provider failed', {
+            provider: providers[index].name,
+            reason: providerFailure,
+          });
+          return;
+        }
         allQuotes.push(...result.value);
       } else {
+        failedProviderCount += 1;
         warnings.push(
           `${providers[index].name}: ${result.reason?.message || 'Unknown error'}`
         );
@@ -227,11 +241,15 @@ export class QuoteAggregator {
       }
     });
 
-    // If all providers failed, return fallback
+    // A provider can either reject or return an explicitly marked empty result
+    // when its public contract must stay array-shaped. Unmarked empty arrays
+    // mean the provider completed successfully but had no rates.
     if (allQuotes.length === 0) {
-      console.warn(
-        '[QuoteAggregator] All providers failed, using fallback quote'
+      const diagnostics = getEmptyQuoteDiagnostics(
+        providers.length,
+        failedProviderCount
       );
+      console.warn(diagnostics.message, diagnostics.context);
       return this.createFallbackResponse(request.sessionId, warnings);
     }
 
