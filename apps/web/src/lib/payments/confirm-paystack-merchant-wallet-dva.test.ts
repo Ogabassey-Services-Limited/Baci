@@ -133,13 +133,13 @@ describe('verified merchant-wallet DVA credit', () => {
     );
     expect(s.rpc).not.toHaveBeenCalled();
   });
-  it('reviews a previously settled order payment reference before crediting', async () => {
+  it('acknowledges a previously settled order payment reference after filing review', async () => {
     settled.mockResolvedValue(true);
     const s = client([{ merchant_id: 'm' }]);
     const result = await confirmPaystackMerchantWalletDva(input(s));
     expect(result).toMatchObject({
       kind: 'review',
-      status: 409,
+      status: 200,
       body: { code: 'WALLET_DVA_ORDER_PAYMENT_REPLAY' },
     });
     expect(s.insert).toHaveBeenCalledWith(

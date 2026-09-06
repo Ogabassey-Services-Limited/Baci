@@ -49,7 +49,11 @@ async function fileOrderAliasReview({
 export type MerchantWalletDvaResult =
   | { kind: 'none' }
   | { kind: 'match'; balance: number; firstCredit: boolean }
-  | { kind: 'review'; status: 409; body: { code: string; error: string } };
+  | {
+      kind: 'review';
+      status: 200 | 409;
+      body: { code: string; error: string };
+    };
 
 export async function confirmPaystackMerchantWalletDva({
   supabase,
@@ -157,9 +161,11 @@ export async function confirmPaystackMerchantWalletDva({
     ) {
       throw reviewError;
     }
+    // Durable review is enough for operators; acknowledge so Paystack stops
+    // redelivering an immutable duplicate that can never settle as wallet credit.
     return {
       kind: 'review',
-      status: 409,
+      status: 200,
       body: {
         code: 'WALLET_DVA_ORDER_PAYMENT_REPLAY',
         error:

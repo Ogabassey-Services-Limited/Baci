@@ -4,7 +4,7 @@ export type SelfFulfillRpcError = {
 };
 
 export type MappedSelfFulfillRpcError = {
-  status: 400 | 409 | 500;
+  status: 400 | 403 | 409 | 500;
   error: string;
   code?: string;
 };
@@ -12,6 +12,7 @@ export type MappedSelfFulfillRpcError = {
 /**
  * Maps self_fulfill_order_with_wallet_release failures to HTTP responses.
  * Settled GIGL retention is an expected business conflict (409), not a 500.
+ * Missing orders:edit/orders:fulfill raises SQLSTATE 42501 (order_not_owned).
  */
 export function mapSelfFulfillRpcError(
   fulfillError: SelfFulfillRpcError
@@ -50,6 +51,14 @@ export function mapSelfFulfillRpcError(
       status: 400,
       error: 'Order has already been shipped',
       code: 'ORDER_ALREADY_SHIPPED',
+    };
+  }
+
+  if (fulfillError.code === '42501' || message.includes('order_not_owned')) {
+    return {
+      status: 403,
+      error: 'You do not have permission to self-fulfill this order',
+      code: 'ORDER_NOT_OWNED',
     };
   }
 

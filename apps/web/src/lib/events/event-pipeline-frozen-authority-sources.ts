@@ -27,5 +27,5 @@ export const eventPipelineFrozenRoutes = {
   // reviewed bytes to a content receipt so inherited-authority checks stay
   // squash-safe after merge.
   'apps/web/src/app/api/payments/juicyway/webhook/route.ts':
-    'a1227f034d5fb2ed6d62bc6277e02be8f46158bc70c6115c3e11eca4b63f70f2',
+    'a8748056acf57c8fe4aea5b5dbf6a2bbcd1599e7aa57af3130cf95c277e61ef5',
 } as const;

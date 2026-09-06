@@ -42,6 +42,19 @@ describe('mapSelfFulfillRpcError', () => {
     });
   });
 
+  it('maps order_not_owned permission denials to 403', () => {
+    expect(
+      mapSelfFulfillRpcError({
+        code: '42501',
+        message: 'order_not_owned',
+      })
+    ).toEqual({
+      status: 403,
+      error: 'You do not have permission to self-fulfill this order',
+      code: 'ORDER_NOT_OWNED',
+    });
+  });
+
   it('fails closed to 500 for unexpected rpc errors', () => {
     expect(
       mapSelfFulfillRpcError({
