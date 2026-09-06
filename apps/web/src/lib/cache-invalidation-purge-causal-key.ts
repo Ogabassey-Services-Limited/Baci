@@ -8,22 +8,27 @@ const SHARED_GENERATION_TARGET_KINDS = new Set<
 export function cacheInvalidationPurgeCausalKey(
   claim: Pick<
     CacheInvalidationClaim,
-    'generation' | 'merchant_id' | 'product_slugs' | 'target_id' | 'target_kind'
+    | 'generation'
+    | 'merchant_id'
+    | 'product_slugs'
+    | 'related_identifiers'
+    | 'target_id'
+    | 'target_kind'
   >
 ): string {
-  // enqueue_storefront_cache_targets shares related_identifiers and syncs
-  // generation across slug/hostname rows from one mutation. Those siblings
-  // may finish without repeating the full multi-identifier purge only when
-  // their exact product-tag coverage matches.
+  // Shared slug/hostname siblings may finish without repeating the full purge
+  // only when their identifier and product-tag coverage matches. Legacy
+  // pre-migration rows kept target-specific related_identifiers, so coverage
+  // must be part of the key until those claims drain.
   if (SHARED_GENERATION_TARGET_KINDS.has(claim.target_kind)) {
     return JSON.stringify([
       claim.merchant_id,
       claim.generation,
+      [...claim.related_identifiers].sort(),
       [...claim.product_slugs].sort(),
     ]);
   }
   // Product generations are scoped per (merchant, target_kind, target_id).
-  // Same generation across different products must not skip exact purges.
   return JSON.stringify([
     claim.merchant_id,
     claim.target_kind,

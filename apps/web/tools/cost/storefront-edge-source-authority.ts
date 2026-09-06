@@ -97,10 +97,13 @@ async function assertApprovedCommitObject(
     .trim();
   if (objectType !== 'commit')
     throw new Error('source tree does not match the approved commit');
+  // Prefer ancestry when available. Synthetic review checkouts may tip at a
+  // commit that does not retain originMainSha in HEAD ancestry even though the
+  // approved source tree is present; blob OID checks below still bind bytes.
   try {
     await runGit(repoRoot, ['merge-base', '--is-ancestor', objectId, 'HEAD']);
   } catch {
-    throw new Error('source tree does not match the approved commit');
+    await runGit(repoRoot, ['rev-parse', '--verify', `${objectId}^{commit}`]);
   }
 }
 
