@@ -47,10 +47,13 @@ describe('event pipeline authority importer boundary', () => {
       'apps/web/src/app/api/orders/route.ts',
       'apps/web/src/app/api/payments/juicyway/webhook/route.ts',
       'apps/web/src/app/api/platform/events/platform-event-forwarding.ts',
+      'apps/web/src/app/api/shipping/quotes/route.ts',
       'apps/web/src/lib/events/record-platform-order-created-event.ts',
       'apps/web/src/lib/expo-push.ts',
       'apps/web/src/lib/insurance/notify-activate-protection.ts',
       'apps/web/src/lib/repair-notifications.ts',
+      'apps/web/src/lib/shipping/persist-admin-gigl-quote.ts',
+      'apps/web/src/lib/shipping/persist-refreshed-shipping-quote.ts',
     ]);
     expect(manifest.authority.serviceImporters).toEqual([
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
@@ -61,6 +64,8 @@ describe('event pipeline authority importer boundary', () => {
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
+      'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+      'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ]);
@@ -145,6 +150,14 @@ describe('event pipeline authority importer boundary', () => {
         'apps/web/src/app/api/integrations/ads/tiktok/sync/route.ts',
         'apps/web/src/lib/ads/server-credential-client.ts',
       ],
+      [
+        'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
+        'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+      ],
+      [
+        'apps/web/src/lib/shipping/shipping-quote-booking-economics.ts',
+        'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts',
+      ],
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
@@ -187,6 +200,54 @@ describe('event pipeline authority importer boundary', () => {
         `${route}: service factory requires event-pipeline sentinel`,
         `${route}: privileged route client construction is forbidden`,
       ])
+    );
+  });
+
+  it('allows the wallet funding-recovery HMAC sentinel only in its server helper', () => {
+    const helper =
+      'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts';
+    const allowed = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('wallet-funding-recovery');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, allowed)).toEqual([]);
+
+    const wrongSentinel = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, wrongSentinel)).toContain(
+      `${helper}: service factory requires wallet-funding-recovery sentinel`
+    );
+  });
+
+  it('allows the shipping-quote booking-economics sentinel only in its server helper', () => {
+    const helper =
+      'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts';
+    const allowed = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('shipping-quote-booking-economics');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, allowed)).toEqual([]);
+
+    const wrongSentinel = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, wrongSentinel)).toContain(
+      `${helper}: service factory requires shipping-quote-booking-economics sentinel`
     );
   });
 
