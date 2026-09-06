@@ -164,6 +164,12 @@ describe('event pipeline credential-path authority', () => {
         'apps/web/src/env.ts',
       ],
       [
+        'apps/web/src/lib/shipping/shipping-quote-booking-economics.ts',
+        'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts',
+        'apps/web/src/lib/supabase/service.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
         'apps/web/src/app/api/internal/compare-page-status/[identifier]/route.ts',
         'apps/web/src/env.ts',
       ],

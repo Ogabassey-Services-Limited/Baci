@@ -220,13 +220,17 @@ export async function postAdminOrderGiglQuote(
   );
   if (bindError) {
     const already = bindError.message?.includes('already');
+    const staleInputs = bindError.message?.includes('stale_order_quote_inputs');
     return NextResponse.json(
       {
-        error: already
-          ? 'Order already shipped or booked'
-          : 'Failed to bind quote',
+        code: staleInputs ? 'stale_order_quote_inputs' : undefined,
+        error: staleInputs
+          ? 'Order address or items changed since this quote was created. Get a new quote.'
+          : already
+            ? 'Order already shipped or booked'
+            : 'Failed to bind quote',
       },
-      { status: already ? 409 : 500 }
+      { status: already || staleInputs ? 409 : 500 }
     );
   }
   const result = (Array.isArray(binding) ? binding[0] : binding) as {

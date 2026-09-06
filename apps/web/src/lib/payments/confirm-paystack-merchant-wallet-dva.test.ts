@@ -113,12 +113,13 @@ describe('verified merchant-wallet DVA credit', () => {
       body: { code: 'MERCHANT_WALLET_DVA_AMBIGUOUS' },
     });
   });
-  it('reviews an order-DVA alias before crediting', async () => {
+  it('bugfix: acknowledges an order-DVA alias conflict after filing review', async () => {
     alias.mockResolvedValue(true);
     const s = client([{ merchant_id: 'm' }]);
     const result = await confirmPaystackMerchantWalletDva(input(s));
     expect(result).toMatchObject({
       kind: 'review',
+      status: 200,
       body: {
         code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
         error: expect.stringContaining('Filed for manual reconciliation'),
@@ -176,7 +177,7 @@ describe('verified merchant-wallet DVA credit', () => {
     ).resolves.toMatchObject({
       body: { code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT' },
       kind: 'review',
-      status: 409,
+      status: 200,
     });
     expect(s.rpc).not.toHaveBeenCalled();
   });

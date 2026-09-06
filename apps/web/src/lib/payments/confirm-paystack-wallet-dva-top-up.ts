@@ -148,6 +148,8 @@ export async function confirmPaystackWalletDvaTopUp({
       supabase,
       verifiedAmount,
     });
+    // Durable review is enough for operators; acknowledge so Paystack stops
+    // redelivering an immutable alias conflict that cannot settle as wallet credit.
     return {
       body: {
         code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
@@ -155,7 +157,7 @@ export async function confirmPaystackWalletDvaTopUp({
           'Receiver account is still reserved for an active order payment. Filed for manual reconciliation.',
       },
       kind: 'review',
-      status: 409,
+      status: 200,
     };
   }
 

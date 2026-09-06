@@ -123,9 +123,11 @@ export async function confirmPaystackMerchantWalletDva({
       supabase,
       verifiedAmount,
     });
+    // Durable review is enough for operators; acknowledge so Paystack stops
+    // redelivering an immutable alias conflict that cannot settle as wallet credit.
     return {
       kind: 'review',
-      status: 409,
+      status: 200,
       body: {
         code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
         error:

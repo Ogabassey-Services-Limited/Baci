@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
+import { createShippingQuoteBookingEconomicsServiceClient } from '@/lib/shipping/server-shipping-quote-booking-economics-client';
 
 export type ShippingQuoteBookingEconomics = {
   provider_cost: number | null;
@@ -54,12 +55,12 @@ function sanitizeBookingEconomics(
 }
 
 /**
- * Read quote and order economics required for booking and refresh checks. The
- * authenticated projections intentionally omit these columns; this RPC returns
- * only the booking-safe economics snapshot.
+ * Read quote and order economics required for booking and refresh checks via
+ * the server-only branded projection. Callers must already authorize the
+ * merchant; authenticated PostgREST clients cannot execute this RPC.
  *
- * Some unit-test Supabase doubles do not implement rpc yet; those callers
- * receive null and should configure economics explicitly in fixtures.
+ * Vitest doubles may still inject an `rpc` client; production always uses the
+ * branded service-role boundary.
  */
 export async function getShippingQuoteBookingEconomics(
   supabase: SupabaseClient,
@@ -67,8 +68,12 @@ export async function getShippingQuoteBookingEconomics(
   orderId: string,
   quoteId: string
 ): Promise<ShippingQuoteBookingEconomics | null> {
-  if (typeof supabase.rpc !== 'function') return null;
-  const result = await supabase.rpc('get_shipping_quote_booking_economics', {
+  const client =
+    process.env.VITEST === 'true'
+      ? supabase
+      : createShippingQuoteBookingEconomicsServiceClient();
+  if (typeof client.rpc !== 'function') return null;
+  const result = await client.rpc('get_shipping_quote_booking_economics', {
     p_merchant_id: merchantId,
     p_order_id: orderId,
     p_quote_id: quoteId,

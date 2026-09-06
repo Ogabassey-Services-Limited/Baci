@@ -163,6 +163,7 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
       'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
+      'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ]);
@@ -251,6 +252,10 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/app/api/cron/provision-wallet-funding-recovery-hmac/route.ts',
         'apps/web/src/lib/wallet/server-funding-recovery-hmac-client.ts',
       ],
+      [
+        'apps/web/src/lib/shipping/shipping-quote-booking-economics.ts',
+        'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts',
+      ],
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
@@ -317,6 +322,30 @@ describe('event pipeline authority manifest', () => {
     );
     expect(authorityFindings(helper, wrongSentinel)).toContain(
       `${helper}: service factory requires wallet-funding-recovery sentinel`
+    );
+  });
+
+  it('allows the shipping-quote booking-economics sentinel only in its server helper', () => {
+    const helper =
+      'apps/web/src/lib/shipping/server-shipping-quote-booking-economics-client.ts';
+    const allowed = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('shipping-quote-booking-economics');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, allowed)).toEqual([]);
+
+    const wrongSentinel = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, wrongSentinel)).toContain(
+      `${helper}: service factory requires shipping-quote-booking-economics sentinel`
     );
   });
 
