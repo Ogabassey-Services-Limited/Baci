@@ -11,7 +11,7 @@ const RECOVERY_VERSION = 1 as const;
 const KEY_PREFIX = 'baci:quiz-recovery:v1';
 
 // biome-ignore format: Compact schema keeps this recovery module below the repository limit.
-const recoveryEnvelopeSchema = z.strictObject({ attemptId: z.string().trim().min(1).nullable(), currentQuestionId: z.string().trim().min(1).nullable(), eventId: z.string().trim().min(1), generation: z.number().int().nonnegative(), pendingLockedOptionId: z.string().trim().min(1).nullable(), persistedAt: z.iso.datetime({ offset: true }).optional(), startRequestId: z.uuid(), userId: z.string().trim().min(1), version: z.literal(RECOVERY_VERSION) });
+const recoveryEnvelopeSchema = z.strictObject({ attemptId: z.string().trim().min(1).nullable(), currentQuestionId: z.string().trim().min(1).nullable(), eventId: z.string().trim().min(1), generation: z.number().int().nonnegative(), pendingLockedOptionId: z.string().trim().min(1).nullable(), persistedAt: z.iso.datetime({ offset: true }).optional(), submittedAt: z.iso.datetime({ offset: true }).nullable().optional(), startRequestId: z.uuid(), userId: z.string().trim().min(1), version: z.literal(RECOVERY_VERSION) });
 
 export type QuizRecoveryEnvelope = z.infer<typeof recoveryEnvelopeSchema>;
 
@@ -38,7 +38,7 @@ type QuizSurfaceStatus =
   | 'result'
   | 'error';
 // biome-ignore format: Compact state contract keeps this recovery module below the repository limit.
-export type QuizTerminalContext = { attemptId: string; eventId: string; eventEndsAt?: string | null; serverNow?: string | null; contractVersion: 2 | 3; };
+export type QuizTerminalContext = { attemptId: string; eventId: string; eventEndsAt?: string | null; serverNow?: string | null; submittedAt?: string | null; contractVersion: 2 | 3; };
 // biome-ignore format: Compact state contract keeps this recovery module below the repository limit.
 export interface QuizV2StoreState { attemptIntegrityTier: QuizIntegrityTier | null; error: string | null; expiryRetryable: boolean; lockedOptionId: string | null; recoveryUserId: string | null; selectedEventId: string | null; startRequestId: string | null; status: QuizSurfaceStatus; terminalContext: QuizTerminalContext | null; v2Attempt: QuizV2Attempt | null; v2LifecycleStatus: QuizV2LifecycleStatus; v2Result: QuizV2Result | null; }
 // biome-ignore format: Compact value contract keeps this recovery module below the repository limit.
